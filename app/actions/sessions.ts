@@ -17,6 +17,8 @@ export type SessionRow = {
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
+const ACTIVE_SESSION_ERROR = "Une session est deja active. Arrete-la avant d'en demarrer une autre.";
+
 function normalizeRpcRow<T>(data: unknown): T | null {
   if (data == null) return null;
   if (Array.isArray(data)) return (data[0] ?? null) as T | null;
@@ -57,9 +59,32 @@ export async function startSession(): Promise<ActionResult<SessionRow>> {
       return { success: false, error: "Tu dois etre connecte." };
     }
 
+    const { data: activeData, error: activeError } = await supabase.rpc("get_active_session");
+
+    if (activeError) {
+      console.error("get_active_session rpc failed", activeError);
+      return {
+        success: false,
+        error: "Impossible de verifier la session active.",
+      };
+    }
+
+    const activeSession = normalizeActiveSession(activeData);
+
+    if (activeSession) {
+      return { success: false, error: ACTIVE_SESSION_ERROR };
+    }
+
     const { data, error } = await supabase.rpc("start_session");
 
     if (error) {
+      if (
+        error.code === "23505" ||
+        (typeof error.message === "string" &&
+          error.message.includes("sessions_one_active_per_user"))
+      ) {
+        return { success: false, error: ACTIVE_SESSION_ERROR };
+      }
       console.error("start_session rpc failed", error);
       return {
         success: false,

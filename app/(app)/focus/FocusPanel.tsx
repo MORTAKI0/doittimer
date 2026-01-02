@@ -60,6 +60,7 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
   const [isStopping, setIsStopping] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
+  const hasActiveSession = Boolean(activeSession);
   const hasValidId = typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
     typeof activeSession?.started_at === "string"
@@ -67,10 +68,9 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
       : null;
   const hasValidStartedAt = Number.isFinite(parsedStartedAtMs ?? Number.NaN);
   const isActiveSessionValid = Boolean(activeSession) && hasValidId && hasValidStartedAt;
-  const timeError =
-    activeSession && !hasValidStartedAt
-      ? "Heure de demarrage invalide. Recharge la page."
-      : null;
+  const timeError = hasActiveSession && !hasValidStartedAt
+    ? "Heure de demarrage invalide. Recharge la page."
+    : null;
 
   React.useEffect(() => {
     if (!activeSession || !isActiveSessionValid) {
@@ -106,7 +106,7 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
   }
 
   async function handleStop() {
-    if (!activeSession || !isActiveSessionValid || isStopping || isStarting) return;
+    if (!activeSession || !hasValidId || isStopping || isStarting) return;
     setIsStopping(true);
     setError(null);
 
@@ -144,11 +144,11 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        {isActiveSessionValid ? (
+        {hasActiveSession ? (
           <Button
             type="button"
             onClick={handleStop}
-            disabled={isStopping || isStarting}
+            disabled={isStopping || isStarting || !hasValidId}
           >
             {isStopping ? "Arret..." : "Arreter la session"}
           </Button>
