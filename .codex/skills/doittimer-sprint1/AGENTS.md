@@ -117,6 +117,13 @@ TECHNICAL REQUIREMENTS:
 - Sessions list query joins with tasks table (LEFT JOIN to handle null task_id)
 - Handle deleted task gracefully: show "Task deleted" or task title placeholder
 
+MANUAL TEST CHECKLIST:
+- Start session with no task selected -> task_id is null in DB, UI shows no task label
+- Start session with a selected task -> task_id saved, sessions list shows task title
+- Delete linked task -> session stays visible, shows "Tache supprimee"
+- Spoof another user's task_id -> task_id not linked (null or error), no cross-user access
+- Refresh /focus during active session -> running state persists, task label safe
+
 ### S1-US5: Prevent multiple active sessions (3 SP, High Priority)
 As an authenticated user, I want the system to prevent multiple active sessions running at the same time, so that my tracking remains accurate and unambiguous.
 
