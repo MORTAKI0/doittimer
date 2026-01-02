@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { taskTitleSchema } from "@/lib/validation/task.schema";
+import { taskIdSchema, taskTitleSchema } from "@/lib/validation/task.schema";
 
 const DUPLICATE_WINDOW_MS = 10_000;
 
@@ -101,6 +101,164 @@ export async function getTasks(): Promise<ActionResult<TaskRow[]>> {
     }
 
     return { success: true, data: data ?? [] };
+  } catch {
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function toggleTaskCompletion(
+  taskId: string,
+  completed: boolean,
+): Promise<ActionResult<TaskRow>> {
+  const parsedId = taskIdSchema.safeParse(taskId);
+
+  if (!parsedId.success) {
+    return {
+      success: false,
+      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({ completed })
+      .eq("id", parsedId.data)
+      .eq("user_id", userData.user.id)
+      .select("id, title, completed, created_at")
+      .maybeSingle();
+
+    if (error) {
+      return {
+        success: false,
+        error: "Impossible de mettre a jour la tache.",
+      };
+    }
+
+    if (!data) {
+      return { success: false, error: "Task not found" };
+    }
+
+    revalidatePath("/tasks");
+
+    return { success: true, data };
+  } catch {
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function updateTaskTitle(
+  taskId: string,
+  title: string,
+): Promise<ActionResult<TaskRow>> {
+  const parsedId = taskIdSchema.safeParse(taskId);
+  const parsedTitle = taskTitleSchema.safeParse(title);
+
+  if (!parsedId.success) {
+    return {
+      success: false,
+      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  if (!parsedTitle.success) {
+    return {
+      success: false,
+      error: parsedTitle.error.issues[0]?.message ?? "Titre invalide.",
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({ title: parsedTitle.data })
+      .eq("id", parsedId.data)
+      .eq("user_id", userData.user.id)
+      .select("id, title, completed, created_at")
+      .maybeSingle();
+
+    if (error) {
+      return {
+        success: false,
+        error: "Impossible de mettre a jour la tache.",
+      };
+    }
+
+    if (!data) {
+      return { success: false, error: "Task not found" };
+    }
+
+    revalidatePath("/tasks");
+
+    return { success: true, data };
+  } catch {
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function deleteTask(taskId: string): Promise<ActionResult<{ id: string }>> {
+  const parsedId = taskIdSchema.safeParse(taskId);
+
+  if (!parsedId.success) {
+    return {
+      success: false,
+      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", parsedId.data)
+      .eq("user_id", userData.user.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      return {
+        success: false,
+        error: "Impossible de supprimer la tache.",
+      };
+    }
+
+    if (!data) {
+      return { success: false, error: "Task not found" };
+    }
+
+    revalidatePath("/tasks");
+
+    return { success: true, data };
   } catch {
     return {
       success: false,
