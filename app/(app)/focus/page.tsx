@@ -1,17 +1,26 @@
 import { getActiveSession, getTodaySessions } from "@/app/actions/sessions";
+import { getTasks } from "@/app/actions/tasks";
 import { Card } from "@/components/ui/card";
 import { FocusPanel } from "./FocusPanel";
 
 export default async function FocusPage() {
-  const [activeResult, todayResult] = await Promise.all([
+  const [activeResult, todayResult, tasksResult] = await Promise.all([
     getActiveSession(),
     getTodaySessions(),
+    getTasks(),
   ]);
 
   const activeSession = activeResult.success ? activeResult.data : null;
   const todaySessions = todayResult.success ? todayResult.data : [];
+  const tasks = tasksResult.success ? tasksResult.data : [];
   const errorMessage =
-    !activeResult.success ? activeResult.error : !todayResult.success ? todayResult.error : null;
+    !activeResult.success
+      ? activeResult.error
+      : !todayResult.success
+        ? todayResult.error
+        : !tasksResult.success
+          ? tasksResult.error
+          : null;
 
   return (
     <div className="space-y-6">
@@ -30,7 +39,11 @@ export default async function FocusPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
         <Card>
-          <FocusPanel activeSession={activeSession} todaySessions={todaySessions} />
+          <FocusPanel
+            activeSession={activeSession}
+            todaySessions={todaySessions}
+            tasks={tasks}
+          />
         </Card>
       </div>
     </div>

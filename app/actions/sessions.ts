@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { sessionIdSchema } from "@/lib/validation/session.schema";
+import { taskIdSchema } from "@/lib/validation/task.schema";
 
 export type SessionRow = {
   id: string;
   user_id: string;
   task_id: string | null;
+  task_title?: string | null;
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
@@ -16,6 +18,9 @@ export type SessionRow = {
 };
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
+
+const ACTIVE_SESSION_ERROR = "Une session est deja active. Arrete-la avant d'en demarrer une autre.";
+const sessionTaskIdSchema = taskIdSchema.nullable().optional();
 
 function normalizeRpcRow<T>(data: unknown): T | null {
   if (data == null) return null;
@@ -48,7 +53,16 @@ function logRpcDataShape(name: string, data: unknown) {
   });
 }
 
-export async function startSession(): Promise<ActionResult<SessionRow>> {
+export async function startSession(taskId?: string | null): Promise<ActionResult<SessionRow>> {
+  const parsedTaskId = sessionTaskIdSchema.safeParse(taskId ?? null);
+
+  if (!parsedTaskId.success) {
+    return {
+      success: false,
+      error: parsedTaskId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
   try {
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -57,9 +71,34 @@ export async function startSession(): Promise<ActionResult<SessionRow>> {
       return { success: false, error: "Tu dois etre connecte." };
     }
 
-    const { data, error } = await supabase.rpc("start_session");
+    const { data: activeData, error: activeError } = await supabase.rpc("get_active_session");
+
+    if (activeError) {
+      console.error("get_active_session rpc failed", activeError);
+      return {
+        success: false,
+        error: "Impossible de verifier la session active.",
+      };
+    }
+
+    const activeSession = normalizeActiveSession(activeData);
+
+    if (activeSession) {
+      return { success: false, error: ACTIVE_SESSION_ERROR };
+    }
+
+    const { data, error } = await supabase.rpc("start_session", {
+      p_task_id: parsedTaskId.data ?? null,
+    });
 
     if (error) {
+      if (
+        error.code === "23505" ||
+        (typeof error.message === "string" &&
+          error.message.includes("sessions_one_active_per_user"))
+      ) {
+        return { success: false, error: ACTIVE_SESSION_ERROR };
+      }
       console.error("start_session rpc failed", error);
       return {
         success: false,

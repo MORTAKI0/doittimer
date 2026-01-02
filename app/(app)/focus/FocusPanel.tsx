@@ -4,11 +4,13 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { startSession, stopSession, SessionRow } from "@/app/actions/sessions";
+import type { TaskRow } from "@/app/actions/tasks";
 import { Button } from "@/components/ui/button";
 
 type FocusPanelProps = {
   activeSession: SessionRow | null;
   todaySessions: SessionRow[];
+  tasks: TaskRow[];
 };
 
 function formatElapsed(seconds: number) {
@@ -54,12 +56,14 @@ function looksLikeUuid(value: string) {
   );
 }
 
-export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
+export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
+  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
+  const hasActiveSession = Boolean(activeSession);
   const hasValidId = typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
     typeof activeSession?.started_at === "string"
@@ -67,10 +71,9 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
       : null;
   const hasValidStartedAt = Number.isFinite(parsedStartedAtMs ?? Number.NaN);
   const isActiveSessionValid = Boolean(activeSession) && hasValidId && hasValidStartedAt;
-  const timeError =
-    activeSession && !hasValidStartedAt
-      ? "Heure de demarrage invalide. Recharge la page."
-      : null;
+  const timeError = hasActiveSession && !hasValidStartedAt
+    ? "Heure de demarrage invalide. Recharge la page."
+    : null;
 
   React.useEffect(() => {
     if (!activeSession || !isActiveSessionValid) {
@@ -88,12 +91,14 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
     return () => window.clearInterval(interval);
   }, [activeSession, isActiveSessionValid, parsedStartedAtMs]);
 
+  const activeTaskLabel = resolveTaskLabel(activeSession, tasks);
+
   async function handleStart() {
     if (isStarting || isStopping) return;
     setIsStarting(true);
     setError(null);
 
-    const result = await startSession();
+    const result = await startSession(selectedTaskId);
 
     if (!result.success) {
       setError(result.error);
@@ -106,7 +111,7 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
   }
 
   async function handleStop() {
-    if (!activeSession || !isActiveSessionValid || isStopping || isStarting) return;
+    if (!activeSession || !hasValidId || isStopping || isStarting) return;
     setIsStopping(true);
     setError(null);
 
@@ -129,6 +134,9 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
         <p className="text-3xl font-semibold text-zinc-900">
           {isActiveSessionValid ? formatElapsed(elapsedSeconds) : "00m"}
         </p>
+        {activeTaskLabel ? (
+          <p className="text-sm text-zinc-500">Tache: {activeTaskLabel}</p>
+        ) : null}
       </div>
 
       {timeError ? (
@@ -143,24 +151,52 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        {isActiveSessionValid ? (
-          <Button
-            type="button"
-            onClick={handleStop}
-            disabled={isStopping || isStarting}
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <label htmlFor="task-select" className="text-sm font-medium text-zinc-700">
+            Associer une tache
+          </label>
+          <select
+            id="task-select"
+            value={selectedTaskId ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              setSelectedTaskId(value.length > 0 ? value : null);
+            }}
+            disabled={hasActiveSession || isStarting || isStopping}
+            className="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isStopping ? "Arret..." : "Arreter la session"}
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            onClick={handleStart}
-            disabled={isStarting || isStopping}
-          >
-            {isStarting ? "Demarrage..." : "Demarrer une session"}
-          </Button>
-        )}
+            <option value="">Aucune tache</option>
+            {tasks.map((task) => (
+              <option key={task.id} value={task.id}>
+                {task.title}
+              </option>
+            ))}
+          </select>
+          {tasks.length === 0 ? (
+            <p className="text-xs text-zinc-500">Aucune tache disponible.</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {hasActiveSession ? (
+            <Button
+              type="button"
+              onClick={handleStop}
+              disabled={isStopping || isStarting || !hasValidId}
+            >
+              {isStopping ? "Arret..." : "Arreter la session"}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleStart}
+              disabled={isStarting || isStopping}
+            >
+              {isStarting ? "Demarrage..." : "Demarrer une session"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -173,21 +209,37 @@ export function FocusPanel({ activeSession, todaySessions }: FocusPanelProps) {
           </p>
         ) : (
           <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200">
-            {todaySessions.map((session) => (
-              <li key={session.id} className="flex items-center justify-between px-4 py-3">
-                <div className="text-sm text-zinc-900">
-                  {formatStartTime(session.started_at)}
-                </div>
-                <div className="text-sm text-zinc-500">
-                  {session.ended_at
-                    ? formatElapsed(session.duration_seconds ?? 0)
-                    : "Active"}
-                </div>
-              </li>
-            ))}
+            {todaySessions.map((session) => {
+              const taskLabel = resolveTaskLabel(session, tasks);
+              return (
+                <li key={session.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="text-sm text-zinc-900">
+                    {formatStartTime(session.started_at)}
+                    {taskLabel ? (
+                      <div className="mt-1 text-xs text-zinc-500">{taskLabel}</div>
+                    ) : null}
+                  </div>
+                  <div className="text-sm text-zinc-500">
+                    {session.ended_at
+                      ? formatElapsed(session.duration_seconds ?? 0)
+                      : "Active"}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
     </div>
   );
+}
+
+function resolveTaskLabel(
+  session: SessionRow | null,
+  tasks: TaskRow[],
+): string | null {
+  if (!session?.task_id) return null;
+  if (session.task_title) return session.task_title;
+  const matched = tasks.find((task) => task.id === session.task_id);
+  return matched?.title ?? "Tache supprimee";
 }

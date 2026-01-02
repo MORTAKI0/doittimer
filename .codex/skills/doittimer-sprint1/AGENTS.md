@@ -1,7 +1,7 @@
-# DoItTimer Sprint 1 — AGENTS Context File
+# DoItTimer Sprint 1 - AGENTS Context File
 
 ## Sprint Identity
-Sprint: S1 — Core MVP Loop (Tasks + Focus Sessions + Dashboard)
+Sprint: S1 - Core MVP Loop (Tasks + Focus Sessions + Dashboard)
 Duration: January 5-16, 2026 (2 weeks)
 Team: Abdelhak (Product Owner / Full-Stack Engineer)
 Capacity: 72 net hours
@@ -40,7 +40,7 @@ The foundation is already in place:
 - created_at: timestamptz
 - RLS: Users can only access their own sessions
 
-## User Stories — Full Requirements
+## User Stories - Full Requirements
 
 ### S1-US1: Tasks create and view (5 SP, High Priority)
 As an authenticated user, I want to create tasks and view my task list, so that I can plan what I will work on today.
@@ -117,6 +117,13 @@ TECHNICAL REQUIREMENTS:
 - Sessions list query joins with tasks table (LEFT JOIN to handle null task_id)
 - Handle deleted task gracefully: show "Task deleted" or task title placeholder
 
+MANUAL TEST CHECKLIST:
+- Start session with no task selected -> task_id is null in DB, UI shows no task label
+- Start session with a selected task -> task_id saved, sessions list shows task title
+- Delete linked task -> session stays visible, shows "Tache supprimee"
+- Spoof another user's task_id -> task_id not linked (null or error), no cross-user access
+- Refresh /focus during active session -> running state persists, task label safe
+
 ### S1-US5: Prevent multiple active sessions (3 SP, High Priority)
 As an authenticated user, I want the system to prevent multiple active sessions running at the same time, so that my tracking remains accurate and unambiguous.
 
@@ -137,6 +144,13 @@ CRITICAL CONCURRENCY HANDLING:
 - Check for active session in same transaction as insert
 - Consider database-level constraint for absolute guarantee
 - Handle double-click / multiple tabs scenario
+
+MANUAL TEST CHECKLIST:
+- Start session with no active session -> timer runs, stop button visible, session row created
+- Attempt start in another tab while active -> clear error, no new session created
+- Refresh /focus while active -> running state and elapsed time persist
+- Stop active session -> ended_at + duration_seconds saved, start enabled again
+- Verify other users cannot see or affect sessions (RLS isolation)
 
 ### S1-US6: Dashboard simple daily totals (5 SP, Medium Priority)
 As an authenticated user, I want the dashboard to show today's focus time and task progress, so that I can understand my day at a glance.
