@@ -1,30 +1,30 @@
----
+﻿---
 name: doittimer-sprint2-frontend
-description: Sprint 2 Frontend skill for DoItTimer — theming (dark mode), PWA installability, and safe offline fallback without breaking Sprint 1.
+description: Sprint 2 frontend skill for DoItTimer (dark mode theming + PWA installability + safe offline fallback) without breaking Sprint 1.
 ---
 
 # DoItTimer — Sprint 2 Frontend (Theming + PWA)
 
-## Why this “skill” exists
-Codex “skills” are reusable instruction bundles that let the agent follow a consistent workflow across tasks. This Sprint 2 skill packages the exact frontend steps we want Codex to follow so it can implement Sprint 2 safely, without breaking Sprint 1.
+## Why this skill exists
+This skill packages the exact frontend steps we want Codex to follow so it can implement Sprint 2 safely, without breaking Sprint 1.
 
 ## Sprint identity
-- **Sprint:** S2 — Final MVP (Shipping + UX + Reliability)
-- **Goal:** turn Sprint 1 “core daily loop” (Tasks → Focus → Dashboard) into a **ship-ready MVP**:
+- Sprint: **S2 — Final MVP (Shipping + UX + Reliability)**
+- Goal: turn Sprint 1 core loop (Tasks â†’ Focus â†’ Dashboard) into a ship-ready MVP:
   - theme support
-  - installability (PWA)
+  - PWA installability
   - minimal offline behavior
-- **Status:** NOT DONE (plan)
+- Status: **NOT DONE (plan)**
 
 ## Repo baseline (confirmed constraints)
-- **Next.js 16 App Router** with route groups: `(public)`, `(auth)`, `(app)`
-- **Tailwind v4** with `@import "tailwindcss";` and `@theme inline` already present in `app/globals.css`
-- Root layout uses hard-coded colors:
-  - `app/layout.tsx` uses `bg-white` and `text-zinc-900`
-- App shell layout uses hard-coded zinc/white:
-  - `app/(app)/layout.tsx`
-- Icons are custom SVGs in `components/ui/icons.tsx` (do not assume lucide-react)
-- Do NOT rename any routes or server actions
+- Next.js 16 App Router with route groups: `(public)`, `(auth)`, `(app)`
+- Tailwind v4 with `@import "tailwindcss";` and `@theme inline` in `app/globals.css`
+- Layouts currently hard-code colors:
+  - `app/layout.tsx`: `bg-white`, `text-zinc-900`
+  - `app/(app)/layout.tsx`: zinc/white borders/backgrounds
+- UI atoms in `components/ui/*` and icons in `components/ui/icons.tsx` (do not assume lucide-react)
+
+**Non-breaking rule:** implement tokens first, then migrate incrementally. Avoid big sweeping refactors.
 
 ---
 
@@ -37,53 +37,45 @@ Codex “skills” are reusable instruction bundles that let the agent follow a 
 
 # S2-US1 — Dark mode (toggle + persistence)
 
-## Why we pick this
-Dark mode is MVP-level UX polish for a timer app and also improves the “app-like” feel that complements PWA installability.
-
-## Non-breaking strategy
-1) Expand CSS tokens first (no component rewrites).
-2) Switch the root/app layouts to token-based classes.
-3) Add SSR cookie-based theme application to eliminate flash.
-4) Add a toggle component using existing icon style.
+## Goal
+Add a theme system with:
+- SSR theme application to prevent flash
+- cookie persistence
+- theme toggle in header and/or Settings
 
 ## Tasks (implementation plan)
 
 ### Task 1 — Expand theme tokens in `app/globals.css`
-- Keep existing `:root --background/--foreground` as the source of truth.
+- Keep existing `:root --background/--foreground` as source of truth
 - Add minimal extra tokens:
   - `--card`, `--card-foreground`
   - `--muted`, `--muted-foreground`
   - `--border`, `--ring`
-- Add dark overrides using:
+- Add dark overrides:
   - `html[data-theme="dark"] { ... }`
-- Extend `@theme inline` mappings so Tailwind can use classes like:
+- Extend `@theme inline` so Tailwind classes work:
   - `bg-background`, `text-foreground`, `bg-card`, `border-border`, `text-muted-foreground`
 
 ### Task 2 — SSR theme injection (no flash)
 Update `app/layout.tsx`:
-- Read cookie `theme` using `cookies()` from `next/headers`
-- Set `<html lang="en" data-theme={theme} suppressHydrationWarning>`
-- Replace body hard-coded classes with token-based baseline:
+- read cookie `theme` using `cookies()` from `next/headers`
+- set `<html lang="en" data-theme={theme} suppressHydrationWarning>`
+- replace body hard-coded classes with token baseline:
   - `bg-background text-foreground font-sans antialiased`
-
-Important:
-- Make this change ONLY after tokens exist so you don’t break styling.
 
 ### Task 3 — Theme persistence via server action
 Create `app/actions/theme.ts`:
 - `setThemeAction(theme: 'light' | 'dark' | 'system')`
   - write cookie via `cookies().set(...)`
-  - use safe cookie config (`sameSite=lax`, `secure` in prod, 1 year maxAge)
-  - `revalidatePath('/', 'layout')` after change
-- `getTheme()` that returns theme from cookie (fallback `light`)
+  - safe cookie config (`sameSite=lax`, `secure` in prod, 1 year maxAge)
+  - `revalidatePath('/', 'layout')`
+- `getTheme()` reads cookie (fallback `light`)
 
 ### Task 4 — Theme toggle component (client)
 Create `components/layout/ThemeToggle.tsx`:
 - client component
-- uses existing Button style and custom SVG icons:
-  - either add `IconSun` / `IconMoon` into `components/ui/icons.tsx`
-  - or inline minimal SVGs in the toggle component
-- optimistic UI toggle (instant icon switch), server action runs in transition
+- use existing icon style (custom SVG, not lucide)
+- optimistic UI toggle; server action runs in a transition
 
 ### Task 5 — Integrate toggle in app shell header
 Update `app/(app)/layout.tsx` header:
@@ -94,12 +86,12 @@ Update `app/(app)/layout.tsx` header:
 Do NOT refactor everything.
 Only update:
 - `app/layout.tsx` and `app/(app)/layout.tsx`
-- shared surfaces (header container, main background, borders)
+- shared surfaces (header, main background, borders)
 Replace patterns:
-- `bg-white` → `bg-background` or `bg-card` depending on surface
-- `text-zinc-900` → `text-foreground`
-- `border-zinc-200` → `border-border`
-- secondary text `text-zinc-600` → `text-muted-foreground`
+- `bg-white` â†’ `bg-background` or `bg-card`
+- `text-zinc-900` â†’ `text-foreground`
+- `border-zinc-200` â†’ `border-border`
+- `text-zinc-600` â†’ `text-muted-foreground`
 
 ## Acceptance criteria
 - Toggle works (header and/or Settings)
@@ -111,42 +103,23 @@ Replace patterns:
 
 # S2-US2 — PWA installability (manifest + icons + metadata)
 
-## Why we pick this
-A timer app feels incomplete if it can’t be installed. Installability is part of “real MVP.”
-
 ## Tasks (implementation plan)
-
-### Task 1 — Metadata update
-Update `app/layout.tsx` `metadata`:
-- Title/description set to DoItTimer
-- Add `metadataBase` using `NEXT_PUBLIC_SITE_URL` when available (fallback localhost)
-
-### Task 2 — Add manifest route
-Create `app/manifest.ts` using Next.js `MetadataRoute.Manifest`:
-- `name`, `short_name`, `start_url`, `display: 'standalone'`
-- icons array pointing to `/icons/...`
-
-### Task 3 — Add icons
-Add to `public/icons/`:
-- `icon-192.png`
-- `icon-512.png`
-Optional but recommended:
-- `icon-192-maskable.png`
-- `icon-512-maskable.png`
-
-### Task 4 — Apple touch icon / favicon alignment
-- Keep existing favicon but ensure PWA icons are correct.
+1) Update `app/layout.tsx` metadata:
+   - title/description: DoItTimer
+   - add `metadataBase` using `NEXT_PUBLIC_SITE_URL` when available
+2) Add manifest route `app/manifest.ts` using `MetadataRoute.Manifest`
+3) Add icons under `public/icons/`:
+   - `icon-192.png`, `icon-512.png`
+   - optional: `icon-192-maskable.png`, `icon-512-maskable.png`
+4) Apple touch icon / favicon alignment (keep existing favicon if present)
 
 ## Acceptance criteria
-- Lighthouse: installable PWA checks pass (manifest + icons)
-- Browser install prompt available when criteria met
+- Lighthouse PWA installability checks pass (manifest + icons)
+- Install prompt appears on supported browsers when criteria is met
 
 ---
 
 # S2-US3 — Minimal offline behavior (safe offline fallback)
-
-## Why we pick this
-Users expect the app to open even with unstable connectivity.
 
 ## Security constraints
 Avoid caching authenticated SSR HTML with user data.
@@ -156,43 +129,24 @@ Prefer:
 - optional last-known cache in localStorage (read-only)
 
 ## Tasks (implementation plan)
-
-### Task 1 — Offline fallback route
-Create `app/offline/page.tsx`:
-- simple message + retry button
-- do not require auth
-
-### Task 2 — Service worker strategy
-Option A (recommended for MVP safety):
-- custom SW at `public/sw.js` with safe caching:
-  - cache `/_next/*`, `/icons/*`, `/offline`
-  - navigation fallback to `/offline`
-  - do not cache API/server action calls
-Option B:
-- `next-pwa` with strict config to avoid caching personalized HTML (only if you already use/accept it)
-
-### Task 3 — Register SW in production only
-Create `components/layout/ServiceWorkerRegister.tsx` (client):
-- register `/sw.js` only in production
-- no failures should break the app
-
-### Task 4 (optional) — Last-known cache for read-only UX
-In client components (optional):
-- store last known tasks/sessions in localStorage
-- allow user to show cached snapshot when server data fails
+1) Add `/offline` route (no auth required)
+2) Add safe service worker:
+   - cache only static assets (`/_next/*`, `/icons/*`) and `/offline`
+   - navigation fallback to `/offline`
+   - do not cache API/server action requests
+3) Register SW only in production
+4) Optional: last-known cache in localStorage for read-only UX
 
 ## Acceptance criteria
-- Offline refresh shows `/offline` page (not a browser error page)
+- Offline refresh shows `/offline` (not browser error page)
 - No caching of sensitive authenticated SSR HTML by default
 
 ---
 
 ## Frontend DoD checklist
-- Theme toggle works + persists + no flash
+- theme persists + no flash
 - PWA manifest + icons present
-- Offline fallback works
-- `pnpm lint`, `pnpm typecheck`, `pnpm build` pass (when later implemented)
----
-name: doittimer-sprint2-frontend
-description: Sprint 2 frontend skill for DoItTimer (dark mode theming + PWA installability + safe offline fallback). Use when implementing S2-US1/S2-US2/S2-US3 without breaking Sprint 1.
+- offline fallback works safely
+- `pnpm lint`, `pnpm typecheck`, `pnpm build` pass (when implemented)
+
 ---

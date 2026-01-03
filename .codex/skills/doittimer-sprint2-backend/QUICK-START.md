@@ -1,4 +1,4 @@
-# Quick Start — Sprint 2 Backend
+﻿# Quick Start — Sprint 2 Backend
 
 ## What to validate after implementing DB changes
 - User can read settings (default returned)

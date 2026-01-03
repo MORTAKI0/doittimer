@@ -1,4 +1,4 @@
-# DoItTimer Sprint 2 — Frontend AGENTS
+﻿# DoItTimer Sprint 2 — Frontend AGENTS
 
 ## Sprint scope owned by this skill
 - S2-US1 Theming (dark mode)
@@ -37,4 +37,4 @@
 **Output:** Lighthouse installability + offline fallback without caching private SSR HTML
 
 ## Integration order
-1) F1 → 2) F2 → 3) F3 → 4) F4
+1) F1 â†’ 2) F2 â†’ 3) F3 â†’ 4) F4

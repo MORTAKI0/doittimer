@@ -1,4 +1,4 @@
-# DoItTimer Sprint 2 — Backend AGENTS
+﻿# DoItTimer Sprint 2 — Backend AGENTS
 
 ## Sprint scope owned by this skill
 - S2-US5 Settings MVP (timezone + default task)
@@ -10,7 +10,7 @@
 - Create `public.user_settings`
 - Enable RLS
 - Add owner-only policies
-- Add FK `default_task_id` → `tasks(id)` with `on delete set null`
+- Add FK `default_task_id` â†’ `tasks(id)` with `on delete set null`
 
 ### Agent B2 — RPC + Timezone correctness
 - Implement `get_user_settings` + `upsert_user_settings`
@@ -21,4 +21,4 @@
 - Match return shape expected by `app/actions/dashboard.ts`
 
 ## Integration order
-1) B1 → 2) B2 → 3) B3
+1) B1 â†’ 2) B2 â†’ 3) B3

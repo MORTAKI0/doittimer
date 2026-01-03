@@ -1,4 +1,4 @@
-# DoItTimer Sprint 2 — Quality AGENTS
+﻿# DoItTimer Sprint 2 — Quality AGENTS
 
 ## Sprint scope owned by this skill
 - S2-US4 Deployment/env
@@ -24,4 +24,4 @@
 - Define test user strategy and selectors
 
 ## Integration order
-1) Q1 → 2) Q2 → 3) Q3
+1) Q1 â†’ 2) Q2 â†’ 3) Q3

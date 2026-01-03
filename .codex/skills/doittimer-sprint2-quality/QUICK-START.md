@@ -1,4 +1,4 @@
-# Quick Start — Sprint 2 Quality
+﻿# Quick Start — Sprint 2 Quality
 
 ## Local checks
 ```bash
@@ -24,4 +24,4 @@ pnpm test:e2e
 * PWA installable
 * Offline page works
 
-```
+---
