@@ -158,22 +158,22 @@ export function TaskList({ tasks }: TaskListProps) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Your tasks
       </h2>
-      <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
+      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
         {items.map((task) => {
           const isEditing = editingId === task.id;
           const isPending = Boolean(pendingIds[task.id]);
           const errorMessage = errorsById[task.id];
 
           return (
-            <li key={task.id} className="px-4 py-3 hover:bg-zinc-50">
+            <li key={task.id} className="px-4 py-3 hover:bg-muted">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-1 items-start gap-3">
                   <input
                     type="checkbox"
-                    className="mt-1 h-4 w-4 rounded border-zinc-300 text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+                    className="mt-1 h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
                     checked={task.completed}
                     onChange={() => handleToggle(task)}
                     disabled={isPending || isEditing}
@@ -212,7 +212,9 @@ export function TaskList({ tasks }: TaskListProps) {
                     <span
                       className={[
                         "text-sm",
-                        task.completed ? "text-zinc-400 line-through" : "text-zinc-900",
+                        task.completed
+                          ? "text-muted-foreground line-through"
+                          : "text-foreground",
                       ]
                         .filter(Boolean)
                         .join(" ")}

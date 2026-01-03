@@ -150,24 +150,24 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
     <div className="space-y-6">
       <div
         className={[
-          "space-y-3 rounded-2xl border bg-zinc-50 p-4",
-          isRunning ? "border-emerald-200 ring-1 ring-emerald-100 shadow-sm" : "border-zinc-200",
+          "space-y-3 rounded-2xl border bg-muted p-4",
+          isRunning ? "border-emerald-200 ring-1 ring-emerald-100 shadow-sm" : "border-border",
         ]
           .filter(Boolean)
           .join(" ")}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <IconFocus className="h-4 w-4 text-emerald-600" aria-hidden="true" />
             Active session
           </div>
           {isRunning ? <Badge variant="accent">Running</Badge> : null}
         </div>
-        <p className="text-4xl font-semibold text-zinc-900">
+        <p className="text-4xl font-semibold text-foreground">
           {isActiveSessionValid ? formatElapsed(elapsedSeconds) : "00m"}
         </p>
         {activeTaskLabel ? (
-          <p className="text-sm text-zinc-500">Task: {activeTaskLabel}</p>
+          <p className="text-sm text-muted-foreground">Task: {activeTaskLabel}</p>
         ) : null}
       </div>
 
@@ -185,7 +185,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
 
       <div className="space-y-3">
         <div className="space-y-2">
-          <label htmlFor="task-select" className="text-sm font-medium text-zinc-700">
+          <label htmlFor="task-select" className="text-sm font-medium text-foreground">
             Link a task
           </label>
           <select
@@ -196,7 +196,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
               setSelectedTaskId(value.length > 0 ? value : null);
             }}
             disabled={hasActiveSession || isStarting || isStopping}
-            className="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="">No task</option>
             {tasks.map((task) => (
@@ -206,7 +206,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
             ))}
           </select>
           {tasks.length === 0 ? (
-            <p className="text-xs text-zinc-500">No tasks available.</p>
+            <p className="text-xs text-muted-foreground">No tasks available.</p>
           ) : null}
         </div>
 
@@ -232,26 +232,26 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Today&apos;s sessions
         </h2>
         {todaySessions.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-200 bg-white p-4 text-sm text-zinc-600">
+          <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
             No sessions yet today. Start one to begin.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200">
+          <ul className="divide-y divide-border rounded-lg border border-border">
             {todaySessions.map((session) => {
               const taskLabel = resolveTaskLabel(session, tasks);
               return (
                 <li key={session.id} className="flex items-center justify-between px-4 py-3">
-                  <div className="text-sm text-zinc-900">
+                  <div className="text-sm text-foreground">
                     {formatStartTime(session.started_at)}
                     {taskLabel ? (
-                      <div className="mt-1 text-xs text-zinc-500">{taskLabel}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{taskLabel}</div>
                     ) : null}
                   </div>
-                  <div className="flex items-center justify-end text-sm text-zinc-500">
+                  <div className="flex items-center justify-end text-sm text-muted-foreground">
                     {session.ended_at
                       ? formatElapsed(session.duration_seconds ?? 0)
                       : <Badge variant="accent">Active</Badge>}

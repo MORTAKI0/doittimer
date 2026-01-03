@@ -38,8 +38,8 @@ export default async function FocusPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Focus</h1>
-        <p className="mt-1 text-sm text-zinc-600">
+        <h1 className="text-2xl font-semibold text-foreground">Focus</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Start a session to track your focused time.
         </p>
       </div>

@@ -31,8 +31,8 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-zinc-600">
+        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Track your focus sessions and tasks for today.
         </p>
       </div>
@@ -45,29 +45,29 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-t-4 border-emerald-500 p-4">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <span>Focus today</span>
             <IconFocus className="h-4 w-4 text-emerald-600" aria-hidden="true" />
           </div>
-          <p className="mt-3 text-2xl font-semibold text-zinc-900">
+          <p className="mt-3 text-2xl font-semibold text-foreground">
             {formatFocusTime(stats.focus_seconds)}
           </p>
         </Card>
         <Card className="border-t-4 border-emerald-400 p-4">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <span>Sessions today</span>
             <IconPulse className="h-4 w-4 text-emerald-600" aria-hidden="true" />
           </div>
-          <p className="mt-3 text-2xl font-semibold text-zinc-900">
+          <p className="mt-3 text-2xl font-semibold text-foreground">
             {stats.sessions_count}
           </p>
         </Card>
         <Card className="border-t-4 border-emerald-300 p-4">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <span>Tasks completed</span>
             <IconCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
           </div>
-          <p className="mt-3 text-2xl font-semibold text-zinc-900">
+          <p className="mt-3 text-2xl font-semibold text-foreground">
             {stats.tasks_completed} / {stats.tasks_total}
           </p>
         </Card>
@@ -80,7 +80,9 @@ export default async function DashboardPage() {
       ) : null}
 
       {showEmptyTasksHint ? (
-        <p className="text-sm text-zinc-500">No tasks yet. Create one in Tasks.</p>
+        <p className="text-sm text-muted-foreground">
+          No tasks yet. Create one in Tasks.
+        </p>
       ) : null}
     </div>
   );

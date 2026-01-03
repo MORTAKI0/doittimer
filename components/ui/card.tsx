@@ -6,7 +6,7 @@ export function Card({ className, ...props }: CardProps) {
   return (
     <div
       className={[
-        "rounded-2xl border border-zinc-200 bg-white p-5 transition-shadow hover:shadow-sm",
+        "rounded-2xl border border-border bg-card p-5 transition-shadow hover:shadow-sm",
         className,
       ]
         .filter(Boolean)

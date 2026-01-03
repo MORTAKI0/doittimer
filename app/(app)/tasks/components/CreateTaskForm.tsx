@@ -51,13 +51,13 @@ export function CreateTaskForm() {
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-zinc-900">Create a task</h2>
-        <p className="text-sm text-zinc-500">
+        <h2 className="text-lg font-semibold text-foreground">Create a task</h2>
+        <p className="text-sm text-muted-foreground">
           Keep tasks short and actionable to stay focused.
         </p>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-zinc-700" htmlFor="task-title">
+        <label className="text-sm font-medium text-foreground" htmlFor="task-title">
           Task title
         </label>
         <Input
@@ -86,7 +86,7 @@ export function CreateTaskForm() {
       <Button type="submit" disabled={isDisabled} className="w-full">
         {isPending ? "Creating..." : "Add task"}
       </Button>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted-foreground">
         Your task will appear in the list instantly.
       </p>
     </form>

@@ -29,7 +29,7 @@ export function NavLinks() {
               "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
               isActive
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : "border-transparent text-zinc-600 hover:border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900",
+                : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground",
             ]
               .filter(Boolean)
               .join(" ")}

@@ -9,7 +9,7 @@ type IconButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variantClasses: Record<IconButtonVariant, string> = {
-  neutral: "border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+  neutral: "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
   danger: "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700",
 };
 
@@ -29,7 +29,7 @@ export function IconButton({
     <button
       type={type}
       className={[
-        "inline-flex items-center justify-center rounded-md border bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center rounded-md border bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
         variantClasses[variant],
         sizeClasses[size],
         className,
