@@ -17,8 +17,8 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-dvh bg-white text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
           <Brand />
           <div className="flex min-w-0 items-center gap-4 text-sm">
             <NavLinks />
@@ -28,7 +28,7 @@ export default async function AppLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl px-6 py-10">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-6 py-8">{children}</main>
     </div>
   );
 }

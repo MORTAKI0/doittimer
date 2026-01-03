@@ -10,11 +10,30 @@ import {
   TaskRow,
 } from "@/app/actions/tasks";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { IconPencil, IconTrash } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 
 type TaskListProps = {
   tasks: TaskRow[];
 };
+
+const ERROR_MAP: Record<string, string> = {
+  "Le titre est requis.": "Title is required.",
+  "Le titre est trop long.": "Title is too long.",
+  "Titre invalide.": "Invalid title.",
+  "Identifiant invalide.": "Invalid identifier.",
+  "Tu dois etre connecte.": "You must be signed in.",
+  "Impossible de charger les taches.": "Unable to load tasks.",
+  "Impossible de creer la tache. Reessaie.": "Unable to create task. Try again.",
+  "Impossible de mettre a jour la tache.": "Unable to update the task.",
+  "Impossible de supprimer la tache.": "Unable to delete the task.",
+  "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
+};
+
+function toEnglishError(message: string) {
+  return ERROR_MAP[message] ?? message;
+}
 
 export function TaskList({ tasks }: TaskListProps) {
   const router = useRouter();
@@ -73,7 +92,7 @@ export function TaskList({ tasks }: TaskListProps) {
           item.id === task.id ? { ...item, completed: previousCompleted } : item,
         ),
       );
-      setError(task.id, result.error);
+      setError(task.id, toEnglishError(result.error));
     } else {
       router.refresh();
     }
@@ -86,7 +105,7 @@ export function TaskList({ tasks }: TaskListProps) {
     const trimmedTitle = draftTitle.trim();
 
     if (!trimmedTitle) {
-      setError(task.id, "Le titre est requis.");
+      setError(task.id, "Title is required.");
       return;
     }
 
@@ -107,7 +126,7 @@ export function TaskList({ tasks }: TaskListProps) {
           item.id === task.id ? { ...item, title: previousTitle } : item,
         ),
       );
-      setError(task.id, result.error);
+      setError(task.id, toEnglishError(result.error));
     } else {
       cancelEditing();
       router.refresh();
@@ -118,7 +137,7 @@ export function TaskList({ tasks }: TaskListProps) {
 
   async function handleDelete(task: TaskRow) {
     if (pendingIds[task.id]) return;
-    const confirmed = window.confirm("Supprimer cette tache ?");
+    const confirmed = window.confirm("Delete this task?");
     if (!confirmed) return;
 
     setPending(task.id, true);
@@ -127,7 +146,7 @@ export function TaskList({ tasks }: TaskListProps) {
     const result = await deleteTask(task.id);
 
     if (!result.success) {
-      setError(task.id, result.error);
+      setError(task.id, toEnglishError(result.error));
     } else {
       setItems((prev) => prev.filter((item) => item.id !== task.id));
       if (editingId === task.id) cancelEditing();
@@ -140,25 +159,25 @@ export function TaskList({ tasks }: TaskListProps) {
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-        Mes taches
+        Your tasks
       </h2>
-      <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200">
+      <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
         {items.map((task) => {
           const isEditing = editingId === task.id;
           const isPending = Boolean(pendingIds[task.id]);
           const errorMessage = errorsById[task.id];
 
           return (
-            <li key={task.id} className="px-4 py-3">
+            <li key={task.id} className="px-4 py-3 hover:bg-zinc-50">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-1 items-start gap-3">
                   <input
                     type="checkbox"
-                    className="mt-1 h-4 w-4 rounded border-zinc-300 text-black focus-visible:ring-2 focus-visible:ring-black/20"
+                    className="mt-1 h-4 w-4 rounded border-zinc-300 text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
                     checked={task.completed}
                     onChange={() => handleToggle(task)}
                     disabled={isPending || isEditing}
-                    aria-label={`Marquer ${task.title} comme terminee`}
+                    aria-label={`Mark ${task.title} as completed`}
                   />
                   {isEditing ? (
                     <div className="w-full space-y-2">
@@ -167,7 +186,7 @@ export function TaskList({ tasks }: TaskListProps) {
                         onChange={(event) => setDraftTitle(event.target.value)}
                         maxLength={500}
                         disabled={isPending}
-                        aria-label="Modifier le titre"
+                        aria-label="Edit task title"
                       />
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -176,7 +195,7 @@ export function TaskList({ tasks }: TaskListProps) {
                           onClick={() => handleSave(task)}
                           disabled={isPending}
                         >
-                          Enregistrer
+                          Save
                         </Button>
                         <Button
                           size="sm"
@@ -185,7 +204,7 @@ export function TaskList({ tasks }: TaskListProps) {
                           onClick={cancelEditing}
                           disabled={isPending}
                         >
-                          Annuler
+                          Cancel
                         </Button>
                       </div>
                     </div>
@@ -204,31 +223,29 @@ export function TaskList({ tasks }: TaskListProps) {
                 </div>
                 {!isEditing ? (
                   <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
+                    <IconButton
                       type="button"
-                      variant="secondary"
                       onClick={() => startEditing(task)}
                       disabled={isPending}
+                      aria-label="Edit task"
                     >
-                      Modifier
-                    </Button>
-                    <Button
-                      size="sm"
+                      <IconPencil className="h-4 w-4" aria-hidden="true" />
+                    </IconButton>
+                    <IconButton
                       type="button"
-                      variant="secondary"
-                      className="border-red-200 text-red-600 hover:bg-red-50"
+                      variant="danger"
                       onClick={() => handleDelete(task)}
                       disabled={isPending}
+                      aria-label="Delete task"
                     >
-                      Supprimer
-                    </Button>
+                      <IconTrash className="h-4 w-4" aria-hidden="true" />
+                    </IconButton>
                   </div>
                 ) : null}
               </div>
               {errorMessage ? (
                 <p className="mt-2 text-sm text-red-600" role="alert">
-                  {errorMessage}
+                  {toEnglishError(errorMessage)}
                 </p>
               ) : null}
             </li>

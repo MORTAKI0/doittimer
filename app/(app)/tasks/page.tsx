@@ -4,25 +4,36 @@ import { TaskList } from "./components/TaskList";
 import { getTasks } from "@/app/actions/tasks";
 import { Card } from "@/components/ui/card";
 
+const ERROR_MAP: Record<string, string> = {
+  "Tu dois etre connecte.": "You must be signed in.",
+  "Impossible de charger les taches.": "Unable to load tasks.",
+  "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
+};
+
+function toEnglishError(message: string | null) {
+  if (!message) return null;
+  return ERROR_MAP[message] ?? message;
+}
+
 export default async function TasksPage() {
   const tasksResult = await getTasks();
   const tasks = tasksResult.success ? tasksResult.data : [];
-  const listError = tasksResult.success ? null : tasksResult.error;
+  const listError = tasksResult.success ? null : toEnglishError(tasksResult.error);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">Tasks</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Cree des taches simples pour planifier ta journee.
+          Create simple tasks to map out your day.
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
-        <Card>
+        <Card className="p-6">
           <CreateTaskForm />
         </Card>
-        <Card>
+        <Card className="p-6">
           {listError ? (
             <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {listError}

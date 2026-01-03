@@ -21,7 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Brand />
           <Link href="/signup" className={buttonStyles({ variant: "secondary", size: "sm" })}>
-            Signup
+            Sign up
           </Link>
         </div>
       </header>
@@ -31,7 +31,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="w-full max-w-md space-y-3">
             {showSignup ? (
               <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                Compte cree. Verifie ton email si necessaire, puis connecte-toi.
+                Account created. Check your email if needed, then sign in.
               </p>
             ) : null}
             {errorMessage ? (
@@ -44,9 +44,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <LoginForm />
           </div>
           <p className="text-sm text-zinc-500">
-            Pas encore de compte ?{" "}
+            Need an account?{" "}
             <Link href="/signup" className="font-medium text-zinc-900 hover:underline">
-              Creer un compte
+              Create one
             </Link>
           </p>
         </div>

@@ -1,5 +1,6 @@
 import { getDashboardTodayStats } from "@/app/actions/dashboard";
 import { Card } from "@/components/ui/card";
+import { IconCheck, IconFocus, IconPulse } from "@/components/ui/icons";
 
 function formatFocusTime(totalSeconds: number) {
   const totalMinutes = Math.floor(totalSeconds / 60);
@@ -43,34 +44,37 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Focus today
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">
+        <Card className="border-t-4 border-emerald-500 p-4">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <span>Focus today</span>
+            <IconFocus className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+          </div>
+          <p className="mt-3 text-2xl font-semibold text-zinc-900">
             {formatFocusTime(stats.focus_seconds)}
           </p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Sessions today
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">
+        <Card className="border-t-4 border-emerald-400 p-4">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <span>Sessions today</span>
+            <IconPulse className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+          </div>
+          <p className="mt-3 text-2xl font-semibold text-zinc-900">
             {stats.sessions_count}
           </p>
         </Card>
-        <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Tasks completed
-          </p>
-          <p className="mt-2 text-2xl font-semibold text-zinc-900">
+        <Card className="border-t-4 border-emerald-300 p-4">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <span>Tasks completed</span>
+            <IconCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+          </div>
+          <p className="mt-3 text-2xl font-semibold text-zinc-900">
             {stats.tasks_completed} / {stats.tasks_total}
           </p>
         </Card>
       </div>
 
       {showEmptyFocusHint ? (
-        <Card className="border-dashed border-zinc-200 bg-white p-4 text-sm text-zinc-600">
+        <Card className="border-emerald-100 bg-emerald-50/60 p-4 text-sm text-emerald-900">
           No sessions yet today. Start one from Focus to begin.
         </Card>
       ) : null}

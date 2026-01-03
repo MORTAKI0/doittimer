@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { IconDashboard, IconFocus, IconSettings, IconTasks } from "@/components/ui/icons";
+
 const NAV_LINKS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/focus", label: "Focus" },
-  { href: "/settings", label: "Settings" },
+  { href: "/dashboard", label: "Dashboard", Icon: IconDashboard },
+  { href: "/tasks", label: "Tasks", Icon: IconTasks },
+  { href: "/focus", label: "Focus", Icon: IconFocus },
+  { href: "/settings", label: "Settings", Icon: IconSettings },
 ];
 
 export function NavLinks() {
@@ -24,12 +26,15 @@ export function NavLinks() {
             href={link.href}
             aria-current={isActive ? "page" : undefined}
             className={[
-              "rounded-md px-2 py-1 text-zinc-600 transition-colors hover:text-zinc-900",
-              isActive ? "bg-zinc-100 text-zinc-900" : null,
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              isActive
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-transparent text-zinc-600 hover:border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900",
             ]
               .filter(Boolean)
               .join(" ")}
           >
+            <link.Icon className="h-4 w-4" aria-hidden="true" />
             {link.label}
           </Link>
         );

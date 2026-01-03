@@ -3,6 +3,19 @@ import { getTasks } from "@/app/actions/tasks";
 import { Card } from "@/components/ui/card";
 import { FocusPanel } from "./FocusPanel";
 
+const ERROR_MAP: Record<string, string> = {
+  "Tu dois etre connecte.": "You must be signed in.",
+  "Impossible de charger la session active.": "Unable to load the active session.",
+  "Impossible de charger les sessions du jour.": "Unable to load today's sessions.",
+  "Impossible de charger les taches.": "Unable to load tasks.",
+  "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
+};
+
+function toEnglishError(message: string | null) {
+  if (!message) return null;
+  return ERROR_MAP[message] ?? message;
+}
+
 export default async function FocusPage() {
   const [activeResult, todayResult, tasksResult] = await Promise.all([
     getActiveSession(),
@@ -15,11 +28,11 @@ export default async function FocusPage() {
   const tasks = tasksResult.success ? tasksResult.data : [];
   const errorMessage =
     !activeResult.success
-      ? activeResult.error
+      ? toEnglishError(activeResult.error)
       : !todayResult.success
-        ? todayResult.error
+        ? toEnglishError(todayResult.error)
         : !tasksResult.success
-          ? tasksResult.error
+          ? toEnglishError(tasksResult.error)
           : null;
 
   return (
@@ -27,7 +40,7 @@ export default async function FocusPage() {
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">Focus</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Lance une session pour mesurer ton temps de concentration.
+          Start a session to track your focused time.
         </p>
       </div>
 
