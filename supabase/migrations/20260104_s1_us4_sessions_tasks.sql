@@ -1,4 +1,5 @@
 -- S1-US4: attach sessions to tasks and expose task title in session queries.
+-- FIX: sessions table has no created_at column, so do NOT reference it.
 
 create or replace function public.start_session(p_task_id uuid default null)
 returns table (
@@ -8,7 +9,6 @@ returns table (
   started_at timestamptz,
   ended_at timestamptz,
   duration_seconds integer,
-  created_at timestamptz,
   task_title text
 )
 language sql
@@ -20,8 +20,8 @@ as $$
       and t.user_id = auth.uid()
   ),
   inserted as (
-    insert into public.sessions (user_id, task_id, started_at, created_at)
-    values (auth.uid(), (select id from resolved_task), now(), now())
+    insert into public.sessions (user_id, task_id, started_at)
+    values (auth.uid(), (select id from resolved_task), now())
     returning *
   )
   select inserted.*, (select title from resolved_task) as task_title
@@ -36,7 +36,6 @@ returns table (
   started_at timestamptz,
   ended_at timestamptz,
   duration_seconds integer,
-  created_at timestamptz,
   task_title text
 )
 language sql
@@ -58,7 +57,6 @@ returns table (
   started_at timestamptz,
   ended_at timestamptz,
   duration_seconds integer,
-  created_at timestamptz,
   task_title text
 )
 language sql
