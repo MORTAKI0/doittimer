@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import "./globals.css";
+import { ServiceWorkerRegister } from "@/components/layout/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
   title: "DoItTimer",
@@ -25,6 +26,7 @@ export default async function RootLayout({
     <html lang="en" data-theme={theme} suppressHydrationWarning>
       <body className="bg-background font-sans antialiased text-foreground">
         {children}
+        <ServiceWorkerRegister />
       </body>
     </html>
   );
