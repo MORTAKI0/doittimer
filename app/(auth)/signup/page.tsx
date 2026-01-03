@@ -11,7 +11,7 @@ export default function SignupPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Brand />
           <Link href="/login" className={buttonStyles({ variant: "secondary", size: "sm" })}>
-            Login
+            Sign in
           </Link>
         </div>
       </header>
@@ -22,9 +22,9 @@ export default function SignupPage() {
             <SignupForm />
           </div>
           <p className="text-sm text-zinc-500">
-            Deja un compte ?{" "}
+            Already have an account?{" "}
             <Link href="/login" className="font-medium text-zinc-900 hover:underline">
-              Se connecter
+              Sign in
             </Link>
           </p>
         </div>

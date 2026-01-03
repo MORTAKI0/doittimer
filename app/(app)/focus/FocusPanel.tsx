@@ -5,13 +5,31 @@ import { useRouter } from "next/navigation";
 
 import { startSession, stopSession, SessionRow } from "@/app/actions/sessions";
 import type { TaskRow } from "@/app/actions/tasks";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconFocus } from "@/components/ui/icons";
 
 type FocusPanelProps = {
   activeSession: SessionRow | null;
   todaySessions: SessionRow[];
   tasks: TaskRow[];
 };
+
+const ERROR_MAP: Record<string, string> = {
+  "Tu dois etre connecte.": "You must be signed in.",
+  "Identifiant invalide.": "Invalid identifier.",
+  "Une session est deja active. Arrete-la avant d'en demarrer une autre.": "A session is already active. Stop it before starting a new one.",
+  "Impossible de verifier la session active.": "Unable to verify the active session.",
+  "Impossible de demarrer la session.": "Unable to start the session.",
+  "Impossible d'arreter la session.": "Unable to stop the session.",
+  "Impossible de charger la session active.": "Unable to load the active session.",
+  "Impossible de charger les sessions du jour.": "Unable to load today's sessions.",
+  "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
+};
+
+function toEnglishError(message: string) {
+  return ERROR_MAP[message] ?? message;
+}
 
 function formatElapsed(seconds: number) {
   const clamped = Math.max(0, seconds);
@@ -32,7 +50,7 @@ function formatElapsed(seconds: number) {
 
 function formatStartTime(value: string) {
   const date = new Date(value);
-  return date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
 function parseTimestamptz(input: string) {
@@ -72,8 +90,9 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
   const hasValidStartedAt = Number.isFinite(parsedStartedAtMs ?? Number.NaN);
   const isActiveSessionValid = Boolean(activeSession) && hasValidId && hasValidStartedAt;
   const timeError = hasActiveSession && !hasValidStartedAt
-    ? "Heure de demarrage invalide. Recharge la page."
+    ? "Invalid start time. Refresh the page."
     : null;
+  const isRunning = isActiveSessionValid;
 
   React.useEffect(() => {
     if (!activeSession || !isActiveSessionValid) {
@@ -101,7 +120,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
     const result = await startSession(selectedTaskId);
 
     if (!result.success) {
-      setError(result.error);
+      setError(toEnglishError(result.error));
       setIsStarting(false);
       return;
     }
@@ -118,7 +137,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
     const result = await stopSession(activeSession.id);
 
     if (!result.success) {
-      setError(result.error);
+      setError(toEnglishError(result.error));
       setIsStopping(false);
       return;
     }
@@ -129,13 +148,26 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-zinc-700">Session en cours</p>
-        <p className="text-3xl font-semibold text-zinc-900">
+      <div
+        className={[
+          "space-y-3 rounded-2xl border bg-zinc-50 p-4",
+          isRunning ? "border-emerald-200 ring-1 ring-emerald-100 shadow-sm" : "border-zinc-200",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+            <IconFocus className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+            Active session
+          </div>
+          {isRunning ? <Badge variant="accent">Running</Badge> : null}
+        </div>
+        <p className="text-4xl font-semibold text-zinc-900">
           {isActiveSessionValid ? formatElapsed(elapsedSeconds) : "00m"}
         </p>
         {activeTaskLabel ? (
-          <p className="text-sm text-zinc-500">Tache: {activeTaskLabel}</p>
+          <p className="text-sm text-zinc-500">Task: {activeTaskLabel}</p>
         ) : null}
       </div>
 
@@ -154,7 +186,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
       <div className="space-y-3">
         <div className="space-y-2">
           <label htmlFor="task-select" className="text-sm font-medium text-zinc-700">
-            Associer une tache
+            Link a task
           </label>
           <select
             id="task-select"
@@ -164,9 +196,9 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
               setSelectedTaskId(value.length > 0 ? value : null);
             }}
             disabled={hasActiveSession || isStarting || isStopping}
-            className="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <option value="">Aucune tache</option>
+            <option value="">No task</option>
             {tasks.map((task) => (
               <option key={task.id} value={task.id}>
                 {task.title}
@@ -174,7 +206,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
             ))}
           </select>
           {tasks.length === 0 ? (
-            <p className="text-xs text-zinc-500">Aucune tache disponible.</p>
+            <p className="text-xs text-zinc-500">No tasks available.</p>
           ) : null}
         </div>
 
@@ -185,7 +217,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
               onClick={handleStop}
               disabled={isStopping || isStarting || !hasValidId}
             >
-              {isStopping ? "Arret..." : "Arreter la session"}
+              {isStopping ? "Stopping..." : "Stop session"}
             </Button>
           ) : (
             <Button
@@ -193,7 +225,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
               onClick={handleStart}
               disabled={isStarting || isStopping}
             >
-              {isStarting ? "Demarrage..." : "Demarrer une session"}
+              {isStarting ? "Starting..." : "Start session"}
             </Button>
           )}
         </div>
@@ -201,11 +233,11 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-          Sessions du jour
+          Today&apos;s sessions
         </h2>
         {todaySessions.length === 0 ? (
           <p className="rounded-lg border border-dashed border-zinc-200 bg-white p-4 text-sm text-zinc-600">
-            Aucune session aujourd&apos;hui. Lance ta premiere session.
+            No sessions yet today. Start one to begin.
           </p>
         ) : (
           <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200">
@@ -219,10 +251,10 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
                       <div className="mt-1 text-xs text-zinc-500">{taskLabel}</div>
                     ) : null}
                   </div>
-                  <div className="text-sm text-zinc-500">
+                  <div className="flex items-center justify-end text-sm text-zinc-500">
                     {session.ended_at
                       ? formatElapsed(session.duration_seconds ?? 0)
-                      : "Active"}
+                      : <Badge variant="accent">Active</Badge>}
                   </div>
                 </li>
               );
@@ -241,5 +273,5 @@ function resolveTaskLabel(
   if (!session?.task_id) return null;
   if (session.task_title) return session.task_title;
   const matched = tasks.find((task) => task.id === session.task_id);
-  return matched?.title ?? "Tache supprimee";
+  return matched?.title ?? "Task deleted";
 }
