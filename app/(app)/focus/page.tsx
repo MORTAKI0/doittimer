@@ -1,4 +1,5 @@
 import { getActiveSession, getTodaySessions } from "@/app/actions/sessions";
+import { getUserSettings } from "@/app/actions/settings";
 import { getTasks } from "@/app/actions/tasks";
 import { Card } from "@/components/ui/card";
 import { FocusPanel } from "./FocusPanel";
@@ -17,15 +18,19 @@ function toEnglishError(message: string | null) {
 }
 
 export default async function FocusPage() {
-  const [activeResult, todayResult, tasksResult] = await Promise.all([
+  const [activeResult, todayResult, tasksResult, settingsResult] = await Promise.all([
     getActiveSession(),
     getTodaySessions(),
     getTasks(),
+    getUserSettings(),
   ]);
 
   const activeSession = activeResult.success ? activeResult.data : null;
   const todaySessions = todayResult.success ? todayResult.data : [];
   const tasks = tasksResult.success ? tasksResult.data : [];
+  const defaultTaskId = settingsResult.success
+    ? settingsResult.data.default_task_id
+    : null;
   const errorMessage =
     !activeResult.success
       ? toEnglishError(activeResult.error)
@@ -56,6 +61,7 @@ export default async function FocusPage() {
             activeSession={activeSession}
             todaySessions={todaySessions}
             tasks={tasks}
+            defaultTaskId={defaultTaskId}
           />
         </Card>
       </div>

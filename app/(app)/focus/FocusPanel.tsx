@@ -13,6 +13,7 @@ type FocusPanelProps = {
   activeSession: SessionRow | null;
   todaySessions: SessionRow[];
   tasks: TaskRow[];
+  defaultTaskId: string | null;
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -74,13 +75,19 @@ function looksLikeUuid(value: string) {
   );
 }
 
-export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelProps) {
+export function FocusPanel({
+  activeSession,
+  todaySessions,
+  tasks,
+  defaultTaskId,
+}: FocusPanelProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
   const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
+  const [hasManualSelection, setHasManualSelection] = React.useState(false);
   const hasActiveSession = Boolean(activeSession);
   const hasValidId = typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
@@ -93,6 +100,13 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
     ? "Invalid start time. Refresh the page."
     : null;
   const isRunning = isActiveSessionValid;
+
+  React.useEffect(() => {
+    if (hasActiveSession || hasManualSelection || !defaultTaskId) return;
+    const exists = tasks.some((task) => task.id === defaultTaskId);
+    if (!exists) return;
+    setSelectedTaskId(defaultTaskId);
+  }, [defaultTaskId, hasActiveSession, hasManualSelection, tasks]);
 
   React.useEffect(() => {
     if (!activeSession || !isActiveSessionValid) {
@@ -193,6 +207,7 @@ export function FocusPanel({ activeSession, todaySessions, tasks }: FocusPanelPr
             value={selectedTaskId ?? ""}
             onChange={(event) => {
               const value = event.target.value;
+              setHasManualSelection(true);
               setSelectedTaskId(value.length > 0 ? value : null);
             }}
             disabled={hasActiveSession || isStarting || isStopping}
