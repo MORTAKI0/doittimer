@@ -1,11 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getUserSettings } from "@/app/actions/settings";
 import { signOutAction } from "@/lib/auth/actions";
 import { getUser } from "@/lib/auth/get-user";
+import { getTasks } from "@/app/actions/tasks";
+import { SettingsForm } from "./SettingsForm";
 
 export default async function SettingsPage() {
   const user = await getUser();
   const email = user?.email ?? "Unknown";
+  const [settingsResult, tasksResult] = await Promise.all([
+    getUserSettings(),
+    getTasks(),
+  ]);
+  const settings = settingsResult.success
+    ? settingsResult.data
+    : { timezone: "Africa/Casablanca", default_task_id: null };
+  const settingsError = settingsResult.success ? null : settingsResult.error;
+  const tasks = tasksResult.success ? tasksResult.data : [];
 
   return (
     <div className="space-y-6">
@@ -32,6 +44,26 @@ export default async function SettingsPage() {
           </form>
         </Card>
       </div>
+      <Card className="p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Focus defaults
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Set your timezone and default task for new focus sessions.
+        </p>
+        {settingsError ? (
+          <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {settingsError}
+          </p>
+        ) : null}
+        <div className="mt-4">
+          <SettingsForm
+            initialTimezone={settings.timezone}
+            initialDefaultTaskId={settings.default_task_id}
+            tasks={tasks}
+          />
+        </div>
+      </Card>
     </div>
   );
 }
