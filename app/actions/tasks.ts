@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { taskIdSchema, taskTitleSchema } from "@/lib/validation/task.schema";
+import { logServerError } from "@/lib/logging/logServerError";
 
 const DUPLICATE_WINDOW_MS = 10_000;
 
@@ -34,12 +35,15 @@ export async function createTask(title: string): Promise<ActionResult<TaskRow>> 
   }
 
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError || !userData.user) {
       return { success: false, error: "Tu dois etre connecte." };
     }
+
+    userId = userData.user.id;
 
     const { data: existingTask } = await supabase
       .from("tasks")
@@ -61,6 +65,12 @@ export async function createTask(title: string): Promise<ActionResult<TaskRow>> 
       .single();
 
     if (error || !data) {
+      logServerError({
+        scope: "actions.tasks.createTask",
+        userId,
+        error: error ?? new Error("Task insert returned no data."),
+        context: { action: "insert" },
+      });
       return {
         success: false,
         error: "Impossible de creer la tache. Reessaie.",
@@ -70,7 +80,11 @@ export async function createTask(title: string): Promise<ActionResult<TaskRow>> 
     revalidatePath("/tasks");
 
     return { success: true, data };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.createTask",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
@@ -80,12 +94,15 @@ export async function createTask(title: string): Promise<ActionResult<TaskRow>> 
 
 export async function getTasks(): Promise<ActionResult<TaskRow[]>> {
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError || !userData.user) {
       return { success: false, error: "Tu dois etre connecte." };
     }
+
+    userId = userData.user.id;
 
     const { data, error } = await supabase
       .from("tasks")
@@ -94,6 +111,12 @@ export async function getTasks(): Promise<ActionResult<TaskRow[]>> {
       .order("created_at", { ascending: false });
 
     if (error) {
+      logServerError({
+        scope: "actions.tasks.getTasks",
+        userId,
+        error,
+        context: { action: "select" },
+      });
       return {
         success: false,
         error: "Impossible de charger les taches.",
@@ -101,7 +124,11 @@ export async function getTasks(): Promise<ActionResult<TaskRow[]>> {
     }
 
     return { success: true, data: data ?? [] };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.getTasks",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
@@ -123,12 +150,15 @@ export async function toggleTaskCompletion(
   }
 
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError || !userData.user) {
       return { success: false, error: "Tu dois etre connecte." };
     }
+
+    userId = userData.user.id;
 
     const { data, error } = await supabase
       .from("tasks")
@@ -139,6 +169,12 @@ export async function toggleTaskCompletion(
       .maybeSingle();
 
     if (error) {
+      logServerError({
+        scope: "actions.tasks.toggleTaskCompletion",
+        userId,
+        error,
+        context: { action: "update" },
+      });
       return {
         success: false,
         error: "Impossible de mettre a jour la tache.",
@@ -152,7 +188,11 @@ export async function toggleTaskCompletion(
     revalidatePath("/tasks");
 
     return { success: true, data };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.toggleTaskCompletion",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
@@ -182,12 +222,15 @@ export async function updateTaskTitle(
   }
 
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError || !userData.user) {
       return { success: false, error: "Tu dois etre connecte." };
     }
+
+    userId = userData.user.id;
 
     const { data, error } = await supabase
       .from("tasks")
@@ -198,6 +241,12 @@ export async function updateTaskTitle(
       .maybeSingle();
 
     if (error) {
+      logServerError({
+        scope: "actions.tasks.updateTaskTitle",
+        userId,
+        error,
+        context: { action: "update" },
+      });
       return {
         success: false,
         error: "Impossible de mettre a jour la tache.",
@@ -211,7 +260,11 @@ export async function updateTaskTitle(
     revalidatePath("/tasks");
 
     return { success: true, data };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.updateTaskTitle",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
@@ -230,12 +283,15 @@ export async function deleteTask(taskId: string): Promise<ActionResult<{ id: str
   }
 
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError || !userData.user) {
       return { success: false, error: "Tu dois etre connecte." };
     }
+
+    userId = userData.user.id;
 
     const { data, error } = await supabase
       .from("tasks")
@@ -246,6 +302,12 @@ export async function deleteTask(taskId: string): Promise<ActionResult<{ id: str
       .maybeSingle();
 
     if (error) {
+      logServerError({
+        scope: "actions.tasks.deleteTask",
+        userId,
+        error,
+        context: { action: "delete" },
+      });
       return {
         success: false,
         error: "Impossible de supprimer la tache.",
@@ -259,7 +321,11 @@ export async function deleteTask(taskId: string): Promise<ActionResult<{ id: str
     revalidatePath("/tasks");
 
     return { success: true, data };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.deleteTask",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
