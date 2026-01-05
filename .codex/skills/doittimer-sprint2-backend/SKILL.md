@@ -1,4 +1,4 @@
-﻿---
+---
 name: doittimer-sprint2-backend
 description: Sprint 2 backend skill for DoItTimer (user settings timezone + default task, timezone-aware today queries, DB/RPC migrations) without breaking Sprint 1 RPC contracts.
 ---

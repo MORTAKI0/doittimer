@@ -1,4 +1,4 @@
-﻿---
+---
 name: doittimer-sprint2-frontend
 description: Sprint 2 frontend skill for DoItTimer (dark mode theming + PWA installability + safe offline fallback) without breaking Sprint 1.
 ---
