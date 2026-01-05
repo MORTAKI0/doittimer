@@ -15,6 +15,10 @@ type TaskOption = {
 type SettingsFormProps = {
   initialTimezone: string;
   initialDefaultTaskId: string | null;
+  initialPomodoroWorkMinutes: number;
+  initialPomodoroShortBreakMinutes: number;
+  initialPomodoroLongBreakMinutes: number;
+  initialPomodoroLongBreakEvery: number;
   tasks: TaskOption[];
 };
 
@@ -26,15 +30,35 @@ const TIMEZONE_OPTIONS = [
   "Asia/Dubai",
   "Asia/Tokyo",
 ];
+const WORK_MINUTES_RANGE = { min: 15, max: 120 };
+const SHORT_BREAK_RANGE = { min: 5, max: 30 };
+const LONG_BREAK_RANGE = { min: 10, max: 60 };
+const LONG_BREAK_EVERY_RANGE = { min: 2, max: 10 };
 
 export function SettingsForm({
   initialTimezone,
   initialDefaultTaskId,
+  initialPomodoroWorkMinutes,
+  initialPomodoroShortBreakMinutes,
+  initialPomodoroLongBreakMinutes,
+  initialPomodoroLongBreakEvery,
   tasks,
 }: SettingsFormProps) {
   const router = useRouter();
   const [timezone, setTimezone] = React.useState(initialTimezone);
   const [defaultTaskId, setDefaultTaskId] = React.useState(initialDefaultTaskId ?? "");
+  const [pomodoroWorkMinutes, setPomodoroWorkMinutes] = React.useState(
+    initialPomodoroWorkMinutes,
+  );
+  const [pomodoroShortBreakMinutes, setPomodoroShortBreakMinutes] = React.useState(
+    initialPomodoroShortBreakMinutes,
+  );
+  const [pomodoroLongBreakMinutes, setPomodoroLongBreakMinutes] = React.useState(
+    initialPomodoroLongBreakMinutes,
+  );
+  const [pomodoroLongBreakEvery, setPomodoroLongBreakEvery] = React.useState(
+    initialPomodoroLongBreakEvery,
+  );
   const [message, setMessage] = React.useState<string | null>(null);
   const [isError, setIsError] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
@@ -49,7 +73,14 @@ export function SettingsForm({
         defaultTaskId.trim() !== "" ? defaultTaskId : null;
 
       try {
-        await upsertUserSettings(timezone, normalizedDefaultTaskId);
+        await upsertUserSettings(
+          timezone,
+          normalizedDefaultTaskId,
+          pomodoroWorkMinutes,
+          pomodoroShortBreakMinutes,
+          pomodoroLongBreakMinutes,
+          pomodoroLongBreakEvery,
+        );
 
         setIsError(false);
         setMessage("Settings saved.");
@@ -63,6 +94,10 @@ export function SettingsForm({
           console.log("[settings] verification expected", {
             timezone,
             default_task_id: normalizedDefaultTaskId,
+            pomodoro_work_minutes: pomodoroWorkMinutes,
+            pomodoro_short_break_minutes: pomodoroShortBreakMinutes,
+            pomodoro_long_break_minutes: pomodoroLongBreakMinutes,
+            pomodoro_long_break_every: pomodoroLongBreakEvery,
           });
           if (result.success) {
             console.log("[settings] verification saved", result.data);
@@ -72,7 +107,11 @@ export function SettingsForm({
             const saved = result.data;
             const settingsMatch =
               saved.timezone === timezone
-              && saved.default_task_id === normalizedDefaultTaskId;
+              && saved.default_task_id === normalizedDefaultTaskId
+              && saved.pomodoro_work_minutes === pomodoroWorkMinutes
+              && saved.pomodoro_short_break_minutes === pomodoroShortBreakMinutes
+              && saved.pomodoro_long_break_minutes === pomodoroLongBreakMinutes
+              && saved.pomodoro_long_break_every === pomodoroLongBreakEvery;
 
             if (settingsMatch) {
               setIsError(false);
@@ -136,6 +175,88 @@ export function SettingsForm({
         {tasks.length === 0 ? (
           <p className="text-xs text-muted-foreground">Create a task to set a default.</p>
         ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground">Pomodoro durations</p>
+        <p className="text-xs text-muted-foreground">
+          Examples: 25/5 for classic focus, 50/10 for deep work.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm text-foreground">
+            <span className="text-sm font-medium text-foreground">Work minutes</span>
+            <input
+              type="number"
+              min={WORK_MINUTES_RANGE.min}
+              max={WORK_MINUTES_RANGE.max}
+              step={1}
+              value={pomodoroWorkMinutes}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                setPomodoroWorkMinutes(Number.isFinite(next) ? next : 0);
+              }}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+              disabled={isPending}
+              required
+            />
+          </label>
+          <label className="space-y-1 text-sm text-foreground">
+            <span className="text-sm font-medium text-foreground">Short break minutes</span>
+            <input
+              type="number"
+              min={SHORT_BREAK_RANGE.min}
+              max={SHORT_BREAK_RANGE.max}
+              step={1}
+              value={pomodoroShortBreakMinutes}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                setPomodoroShortBreakMinutes(Number.isFinite(next) ? next : 0);
+              }}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+              disabled={isPending}
+              required
+            />
+          </label>
+          <label className="space-y-1 text-sm text-foreground">
+            <span className="text-sm font-medium text-foreground">Long break minutes</span>
+            <input
+              type="number"
+              min={LONG_BREAK_RANGE.min}
+              max={LONG_BREAK_RANGE.max}
+              step={1}
+              value={pomodoroLongBreakMinutes}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                setPomodoroLongBreakMinutes(Number.isFinite(next) ? next : 0);
+              }}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+              disabled={isPending}
+              required
+            />
+          </label>
+          <label className="space-y-1 text-sm text-foreground">
+            <span className="text-sm font-medium text-foreground">
+              Long break every
+            </span>
+            <input
+              type="number"
+              min={LONG_BREAK_EVERY_RANGE.min}
+              max={LONG_BREAK_EVERY_RANGE.max}
+              step={1}
+              value={pomodoroLongBreakEvery}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                setPomodoroLongBreakEvery(Number.isFinite(next) ? next : 0);
+              }}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+              disabled={isPending}
+              required
+            />
+          </label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Long break every = number of work sessions before a long break.
+        </p>
       </div>
 
       {message ? (
