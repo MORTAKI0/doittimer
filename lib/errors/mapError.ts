@@ -75,6 +75,11 @@ function extractCode(err: unknown): string | null {
   return null;
 }
 
+function extractDigest(err: unknown): string | null {
+  if (isObject(err) && typeof err.digest === "string") return err.digest;
+  return null;
+}
+
 function extractStatus(err: unknown): number | null {
   if (isObject(err) && typeof err.status === "number" && Number.isFinite(err.status)) {
     return err.status;
@@ -167,6 +172,21 @@ function mapSupabaseError(err: SupabaseErrorLike): AppError {
 
 export function mapError(input: unknown): AppError {
   const err = unwrapError(input);
+  const digest = extractDigest(err);
+  const message = extractMessage(err);
+
+  if (digest === "DYNAMIC_SERVER_USAGE" || message?.startsWith("Dynamic server usage:")) {
+    return {
+      code: "next_dynamic_server_usage",
+      message: "This request requires dynamic rendering.",
+      severity: "info",
+      retryable: false,
+      meta: compactMeta({
+        digest,
+        rawMessage: message,
+      }),
+    };
+  }
 
   if (hasMessageMatch(err, NETWORK_PATTERNS)) {
     return {

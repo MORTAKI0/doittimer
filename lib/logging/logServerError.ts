@@ -19,6 +19,10 @@ export function logServerError({
 }: LogServerErrorInput) {
   const mapped = mapError(error);
 
+  if (mapped.code === "next_dynamic_server_usage") {
+    return;
+  }
+
   console.error({
     prefix: LOG_PREFIX,
     scope,
