@@ -6,6 +6,9 @@ import { getTheme } from "@/app/actions/theme";
 import { getUser } from "@/lib/auth/get-user";
 import { NavLinks } from "./NavLinks";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AppLayout({
   children,
 }: {

@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { taskIdSchema } from "@/lib/validation/task.schema";
+import { logServerError } from "@/lib/logging/logServerError";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -61,11 +62,14 @@ async function rpcUpsertWithRetry(
 
       if (error) {
         loggedAttemptError = true;
-        console.error("[settings] rpc attempt error", {
+        logServerError({
+          scope: "actions.settings.rpcUpsertWithRetry",
           reqId,
-          attempt,
-          message: error.message,
-          code: error.code ?? null,
+          error,
+          context: {
+            attempt,
+            rpc: "upsert_user_settings",
+          },
         });
         throw new Error(error.message);
       }
@@ -80,10 +84,14 @@ async function rpcUpsertWithRetry(
       return;
     } catch (err) {
       if (!loggedAttemptError) {
-        console.error("[settings] rpc attempt error", {
+        logServerError({
+          scope: "actions.settings.rpcUpsertWithRetry",
           reqId,
-          attempt,
-          message: err instanceof Error ? err.message : String(err),
+          error: err,
+          context: {
+            attempt,
+            rpc: "upsert_user_settings",
+          },
         });
       }
       const attemptEndMs = Date.now();
@@ -129,7 +137,13 @@ export async function getUserSettings(): Promise<ActionResult<UserSettings>> {
     const { data, error } = await supabase.rpc("get_user_settings");
 
     if (error) {
-      console.error("get_user_settings rpc failed", error);
+      logServerError({
+        scope: "actions.settings.getUserSettings",
+        error,
+        context: {
+          rpc: "get_user_settings",
+        },
+      });
       return { success: false, error: "Unable to load settings." };
     }
 
@@ -141,7 +155,10 @@ export async function getUserSettings(): Promise<ActionResult<UserSettings>> {
 
     return { success: true, data: settings };
   } catch (error) {
-    console.error("get_user_settings failed", error);
+    logServerError({
+      scope: "actions.settings.getUserSettings",
+      error,
+    });
     return { success: false, error: "Network error. Check your connection and try again." };
   }
 }
@@ -207,9 +224,14 @@ export async function upsertUserSettings(
     });
     console.log("[settings] rpc returned", { reqId, ok: true });
   } catch (err) {
-    console.error("[settings] rpc threw", {
+    logServerError({
+      scope: "actions.settings.upsertUserSettings",
       reqId,
-      message: err instanceof Error ? err.message : String(err),
+      userId: userData.user.id,
+      error: err,
+      context: {
+        rpc: "upsert_user_settings",
+      },
     });
     throw err;
   } finally {

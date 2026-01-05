@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { sessionIdSchema } from "@/lib/validation/session.schema";
 import { taskIdSchema } from "@/lib/validation/task.schema";
+import { logServerError } from "@/lib/logging/logServerError";
 
 export type SessionRow = {
   id: string;
@@ -64,6 +65,7 @@ export async function startSession(taskId?: string | null): Promise<ActionResult
   }
 
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
@@ -71,10 +73,17 @@ export async function startSession(taskId?: string | null): Promise<ActionResult
       return { success: false, error: "Tu dois etre connecte." };
     }
 
+    userId = userData.user.id;
+
     const { data: activeData, error: activeError } = await supabase.rpc("get_active_session");
 
     if (activeError) {
-      console.error("get_active_session rpc failed", activeError);
+      logServerError({
+        scope: "actions.sessions.startSession",
+        userId,
+        error: activeError,
+        context: { rpc: "get_active_session" },
+      });
       return {
         success: false,
         error: "Impossible de verifier la session active.",
@@ -99,7 +108,12 @@ export async function startSession(taskId?: string | null): Promise<ActionResult
       ) {
         return { success: false, error: ACTIVE_SESSION_ERROR };
       }
-      console.error("start_session rpc failed", error);
+      logServerError({
+        scope: "actions.sessions.startSession",
+        userId,
+        error,
+        context: { rpc: "start_session" },
+      });
       return {
         success: false,
         error: "Impossible de demarrer la session.",
@@ -115,7 +129,11 @@ export async function startSession(taskId?: string | null): Promise<ActionResult
     revalidatePath("/focus");
 
     return { success: true, data: session };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.sessions.startSession",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
@@ -134,6 +152,7 @@ export async function stopSession(sessionId: string): Promise<ActionResult<Sessi
   }
 
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
@@ -141,12 +160,19 @@ export async function stopSession(sessionId: string): Promise<ActionResult<Sessi
       return { success: false, error: "Tu dois etre connecte." };
     }
 
+    userId = userData.user.id;
+
     const { data, error } = await supabase.rpc("stop_session", {
       p_session_id: parsedId.data,
     });
 
     if (error) {
-      console.error("stop_session rpc failed", error);
+      logServerError({
+        scope: "actions.sessions.stopSession",
+        userId,
+        error,
+        context: { rpc: "stop_session" },
+      });
       return {
         success: false,
         error: "Impossible d'arreter la session.",
@@ -162,7 +188,11 @@ export async function stopSession(sessionId: string): Promise<ActionResult<Sessi
     revalidatePath("/focus");
 
     return { success: true, data: session };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.sessions.stopSession",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
@@ -172,6 +202,7 @@ export async function stopSession(sessionId: string): Promise<ActionResult<Sessi
 
 export async function getActiveSession(): Promise<ActionResult<SessionRow | null>> {
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
@@ -179,10 +210,17 @@ export async function getActiveSession(): Promise<ActionResult<SessionRow | null
       return { success: false, error: "Tu dois etre connecte." };
     }
 
+    userId = userData.user.id;
+
     const { data, error } = await supabase.rpc("get_active_session");
 
     if (error) {
-      console.error("get_active_session rpc failed", error);
+      logServerError({
+        scope: "actions.sessions.getActiveSession",
+        userId,
+        error,
+        context: { rpc: "get_active_session" },
+      });
       return { success: false, error: "Impossible de charger la session active." };
     }
 
@@ -190,7 +228,11 @@ export async function getActiveSession(): Promise<ActionResult<SessionRow | null
     const session = normalizeActiveSession(data);
 
     return { success: true, data: session ?? null };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.sessions.getActiveSession",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
@@ -200,6 +242,7 @@ export async function getActiveSession(): Promise<ActionResult<SessionRow | null
 
 export async function getTodaySessions(): Promise<ActionResult<SessionRow[]>> {
   try {
+    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
@@ -207,17 +250,28 @@ export async function getTodaySessions(): Promise<ActionResult<SessionRow[]>> {
       return { success: false, error: "Tu dois etre connecte." };
     }
 
+    userId = userData.user.id;
+
     const { data, error } = await supabase.rpc("get_today_sessions");
 
     if (error) {
-      console.error("get_today_sessions rpc failed", error);
+      logServerError({
+        scope: "actions.sessions.getTodaySessions",
+        userId,
+        error,
+        context: { rpc: "get_today_sessions" },
+      });
       return { success: false, error: "Impossible de charger les sessions du jour." };
     }
 
     const sessions = normalizeRpcList<SessionRow>(data);
 
     return { success: true, data: sessions };
-  } catch {
+  } catch (error) {
+    logServerError({
+      scope: "actions.sessions.getTodaySessions",
+      error,
+    });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
