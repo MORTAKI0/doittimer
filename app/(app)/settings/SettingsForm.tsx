@@ -30,10 +30,10 @@ const TIMEZONE_OPTIONS = [
   "Asia/Dubai",
   "Asia/Tokyo",
 ];
-const WORK_MINUTES_RANGE = { min: 15, max: 120 };
-const SHORT_BREAK_RANGE = { min: 5, max: 30 };
-const LONG_BREAK_RANGE = { min: 10, max: 60 };
-const LONG_BREAK_EVERY_RANGE = { min: 2, max: 10 };
+const WORK_MINUTES_RANGE = { min: 1, max: 240 };
+const SHORT_BREAK_RANGE = { min: 1, max: 60 };
+const LONG_BREAK_RANGE = { min: 1, max: 120 };
+const LONG_BREAK_EVERY_RANGE = { min: 1, max: 12 };
 
 export function SettingsForm({
   initialTimezone,

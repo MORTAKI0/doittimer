@@ -21,10 +21,10 @@ export type UserSettings = {
 
 const timezoneSchema = z.string().min(1);
 const defaultTaskSchema = taskIdSchema.nullable().optional();
-const pomodoroWorkSchema = z.coerce.number().int().min(15).max(120);
-const pomodoroShortBreakSchema = z.coerce.number().int().min(5).max(30);
-const pomodoroLongBreakSchema = z.coerce.number().int().min(10).max(60);
-const pomodoroLongBreakEverySchema = z.coerce.number().int().min(2).max(10);
+const pomodoroWorkSchema = z.coerce.number().int().min(1).max(240);
+const pomodoroShortBreakSchema = z.coerce.number().int().min(1).max(60);
+const pomodoroLongBreakSchema = z.coerce.number().int().min(1).max(120);
+const pomodoroLongBreakEverySchema = z.coerce.number().int().min(1).max(12);
 
 const DEFAULT_POMODORO_SETTINGS = {
   pomodoro_work_minutes: 25,

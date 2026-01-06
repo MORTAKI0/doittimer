@@ -9,6 +9,8 @@ import {
   toggleTaskCompletion,
   updateTaskTitle,
   updateTaskProject,
+  updateTaskPomodoroOverrides,
+  TaskPomodoroOverrides,
   TaskRow,
 } from "@/app/actions/tasks";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,7 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible de creer la tache. Reessaie.": "Unable to create task. Try again.",
   "Impossible de mettre a jour la tache.": "Unable to update the task.",
   "Impossible de supprimer la tache.": "Unable to delete the task.",
+  "Parametres pomodoro invalides.": "Invalid pomodoro settings.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
 };
 
@@ -45,6 +48,11 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftTitle, setDraftTitle] = React.useState("");
   const [draftProjectId, setDraftProjectId] = React.useState("");
+  const [useCustomPomodoro, setUseCustomPomodoro] = React.useState(false);
+  const [draftPomodoroWork, setDraftPomodoroWork] = React.useState("");
+  const [draftPomodoroShort, setDraftPomodoroShort] = React.useState("");
+  const [draftPomodoroLong, setDraftPomodoroLong] = React.useState("");
+  const [draftPomodoroEvery, setDraftPomodoroEvery] = React.useState("");
   const [pendingIds, setPendingIds] = React.useState<Record<string, boolean>>({});
   const [errorsById, setErrorsById] = React.useState<Record<string, string | null>>(
     {},
@@ -75,9 +83,34 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
   }
 
   function startEditing(task: TaskRow) {
+    const hasOverrides = [
+      task.pomodoro_work_minutes,
+      task.pomodoro_short_break_minutes,
+      task.pomodoro_long_break_minutes,
+      task.pomodoro_long_break_every,
+    ].some((value) => value != null);
     setEditingId(task.id);
     setDraftTitle(task.title);
     setDraftProjectId(task.project_id ?? "");
+    setUseCustomPomodoro(hasOverrides);
+    setDraftPomodoroWork(
+      typeof task.pomodoro_work_minutes === "number" ? String(task.pomodoro_work_minutes) : "",
+    );
+    setDraftPomodoroShort(
+      typeof task.pomodoro_short_break_minutes === "number"
+        ? String(task.pomodoro_short_break_minutes)
+        : "",
+    );
+    setDraftPomodoroLong(
+      typeof task.pomodoro_long_break_minutes === "number"
+        ? String(task.pomodoro_long_break_minutes)
+        : "",
+    );
+    setDraftPomodoroEvery(
+      typeof task.pomodoro_long_break_every === "number"
+        ? String(task.pomodoro_long_break_every)
+        : "",
+    );
     setError(task.id, null);
   }
 
@@ -88,6 +121,18 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
     setEditingId(null);
     setDraftTitle("");
     setDraftProjectId("");
+    setUseCustomPomodoro(false);
+    setDraftPomodoroWork("");
+    setDraftPomodoroShort("");
+    setDraftPomodoroLong("");
+    setDraftPomodoroEvery("");
+  }
+
+  function parseDraftNumber(value: string): number | null {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   async function handleToggle(task: TaskRow) {
@@ -119,6 +164,32 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
     setPending(task.id, false);
   }
 
+  async function handleResetPomodoro(task: TaskRow) {
+    if (pendingIds[task.id]) return;
+
+    setPending(task.id, true);
+    setError(task.id, null);
+
+    const result = await updateTaskPomodoroOverrides(task.id, null);
+
+    if (!result.success) {
+      setError(task.id, toEnglishError(result.error));
+      setPending(task.id, false);
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) => (item.id === task.id ? result.data : item)),
+    );
+    setUseCustomPomodoro(false);
+    setDraftPomodoroWork("");
+    setDraftPomodoroShort("");
+    setDraftPomodoroLong("");
+    setDraftPomodoroEvery("");
+    setPending(task.id, false);
+    router.refresh();
+  }
+
   async function handleSave(task: TaskRow) {
     if (pendingIds[task.id]) return;
     const trimmedTitle = draftTitle.trim();
@@ -135,6 +206,30 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
 
     const titleChanged = trimmedTitle !== task.title;
     const projectChanged = normalizedProjectId !== (task.project_id ?? null);
+    const currentOverrides: TaskPomodoroOverrides = {
+      workMinutes: task.pomodoro_work_minutes ?? null,
+      shortBreakMinutes: task.pomodoro_short_break_minutes ?? null,
+      longBreakMinutes: task.pomodoro_long_break_minutes ?? null,
+      longBreakEvery: task.pomodoro_long_break_every ?? null,
+    };
+    const nextOverrides: TaskPomodoroOverrides = useCustomPomodoro
+      ? {
+        workMinutes: parseDraftNumber(draftPomodoroWork),
+        shortBreakMinutes: parseDraftNumber(draftPomodoroShort),
+        longBreakMinutes: parseDraftNumber(draftPomodoroLong),
+        longBreakEvery: parseDraftNumber(draftPomodoroEvery),
+      }
+      : {
+        workMinutes: null,
+        shortBreakMinutes: null,
+        longBreakMinutes: null,
+        longBreakEvery: null,
+      };
+    const overridesChanged =
+      currentOverrides.workMinutes !== nextOverrides.workMinutes
+      || currentOverrides.shortBreakMinutes !== nextOverrides.shortBreakMinutes
+      || currentOverrides.longBreakMinutes !== nextOverrides.longBreakMinutes
+      || currentOverrides.longBreakEvery !== nextOverrides.longBreakEvery;
 
     if (titleChanged) {
       const result = await updateTaskTitle(task.id, trimmedTitle);
@@ -150,6 +245,21 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
 
     if (projectChanged) {
       const result = await updateTaskProject(task.id, normalizedProjectId);
+
+      if (!result.success) {
+        setError(task.id, toEnglishError(result.error));
+        setPending(task.id, false);
+        return;
+      }
+
+      updated = result.data;
+    }
+
+    if (overridesChanged) {
+      const result = await updateTaskPomodoroOverrides(
+        task.id,
+        useCustomPomodoro ? nextOverrides : null,
+      );
 
       if (!result.success) {
         setError(task.id, toEnglishError(result.error));
@@ -271,6 +381,104 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
                             </option>
                           ))}
                         </select>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Pomodoro
+                          </p>
+                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              checked={useCustomPomodoro}
+                              onChange={(event) => setUseCustomPomodoro(event.target.checked)}
+                              disabled={isPending}
+                              className="h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+                              data-testid="task-pomodoro-toggle"
+                            />
+                            Use custom Pomodoro
+                          </label>
+                        </div>
+                        {useCustomPomodoro ? (
+                          <div className="space-y-2">
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <label className="space-y-1 text-xs text-muted-foreground">
+                                <span className="text-xs font-semibold uppercase tracking-wide">
+                                  Work minutes
+                                </span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={240}
+                                  step={1}
+                                  value={draftPomodoroWork}
+                                  onChange={(event) => setDraftPomodoroWork(event.target.value)}
+                                  disabled={isPending}
+                                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                  data-testid="task-pomodoro-work"
+                                />
+                              </label>
+                              <label className="space-y-1 text-xs text-muted-foreground">
+                                <span className="text-xs font-semibold uppercase tracking-wide">
+                                  Short break
+                                </span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={60}
+                                  step={1}
+                                  value={draftPomodoroShort}
+                                  onChange={(event) => setDraftPomodoroShort(event.target.value)}
+                                  disabled={isPending}
+                                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                  data-testid="task-pomodoro-short"
+                                />
+                              </label>
+                              <label className="space-y-1 text-xs text-muted-foreground">
+                                <span className="text-xs font-semibold uppercase tracking-wide">
+                                  Long break
+                                </span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={120}
+                                  step={1}
+                                  value={draftPomodoroLong}
+                                  onChange={(event) => setDraftPomodoroLong(event.target.value)}
+                                  disabled={isPending}
+                                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                  data-testid="task-pomodoro-long"
+                                />
+                              </label>
+                              <label className="space-y-1 text-xs text-muted-foreground">
+                                <span className="text-xs font-semibold uppercase tracking-wide">
+                                  Long break every
+                                </span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={12}
+                                  step={1}
+                                  value={draftPomodoroEvery}
+                                  onChange={(event) => setDraftPomodoroEvery(event.target.value)}
+                                  disabled={isPending}
+                                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                  data-testid="task-pomodoro-every"
+                                />
+                              </label>
+                            </div>
+                            <Button
+                              size="sm"
+                              type="button"
+                              variant="secondary"
+                              onClick={() => handleResetPomodoro(task)}
+                              disabled={isPending}
+                              data-testid="task-pomodoro-reset"
+                            >
+                              Reset to defaults
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button

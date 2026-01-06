@@ -14,6 +14,12 @@ type FocusPanelProps = {
   todaySessions: SessionRow[];
   tasks: TaskRow[];
   defaultTaskId: string | null;
+  pomodoroDefaults: {
+    workMinutes: number;
+    shortBreakMinutes: number;
+    longBreakMinutes: number;
+    longBreakEvery: number;
+  };
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -54,6 +60,18 @@ function formatStartTime(value: string) {
   return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
+function resolveEffectivePomodoro(
+  task: TaskRow | null,
+  defaults: FocusPanelProps["pomodoroDefaults"],
+) {
+  return {
+    workMinutes: task?.pomodoro_work_minutes ?? defaults.workMinutes,
+    shortBreakMinutes: task?.pomodoro_short_break_minutes ?? defaults.shortBreakMinutes,
+    longBreakMinutes: task?.pomodoro_long_break_minutes ?? defaults.longBreakMinutes,
+    longBreakEvery: task?.pomodoro_long_break_every ?? defaults.longBreakEvery,
+  };
+}
+
 function parseTimestamptz(input: string) {
   let value = input.trim();
   if (value.includes(" ") && !value.includes("T")) {
@@ -80,6 +98,7 @@ export function FocusPanel({
   todaySessions,
   tasks,
   defaultTaskId,
+  pomodoroDefaults,
 }: FocusPanelProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = React.useState(false);
@@ -100,6 +119,12 @@ export function FocusPanel({
     ? "Invalid start time. Refresh the page."
     : null;
   const isRunning = isActiveSessionValid;
+  const effectiveTaskId = activeSession?.task_id ?? selectedTaskId;
+  const effectiveTask = effectiveTaskId
+    ? tasks.find((task) => task.id === effectiveTaskId) ?? null
+    : null;
+  const effectivePomodoro = resolveEffectivePomodoro(effectiveTask, pomodoroDefaults);
+  const remainingSeconds = Math.max(0, effectivePomodoro.workMinutes * 60 - elapsedSeconds);
 
   React.useEffect(() => {
     if (hasActiveSession || hasManualSelection || !defaultTaskId) return;
@@ -179,6 +204,11 @@ export function FocusPanel({
         </div>
         <p className="text-4xl font-semibold text-foreground">
           {isActiveSessionValid ? formatElapsed(elapsedSeconds) : "00m"}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {isRunning
+            ? `Work remaining: ${formatElapsed(remainingSeconds)}`
+            : `Work duration: ${effectivePomodoro.workMinutes}m`}
         </p>
         {activeTaskLabel ? (
           <p className="text-sm text-muted-foreground">Task: {activeTaskLabel}</p>
