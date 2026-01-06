@@ -1,3 +1,4 @@
+//file: app/(app)/tasks/components/CreateTaskForm.tsx
 "use client";
 
 import * as React from "react";
@@ -11,6 +12,7 @@ const ERROR_MAP: Record<string, string> = {
   "Le titre est requis.": "Title is required.",
   "Le titre est trop long.": "Title is too long.",
   "Titre invalide.": "Invalid title.",
+  "Identifiant invalide.": "Invalid identifier.",
   "Tu dois etre connecte.": "You must be signed in.",
   "Impossible de creer la tache. Reessaie.": "Unable to create task. Try again.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
@@ -20,9 +22,19 @@ function toEnglishError(message: string) {
   return ERROR_MAP[message] ?? message;
 }
 
-export function CreateTaskForm() {
+type ProjectOption = {
+  id: string;
+  name: string;
+};
+
+type CreateTaskFormProps = {
+  projects?: ProjectOption[];
+};
+
+export function CreateTaskForm({ projects = [] }: CreateTaskFormProps) {
   const router = useRouter();
   const [title, setTitle] = React.useState("");
+  const [projectId, setProjectId] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [isPending, startTransition] = React.useTransition();
 
@@ -36,7 +48,8 @@ export function CreateTaskForm() {
     setError(null);
 
     startTransition(async () => {
-      const result = await createTask(trimmedTitle);
+      const normalizedProjectId = projectId.trim() !== "" ? projectId : null;
+      const result = await createTask(trimmedTitle, normalizedProjectId);
 
       if (!result.success) {
         setError(toEnglishError(result.error));
@@ -44,6 +57,7 @@ export function CreateTaskForm() {
       }
 
       setTitle("");
+      setProjectId("");
       router.refresh();
     });
   }
@@ -71,6 +85,29 @@ export function CreateTaskForm() {
           aria-invalid={Boolean(error)}
           aria-describedby={error ? "task-title-error" : undefined}
         />
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground" htmlFor="task-project">
+          Project
+        </label>
+        <select
+          id="task-project"
+          name="project"
+          value={projectId}
+          onChange={(event) => setProjectId(event.target.value)}
+          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isPending || projects.length === 0}
+        >
+          <option value="">No project</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+        {projects.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Create a project to assign tasks.</p>
+        ) : null}
       </div>
 
       {error ? (

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { projectIdSchema } from "./project.schema";
 
 export const taskTitleSchema = z
   .string()
@@ -7,5 +8,6 @@ export const taskTitleSchema = z
   .max(500, "Le titre est trop long.");
 
 export const taskIdSchema = z.string().uuid("Identifiant invalide.");
+export const taskProjectIdSchema = projectIdSchema.nullable().optional();
 
 export type TaskTitleInput = z.infer<typeof taskTitleSchema>;

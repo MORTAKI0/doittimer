@@ -1,3 +1,4 @@
+//file: app/(app)/tasks/components/TaskList.tsx
 "use client";
 
 import * as React from "react";
@@ -7,15 +8,18 @@ import {
   deleteTask,
   toggleTaskCompletion,
   updateTaskTitle,
+  updateTaskProject,
   TaskRow,
 } from "@/app/actions/tasks";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/icon-button";
 import { IconPencil, IconTrash } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 
 type TaskListProps = {
   tasks: TaskRow[];
+  projects?: { id: string; name: string }[];
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -35,19 +39,32 @@ function toEnglishError(message: string) {
   return ERROR_MAP[message] ?? message;
 }
 
-export function TaskList({ tasks }: TaskListProps) {
+export function TaskList({ tasks, projects = [] }: TaskListProps) {
   const router = useRouter();
   const [items, setItems] = React.useState<TaskRow[]>(tasks);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftTitle, setDraftTitle] = React.useState("");
+  const [draftProjectId, setDraftProjectId] = React.useState("");
   const [pendingIds, setPendingIds] = React.useState<Record<string, boolean>>({});
   const [errorsById, setErrorsById] = React.useState<Record<string, string | null>>(
     {},
   );
+  const [projectFilter, setProjectFilter] = React.useState<string>("all");
+
+  const projectIds = React.useMemo(() => {
+    return new Set(projects.map((project) => project.id));
+  }, [projects]);
 
   React.useEffect(() => {
     setItems(tasks);
   }, [tasks]);
+
+  React.useEffect(() => {
+    if (projectFilter === "all" || projectFilter === "none") return;
+    if (projectFilter && !projectIds.has(projectFilter)) {
+      setProjectFilter("all");
+    }
+  }, [projectFilter, projectIds]);
 
   function setPending(id: string, value: boolean) {
     setPendingIds((prev) => ({ ...prev, [id]: value }));
@@ -60,6 +77,7 @@ export function TaskList({ tasks }: TaskListProps) {
   function startEditing(task: TaskRow) {
     setEditingId(task.id);
     setDraftTitle(task.title);
+    setDraftProjectId(task.project_id ?? "");
     setError(task.id, null);
   }
 
@@ -69,6 +87,7 @@ export function TaskList({ tasks }: TaskListProps) {
     }
     setEditingId(null);
     setDraftTitle("");
+    setDraftProjectId("");
   }
 
   async function handleToggle(task: TaskRow) {
@@ -103,36 +122,50 @@ export function TaskList({ tasks }: TaskListProps) {
   async function handleSave(task: TaskRow) {
     if (pendingIds[task.id]) return;
     const trimmedTitle = draftTitle.trim();
+    const normalizedProjectId = draftProjectId.trim() !== "" ? draftProjectId : null;
 
     if (!trimmedTitle) {
       setError(task.id, "Title is required.");
       return;
     }
 
-    const previousTitle = task.title;
     setPending(task.id, true);
     setError(task.id, null);
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === task.id ? { ...item, title: trimmedTitle } : item,
-      ),
-    );
+    let updated = task;
 
-    const result = await updateTaskTitle(task.id, trimmedTitle);
+    const titleChanged = trimmedTitle !== task.title;
+    const projectChanged = normalizedProjectId !== (task.project_id ?? null);
 
-    if (!result.success) {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === task.id ? { ...item, title: previousTitle } : item,
-        ),
-      );
-      setError(task.id, toEnglishError(result.error));
-    } else {
-      cancelEditing();
-      router.refresh();
+    if (titleChanged) {
+      const result = await updateTaskTitle(task.id, trimmedTitle);
+
+      if (!result.success) {
+        setError(task.id, toEnglishError(result.error));
+        setPending(task.id, false);
+        return;
+      }
+
+      updated = result.data;
     }
 
+    if (projectChanged) {
+      const result = await updateTaskProject(task.id, normalizedProjectId);
+
+      if (!result.success) {
+        setError(task.id, toEnglishError(result.error));
+        setPending(task.id, false);
+        return;
+      }
+
+      updated = result.data;
+    }
+
+    setItems((prev) =>
+      prev.map((item) => (item.id === task.id ? updated : item)),
+    );
+    cancelEditing();
     setPending(task.id, false);
+    router.refresh();
   }
 
   async function handleDelete(task: TaskRow) {
@@ -156,16 +189,49 @@ export function TaskList({ tasks }: TaskListProps) {
     setPending(task.id, false);
   }
 
+  const projectLabelById = React.useMemo(() => {
+    const entries = (projects ?? []).map((project) => [project.id, project.name] as const);
+    return new Map(entries);
+  }, [projects]);
+
+  const filteredItems = items.filter((task) => {
+    if (projectFilter === "all") return true;
+    if (projectFilter === "none") return task.project_id == null;
+    return task.project_id === projectFilter;
+  });
+
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Your tasks
       </h2>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Filter by project
+        </label>
+        <select
+          data-testid="projects-filter"
+          value={projectFilter}
+          onChange={(event) => setProjectFilter(event.target.value)}
+          className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+        >
+          <option value="all">All projects</option>
+          <option value="none">No project</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {items.map((task) => {
+        {filteredItems.map((task) => {
           const isEditing = editingId === task.id;
           const isPending = Boolean(pendingIds[task.id]);
           const errorMessage = errorsById[task.id];
+          const projectLabel = task.project_id
+            ? projectLabelById.get(task.project_id) ?? "Project archived"
+            : null;
 
           return (
             <li key={task.id} className="px-4 py-3 hover:bg-muted">
@@ -188,6 +254,24 @@ export function TaskList({ tasks }: TaskListProps) {
                         disabled={isPending}
                         aria-label="Edit task title"
                       />
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Project
+                        </label>
+                        <select
+                          value={draftProjectId}
+                          onChange={(event) => setDraftProjectId(event.target.value)}
+                          disabled={isPending}
+                          className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                        >
+                          <option value="">No project</option>
+                          {projects.map((project) => (
+                            <option key={project.id} value={project.id}>
+                              {project.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
@@ -209,18 +293,21 @@ export function TaskList({ tasks }: TaskListProps) {
                       </div>
                     </div>
                   ) : (
-                    <span
-                      className={[
-                        "text-sm",
-                        task.completed
-                          ? "text-muted-foreground line-through"
-                          : "text-foreground",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                    >
-                      {task.title}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={[
+                          "text-sm",
+                          task.completed
+                            ? "text-muted-foreground line-through"
+                            : "text-foreground",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        {task.title}
+                      </span>
+                      {projectLabel ? <Badge variant="neutral">{projectLabel}</Badge> : null}
+                    </div>
                   )}
                 </div>
                 {!isEditing ? (
