@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { sessionIdSchema } from "@/lib/validation/session.schema";
+import { normalizeMusicUrl, sessionIdSchema } from "@/lib/validation/session.schema";
 import { taskIdSchema } from "@/lib/validation/task.schema";
 import { logServerError } from "@/lib/logging/logServerError";
 
@@ -12,6 +12,7 @@ export type SessionRow = {
   user_id: string;
   task_id: string | null;
   task_title?: string | null;
+  music_url?: string | null;
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
@@ -54,14 +55,22 @@ function logRpcDataShape(name: string, data: unknown) {
   });
 }
 
-export async function startSession(taskId?: string | null): Promise<ActionResult<SessionRow>> {
+export async function startSession(
+  taskId?: string | null,
+  musicUrl?: string | null,
+): Promise<ActionResult<SessionRow>> {
   const parsedTaskId = sessionTaskIdSchema.safeParse(taskId ?? null);
+  const normalizedMusicUrl = normalizeMusicUrl(musicUrl);
 
   if (!parsedTaskId.success) {
     return {
       success: false,
       error: parsedTaskId.error.issues[0]?.message ?? "Identifiant invalide.",
     };
+  }
+
+  if (normalizedMusicUrl.error) {
+    return { success: false, error: normalizedMusicUrl.error };
   }
 
   try {
@@ -120,10 +129,31 @@ export async function startSession(taskId?: string | null): Promise<ActionResult
       };
     }
 
-    const session = normalizeRpcRow<SessionRow>(data);
+    let session = normalizeRpcRow<SessionRow>(data);
 
     if (!session) {
       return { success: false, error: "Impossible de demarrer la session." };
+    }
+
+    if (normalizedMusicUrl.value) {
+      const { error: updateError } = await supabase
+        .from("sessions")
+        .update({ music_url: normalizedMusicUrl.value })
+        .eq("id", session.id)
+        .eq("user_id", userData.user.id)
+        .select("music_url")
+        .single();
+
+      if (updateError) {
+        logServerError({
+          scope: "actions.sessions.startSession",
+          userId,
+          error: updateError,
+          context: { action: "update_music_url" },
+        });
+      } else {
+        session = { ...session, music_url: normalizedMusicUrl.value };
+      }
     }
 
     revalidatePath("/focus");
