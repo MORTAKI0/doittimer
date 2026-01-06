@@ -15,7 +15,14 @@ export default async function SettingsPage() {
   ]);
   const settings = settingsResult.success
     ? settingsResult.data
-    : { timezone: "Africa/Casablanca", default_task_id: null };
+    : {
+      timezone: "Africa/Casablanca",
+      default_task_id: null,
+      pomodoro_work_minutes: 25,
+      pomodoro_short_break_minutes: 5,
+      pomodoro_long_break_minutes: 15,
+      pomodoro_long_break_every: 4,
+    };
   const settingsError = settingsResult.success ? null : settingsResult.error;
   const tasks = tasksResult.success ? tasksResult.data : [];
 
@@ -60,6 +67,10 @@ export default async function SettingsPage() {
           <SettingsForm
             initialTimezone={settings.timezone}
             initialDefaultTaskId={settings.default_task_id}
+            initialPomodoroWorkMinutes={settings.pomodoro_work_minutes}
+            initialPomodoroShortBreakMinutes={settings.pomodoro_short_break_minutes}
+            initialPomodoroLongBreakMinutes={settings.pomodoro_long_break_minutes}
+            initialPomodoroLongBreakEvery={settings.pomodoro_long_break_every}
             tasks={tasks}
           />
         </div>

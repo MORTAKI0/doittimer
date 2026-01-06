@@ -1,7 +1,9 @@
 import { CreateTaskForm } from "./components/CreateTaskForm";
 import { EmptyState } from "./components/EmptyState";
+import { ProjectsPanel } from "./components/ProjectsPanel";
 import { TaskList } from "./components/TaskList";
 import { getTasks } from "@/app/actions/tasks";
+import { getProjects } from "@/app/actions/projects";
 import { Card } from "@/components/ui/card";
 
 const ERROR_MAP: Record<string, string> = {
@@ -16,9 +18,15 @@ function toEnglishError(message: string | null) {
 }
 
 export default async function TasksPage() {
-  const tasksResult = await getTasks();
+  const [tasksResult, projectsResult] = await Promise.all([
+    getTasks(),
+    getProjects({ includeArchived: true }),
+  ]);
   const tasks = tasksResult.success ? tasksResult.data : [];
   const listError = tasksResult.success ? null : toEnglishError(tasksResult.error);
+  const projects = projectsResult.success ? projectsResult.data : [];
+  const projectsError = projectsResult.success ? null : projectsResult.error;
+  const activeProjects = projects.filter((project) => !project.archived_at);
 
   return (
     <div className="space-y-6">
@@ -31,20 +39,26 @@ export default async function TasksPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
         <Card className="p-6">
-          <CreateTaskForm />
+          <CreateTaskForm projects={activeProjects} />
         </Card>
         <Card className="p-6">
-          {listError ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {listError}
-            </p>
-          ) : tasks.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <TaskList tasks={tasks} />
-          )}
+          <div data-testid="tasks-list">
+            {listError ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {listError}
+              </p>
+            ) : tasks.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <TaskList tasks={tasks} projects={activeProjects} />
+            )}
+          </div>
         </Card>
       </div>
+
+      <Card className="p-6">
+        <ProjectsPanel initialProjects={projects} initialError={projectsError} />
+      </Card>
     </div>
   );
 }

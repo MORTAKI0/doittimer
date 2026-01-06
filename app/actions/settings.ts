@@ -13,10 +13,25 @@ type ActionResult<T> = { success: true; data: T } | { success: false; error: str
 export type UserSettings = {
   timezone: string;
   default_task_id: string | null;
+  pomodoro_work_minutes: number;
+  pomodoro_short_break_minutes: number;
+  pomodoro_long_break_minutes: number;
+  pomodoro_long_break_every: number;
 };
 
 const timezoneSchema = z.string().min(1);
 const defaultTaskSchema = taskIdSchema.nullable().optional();
+const pomodoroWorkSchema = z.coerce.number().int().min(1).max(240);
+const pomodoroShortBreakSchema = z.coerce.number().int().min(1).max(60);
+const pomodoroLongBreakSchema = z.coerce.number().int().min(1).max(120);
+const pomodoroLongBreakEverySchema = z.coerce.number().int().min(1).max(12);
+
+const DEFAULT_POMODORO_SETTINGS = {
+  pomodoro_work_minutes: 25,
+  pomodoro_short_break_minutes: 5,
+  pomodoro_long_break_minutes: 15,
+  pomodoro_long_break_every: 4,
+};
 
 function isTransientNetworkError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
@@ -31,7 +46,14 @@ function isTransientNetworkError(err: unknown): boolean {
 
 async function rpcUpsertWithRetry(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  args: { p_timezone: string; p_default_task_id: string | null },
+  args: {
+    p_timezone: string;
+    p_default_task_id: string | null;
+    p_pomodoro_work_minutes: number;
+    p_pomodoro_short_break_minutes: number;
+    p_pomodoro_long_break_minutes: number;
+    p_pomodoro_long_break_every: number;
+  },
   reqId: string,
 ): Promise<void> {
   for (let attempt = 1; attempt <= 2; attempt += 1) {
@@ -114,15 +136,37 @@ async function rpcUpsertWithRetry(
 function normalizeSettings(data: unknown): UserSettings | null {
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || typeof row !== "object") return null;
-  const record = row as { timezone?: unknown; default_task_id?: unknown };
+  const record = row as {
+    timezone?: unknown;
+    default_task_id?: unknown;
+    pomodoro_work_minutes?: unknown;
+    pomodoro_short_break_minutes?: unknown;
+    pomodoro_long_break_minutes?: unknown;
+    pomodoro_long_break_every?: unknown;
+  };
   const timezone = typeof record.timezone === "string" ? record.timezone : null;
   const defaultTaskId = typeof record.default_task_id === "string"
     ? record.default_task_id
     : null;
+  const pomodoroWorkMinutes = toInteger(record.pomodoro_work_minutes)
+    ?? DEFAULT_POMODORO_SETTINGS.pomodoro_work_minutes;
+  const pomodoroShortBreakMinutes = toInteger(record.pomodoro_short_break_minutes)
+    ?? DEFAULT_POMODORO_SETTINGS.pomodoro_short_break_minutes;
+  const pomodoroLongBreakMinutes = toInteger(record.pomodoro_long_break_minutes)
+    ?? DEFAULT_POMODORO_SETTINGS.pomodoro_long_break_minutes;
+  const pomodoroLongBreakEvery = toInteger(record.pomodoro_long_break_every)
+    ?? DEFAULT_POMODORO_SETTINGS.pomodoro_long_break_every;
 
   if (!timezone) return null;
 
-  return { timezone, default_task_id: defaultTaskId };
+  return {
+    timezone,
+    default_task_id: defaultTaskId,
+    pomodoro_work_minutes: pomodoroWorkMinutes,
+    pomodoro_short_break_minutes: pomodoroShortBreakMinutes,
+    pomodoro_long_break_minutes: pomodoroLongBreakMinutes,
+    pomodoro_long_break_every: pomodoroLongBreakEvery,
+  };
 }
 
 export async function getUserSettings(): Promise<ActionResult<UserSettings>> {
@@ -166,6 +210,10 @@ export async function getUserSettings(): Promise<ActionResult<UserSettings>> {
 export async function upsertUserSettings(
   timezone: string,
   defaultTaskId?: string | null,
+  pomodoroWorkMinutes = DEFAULT_POMODORO_SETTINGS.pomodoro_work_minutes,
+  pomodoroShortBreakMinutes = DEFAULT_POMODORO_SETTINGS.pomodoro_short_break_minutes,
+  pomodoroLongBreakMinutes = DEFAULT_POMODORO_SETTINGS.pomodoro_long_break_minutes,
+  pomodoroLongBreakEvery = DEFAULT_POMODORO_SETTINGS.pomodoro_long_break_every,
 ): Promise<void> {
   const reqId = typeof globalThis.crypto?.randomUUID === "function"
     ? globalThis.crypto.randomUUID().slice(0, 8)
@@ -173,8 +221,19 @@ export async function upsertUserSettings(
   const normalizedTimezone = (timezone ?? "").trim() || "Africa/Casablanca";
   const normalizedDefaultTaskId =
     defaultTaskId && defaultTaskId.trim() !== "" ? defaultTaskId : null;
+  const normalizedPomodoroWorkMinutes = pomodoroWorkMinutes;
+  const normalizedPomodoroShortBreakMinutes = pomodoroShortBreakMinutes;
+  const normalizedPomodoroLongBreakMinutes = pomodoroLongBreakMinutes;
+  const normalizedPomodoroLongBreakEvery = pomodoroLongBreakEvery;
   const parsedTimezone = timezoneSchema.safeParse(normalizedTimezone);
   const parsedDefaultTaskId = defaultTaskSchema.safeParse(normalizedDefaultTaskId);
+  const parsedPomodoroWorkMinutes = pomodoroWorkSchema.safeParse(normalizedPomodoroWorkMinutes);
+  const parsedPomodoroShortBreakMinutes =
+    pomodoroShortBreakSchema.safeParse(normalizedPomodoroShortBreakMinutes);
+  const parsedPomodoroLongBreakMinutes =
+    pomodoroLongBreakSchema.safeParse(normalizedPomodoroLongBreakMinutes);
+  const parsedPomodoroLongBreakEvery =
+    pomodoroLongBreakEverySchema.safeParse(normalizedPomodoroLongBreakEvery);
 
   if (!parsedTimezone.success) {
     throw new Error("Invalid timezone.");
@@ -182,6 +241,15 @@ export async function upsertUserSettings(
 
   if (!parsedDefaultTaskId.success) {
     throw new Error("Invalid default task.");
+  }
+
+  if (
+    !parsedPomodoroWorkMinutes.success
+    || !parsedPomodoroShortBreakMinutes.success
+    || !parsedPomodoroLongBreakMinutes.success
+    || !parsedPomodoroLongBreakEvery.success
+  ) {
+    throw new Error("Invalid pomodoro settings.");
   }
 
   const supabase = await createSupabaseServerClient();
@@ -201,6 +269,10 @@ export async function upsertUserSettings(
     reqId,
     p_timezone: parsedTimezone.data,
     p_default_task_id: parsedDefaultTaskId.data ?? null,
+    p_pomodoro_work_minutes: parsedPomodoroWorkMinutes.data,
+    p_pomodoro_short_break_minutes: parsedPomodoroShortBreakMinutes.data,
+    p_pomodoro_long_break_minutes: parsedPomodoroLongBreakMinutes.data,
+    p_pomodoro_long_break_every: parsedPomodoroLongBreakEvery.data,
   });
 
   const rpcStartMs = Date.now();
@@ -209,12 +281,20 @@ export async function upsertUserSettings(
     tsMs: rpcStartMs,
     p_timezone: parsedTimezone.data,
     p_default_task_id: parsedDefaultTaskId.data ?? null,
+    p_pomodoro_work_minutes: parsedPomodoroWorkMinutes.data,
+    p_pomodoro_short_break_minutes: parsedPomodoroShortBreakMinutes.data,
+    p_pomodoro_long_break_minutes: parsedPomodoroLongBreakMinutes.data,
+    p_pomodoro_long_break_every: parsedPomodoroLongBreakEvery.data,
   });
 
   try {
     await rpcUpsertWithRetry(supabase, {
       p_timezone: parsedTimezone.data,
       p_default_task_id: parsedDefaultTaskId.data ?? null,
+      p_pomodoro_work_minutes: parsedPomodoroWorkMinutes.data,
+      p_pomodoro_short_break_minutes: parsedPomodoroShortBreakMinutes.data,
+      p_pomodoro_long_break_minutes: parsedPomodoroLongBreakMinutes.data,
+      p_pomodoro_long_break_every: parsedPomodoroLongBreakEvery.data,
     }, reqId);
     const rpcEndMs = Date.now();
     console.log("[settings] rpc end", {
@@ -245,4 +325,17 @@ export async function upsertUserSettings(
 
   revalidatePath("/settings");
   revalidatePath("/focus");
+}
+
+function toInteger(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && Number.isInteger(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && Number.isInteger(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
 }

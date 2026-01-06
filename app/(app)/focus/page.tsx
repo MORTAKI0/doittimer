@@ -31,6 +31,19 @@ export default async function FocusPage() {
   const defaultTaskId = settingsResult.success
     ? settingsResult.data.default_task_id
     : null;
+  const pomodoroDefaults = settingsResult.success
+    ? {
+      workMinutes: settingsResult.data.pomodoro_work_minutes,
+      shortBreakMinutes: settingsResult.data.pomodoro_short_break_minutes,
+      longBreakMinutes: settingsResult.data.pomodoro_long_break_minutes,
+      longBreakEvery: settingsResult.data.pomodoro_long_break_every,
+    }
+    : {
+      workMinutes: 25,
+      shortBreakMinutes: 5,
+      longBreakMinutes: 15,
+      longBreakEvery: 4,
+    };
   const errorMessage =
     !activeResult.success
       ? toEnglishError(activeResult.error)
@@ -62,6 +75,7 @@ export default async function FocusPage() {
             todaySessions={todaySessions}
             tasks={tasks}
             defaultTaskId={defaultTaskId}
+            pomodoroDefaults={pomodoroDefaults}
           />
         </Card>
       </div>

@@ -1,4 +1,4 @@
-﻿---
+---
 name: doittimer-sprint2-quality
 description: Sprint 2 quality skill for DoItTimer (deployment/env hardening, error boundaries/observability, Playwright smoke tests) protecting the Sprint 1 loop.
 ---
