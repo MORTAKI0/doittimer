@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { startSession, stopSession, SessionRow } from "@/app/actions/sessions";
+import { normalizeMusicUrl } from "@/lib/validation/session.schema";
 import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible d'arreter la session.": "Unable to stop the session.",
   "Impossible de charger la session active.": "Unable to load the active session.",
   "Impossible de charger les sessions du jour.": "Unable to load today's sessions.",
+  "Lien musical invalide.": "Invalid music link.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
 };
 
@@ -107,6 +109,7 @@ export function FocusPanel({
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
   const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
   const [hasManualSelection, setHasManualSelection] = React.useState(false);
+  const [musicUrl, setMusicUrl] = React.useState("");
   const hasActiveSession = Boolean(activeSession);
   const hasValidId = typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
@@ -156,7 +159,15 @@ export function FocusPanel({
     setIsStarting(true);
     setError(null);
 
-    const result = await startSession(selectedTaskId);
+    const normalizedMusicUrl = normalizeMusicUrl(musicUrl);
+    if (normalizedMusicUrl.error) {
+      setError(toEnglishError(normalizedMusicUrl.error));
+    }
+
+    const result = await startSession(
+      selectedTaskId,
+      normalizedMusicUrl.value,
+    );
 
     if (!result.success) {
       setError(toEnglishError(result.error));
@@ -165,6 +176,7 @@ export function FocusPanel({
     }
 
     setIsStarting(false);
+    setMusicUrl("");
     router.refresh();
   }
 
@@ -254,6 +266,25 @@ export function FocusPanel({
             <p className="text-xs text-muted-foreground">No tasks available.</p>
           ) : null}
         </div>
+        <div className="space-y-2">
+          <label htmlFor="music-url" className="text-sm font-medium text-foreground">
+            Music link (optional)
+          </label>
+          <input
+            id="music-url"
+            type="url"
+            inputMode="url"
+            placeholder="https://open.spotify.com/..."
+            value={musicUrl}
+            onChange={(event) => {
+              setMusicUrl(event.target.value);
+              if (error) setError(null);
+            }}
+            disabled={hasActiveSession || isStarting || isStopping}
+            data-testid="focus-music-url"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
 
         <div className="flex flex-wrap gap-2">
           {hasActiveSession ? (
@@ -294,6 +325,32 @@ export function FocusPanel({
                     {formatStartTime(session.started_at)}
                     {taskLabel ? (
                       <div className="mt-1 text-xs text-muted-foreground">{taskLabel}</div>
+                    ) : null}
+                    {session.music_url ? (
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-3.5 w-3.5"
+                          aria-hidden="true"
+                        >
+                          <path d="M10 13a5 5 0 0 1 0-7l2-2a5 5 0 0 1 7 7l-2 2" />
+                          <path d="M14 11a5 5 0 0 1 0 7l-2 2a5 5 0 0 1-7-7l2-2" />
+                        </svg>
+                        <a
+                          href={session.music_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="max-w-[220px] truncate text-emerald-600 hover:text-emerald-700"
+                          data-testid="session-music-link"
+                        >
+                          {session.music_url}
+                        </a>
+                      </div>
                     ) : null}
                   </div>
                   <div className="flex items-center justify-end text-sm text-muted-foreground">
