@@ -14,14 +14,16 @@ import { logServerError } from "@/lib/logging/logServerError";
 
 const DUPLICATE_WINDOW_MS = 10_000;
 const TASK_SELECT =
-  "id, title, completed, created_at, project_id, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
+  "id, title, completed, created_at, updated_at, project_id, archived_at, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
 
 export type TaskRow = {
   id: string;
   title: string;
   completed: boolean;
   created_at: string;
+  updated_at: string;
   project_id: string | null;
+  archived_at: string | null;
   pomodoro_work_minutes?: number | null;
   pomodoro_short_break_minutes?: number | null;
   pomodoro_long_break_minutes?: number | null;
@@ -127,7 +129,13 @@ export async function createTask(
   }
 }
 
-export async function getTasks(): Promise<ActionResult<TaskRow[]>> {
+type GetTasksOptions = {
+  includeArchived?: boolean;
+};
+
+export async function getTasks(
+  options: GetTasksOptions = {},
+): Promise<ActionResult<TaskRow[]>> {
   try {
     let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
@@ -139,11 +147,17 @@ export async function getTasks(): Promise<ActionResult<TaskRow[]>> {
 
     userId = userData.user.id;
 
-    const { data, error } = await supabase
+    const includeArchived = Boolean(options.includeArchived);
+    let query = supabase
       .from("tasks")
       .select(TASK_SELECT)
-      .eq("user_id", userData.user.id)
-      .order("created_at", { ascending: false });
+      .eq("user_id", userData.user.id);
+
+    if (!includeArchived) {
+      query = query.is("archived_at", null);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false });
 
     if (error) {
       logServerError({
@@ -313,7 +327,7 @@ export async function updateTaskTitle(
   }
 }
 
-export async function deleteTask(taskId: string): Promise<ActionResult<{ id: string }>> {
+export async function deleteTask(taskId: string): Promise<ActionResult<TaskRow>> {
   const parsedId = taskIdSchema.safeParse(taskId);
 
   if (!parsedId.success) {
@@ -334,12 +348,13 @@ export async function deleteTask(taskId: string): Promise<ActionResult<{ id: str
 
     userId = userData.user.id;
 
+    const archivedAt = new Date().toISOString();
     const { data, error } = await supabase
       .from("tasks")
-      .delete()
+      .update({ archived_at: archivedAt })
       .eq("id", parsedId.data)
       .eq("user_id", userData.user.id)
-      .select("id")
+      .select(TASK_SELECT)
       .maybeSingle();
 
     if (error) {
@@ -347,7 +362,7 @@ export async function deleteTask(taskId: string): Promise<ActionResult<{ id: str
         scope: "actions.tasks.deleteTask",
         userId,
         error,
-        context: { action: "delete" },
+        context: { action: "archive" },
       });
       return {
         success: false,
@@ -435,11 +450,76 @@ export async function updateTaskProject(
     }
 
     revalidatePath("/tasks");
+    revalidatePath("/focus");
+    revalidatePath("/settings");
 
     return { success: true, data };
   } catch (error) {
     logServerError({
       scope: "actions.tasks.updateTaskProject",
+      error,
+    });
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function restoreTask(taskId: string): Promise<ActionResult<TaskRow>> {
+  const parsedId = taskIdSchema.safeParse(taskId);
+
+  if (!parsedId.success) {
+    return {
+      success: false,
+      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  try {
+    let userId: string | undefined;
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    userId = userData.user.id;
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({ archived_at: null })
+      .eq("id", parsedId.data)
+      .eq("user_id", userData.user.id)
+      .select(TASK_SELECT)
+      .maybeSingle();
+
+    if (error) {
+      logServerError({
+        scope: "actions.tasks.restoreTask",
+        userId,
+        error,
+        context: { action: "restore" },
+      });
+      return {
+        success: false,
+        error: "Impossible de restaurer la tache.",
+      };
+    }
+
+    if (!data) {
+      return { success: false, error: "Task not found" };
+    }
+
+    revalidatePath("/tasks");
+    revalidatePath("/focus");
+    revalidatePath("/settings");
+
+    return { success: true, data };
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.restoreTask",
       error,
     });
     return {

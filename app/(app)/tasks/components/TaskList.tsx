@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import {
   deleteTask,
+  restoreTask,
   toggleTaskCompletion,
   updateTaskTitle,
   updateTaskProject,
@@ -34,6 +35,7 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible de creer la tache. Reessaie.": "Unable to create task. Try again.",
   "Impossible de mettre a jour la tache.": "Unable to update the task.",
   "Impossible de supprimer la tache.": "Unable to delete the task.",
+  "Impossible de restaurer la tache.": "Unable to restore the task.",
   "Parametres pomodoro invalides.": "Invalid pomodoro settings.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
 };
@@ -58,6 +60,7 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
     {},
   );
   const [projectFilter, setProjectFilter] = React.useState<string>("all");
+  const [showArchived, setShowArchived] = React.useState(false);
 
   const projectIds = React.useMemo(() => {
     return new Set(projects.map((project) => project.id));
@@ -291,8 +294,29 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
     if (!result.success) {
       setError(task.id, toEnglishError(result.error));
     } else {
-      setItems((prev) => prev.filter((item) => item.id !== task.id));
+      setItems((prev) =>
+        prev.map((item) => (item.id === task.id ? result.data : item)),
+      );
       if (editingId === task.id) cancelEditing();
+      router.refresh();
+    }
+
+    setPending(task.id, false);
+  }
+
+  async function handleRestore(task: TaskRow) {
+    if (pendingIds[task.id]) return;
+    setPending(task.id, true);
+    setError(task.id, null);
+
+    const result = await restoreTask(task.id);
+
+    if (!result.success) {
+      setError(task.id, toEnglishError(result.error));
+    } else {
+      setItems((prev) =>
+        prev.map((item) => (item.id === task.id ? result.data : item)),
+      );
       router.refresh();
     }
 
@@ -310,6 +334,11 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
     return task.project_id === projectFilter;
   });
 
+  const visibleItems = filteredItems.filter((task) =>
+    showArchived ? true : task.archived_at == null,
+  );
+  const hasArchived = items.some((task) => task.archived_at != null);
+
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -319,29 +348,44 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
         <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Filter by project
         </label>
-        <select
-          data-testid="projects-filter"
-          value={projectFilter}
-          onChange={(event) => setProjectFilter(event.target.value)}
-          className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
-        >
-          <option value="all">All projects</option>
-          <option value="none">No project</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <select
+            data-testid="projects-filter"
+            value={projectFilter}
+            onChange={(event) => setProjectFilter(event.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+          >
+            <option value="all">All projects</option>
+            <option value="none">No project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+          {hasArchived ? (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+                className="h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+                data-testid="tasks-archived-toggle"
+              />
+              Show archived
+            </label>
+          ) : null}
+        </div>
       </div>
       <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-        {filteredItems.map((task) => {
+        {visibleItems.map((task) => {
           const isEditing = editingId === task.id;
           const isPending = Boolean(pendingIds[task.id]);
           const errorMessage = errorsById[task.id];
           const projectLabel = task.project_id
             ? projectLabelById.get(task.project_id) ?? "Project archived"
             : null;
+          const isArchived = task.archived_at != null;
 
           return (
             <li key={task.id} className="px-4 py-3 hover:bg-muted">
@@ -352,7 +396,7 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
                     className="mt-1 h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
                     checked={task.completed}
                     onChange={() => handleToggle(task)}
-                    disabled={isPending || isEditing}
+                    disabled={isPending || isEditing || isArchived}
                     aria-label={`Mark ${task.title} as completed`}
                   />
                   {isEditing ? (
@@ -514,29 +558,45 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
                       >
                         {task.title}
                       </span>
+                      {isArchived ? <Badge variant="neutral">Archived</Badge> : null}
                       {projectLabel ? <Badge variant="neutral">{projectLabel}</Badge> : null}
                     </div>
                   )}
                 </div>
                 {!isEditing ? (
                   <div className="flex items-center gap-2">
-                    <IconButton
-                      type="button"
-                      onClick={() => startEditing(task)}
-                      disabled={isPending}
-                      aria-label="Edit task"
-                    >
-                      <IconPencil className="h-4 w-4" aria-hidden="true" />
-                    </IconButton>
-                    <IconButton
-                      type="button"
-                      variant="danger"
-                      onClick={() => handleDelete(task)}
-                      disabled={isPending}
-                      aria-label="Delete task"
-                    >
-                      <IconTrash className="h-4 w-4" aria-hidden="true" />
-                    </IconButton>
+                    {isArchived ? (
+                      <Button
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                        onClick={() => handleRestore(task)}
+                        disabled={isPending}
+                        data-testid="task-restore"
+                      >
+                        Restore
+                      </Button>
+                    ) : (
+                      <>
+                        <IconButton
+                          type="button"
+                          onClick={() => startEditing(task)}
+                          disabled={isPending}
+                          aria-label="Edit task"
+                        >
+                          <IconPencil className="h-4 w-4" aria-hidden="true" />
+                        </IconButton>
+                        <IconButton
+                          type="button"
+                          variant="danger"
+                          onClick={() => handleDelete(task)}
+                          disabled={isPending}
+                          aria-label="Delete task"
+                        >
+                          <IconTrash className="h-4 w-4" aria-hidden="true" />
+                        </IconButton>
+                      </>
+                    )}
                   </div>
                 ) : null}
               </div>

@@ -19,7 +19,7 @@ function toEnglishError(message: string | null) {
 
 export default async function TasksPage() {
   const [tasksResult, projectsResult] = await Promise.all([
-    getTasks(),
+    getTasks({ includeArchived: true }),
     getProjects({ includeArchived: true }),
   ]);
   const tasks = tasksResult.success ? tasksResult.data : [];
