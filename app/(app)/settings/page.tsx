@@ -4,7 +4,9 @@ import { getUserSettings } from "@/app/actions/settings";
 import { signOutAction } from "@/lib/auth/actions";
 import { getUser } from "@/lib/auth/get-user";
 import { getTasks } from "@/app/actions/tasks";
+import { getNotionConnection } from "@/app/actions/notion";
 import { SettingsForm } from "./SettingsForm";
+import { NotionIntegrationCard } from "./NotionIntegrationCard";
 
 export default async function SettingsPage() {
   const user = await getUser();
@@ -13,6 +15,7 @@ export default async function SettingsPage() {
     getUserSettings(),
     getTasks(),
   ]);
+  const notionResult = await getNotionConnection();
   const settings = settingsResult.success
     ? settingsResult.data
     : {
@@ -25,6 +28,15 @@ export default async function SettingsPage() {
     };
   const settingsError = settingsResult.success ? null : settingsResult.error;
   const tasks = tasksResult.success ? tasksResult.data : [];
+  const notionConnection = notionResult.success
+    ? notionResult.data
+    : {
+      connected: false,
+      last_synced_at: null,
+      last_status: null,
+      last_error: null,
+    };
+  const notionError = notionResult.success ? null : notionResult.error;
 
   return (
     <div className="space-y-6">
@@ -75,6 +87,10 @@ export default async function SettingsPage() {
           />
         </div>
       </Card>
+      <NotionIntegrationCard
+        initialConnection={notionConnection}
+        initialError={notionError}
+      />
     </div>
   );
 }
