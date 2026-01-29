@@ -16,6 +16,11 @@ export type SessionRow = {
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
+  pomodoro_phase?: string | null;
+  pomodoro_phase_started_at?: string | null;
+  pomodoro_is_paused?: boolean | null;
+  pomodoro_paused_at?: string | null;
+  pomodoro_cycle_count?: number | null;
   created_at: string;
 };
 

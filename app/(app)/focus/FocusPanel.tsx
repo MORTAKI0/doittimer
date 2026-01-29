@@ -4,6 +4,13 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { startSession, stopSession, SessionRow } from "@/app/actions/sessions";
+import {
+  pomodoroInit,
+  pomodoroPause,
+  pomodoroResume,
+  pomodoroSkipPhase,
+  pomodoroRestartPhase,
+} from "@/app/actions/pomodoro";
 import { normalizeMusicUrl } from "@/lib/validation/session.schema";
 import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +28,7 @@ type FocusPanelProps = {
     longBreakMinutes: number;
     longBreakEvery: number;
   };
+  pomodoroEnabled: boolean;
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -62,6 +70,19 @@ function formatStartTime(value: string) {
   return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatPomodoroPhase(phase: string | null | undefined) {
+  switch (phase) {
+    case "short_break":
+      return "Short Break";
+    case "long_break":
+      return "Long Break";
+    case "work":
+      return "Work";
+    default:
+      return "Work";
+  }
+}
+
 function resolveEffectivePomodoro(
   task: TaskRow | null,
   defaults: FocusPanelProps["pomodoroDefaults"],
@@ -101,6 +122,7 @@ export function FocusPanel({
   tasks,
   defaultTaskId,
   pomodoroDefaults,
+  pomodoroEnabled,
 }: FocusPanelProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = React.useState(false);
@@ -110,6 +132,7 @@ export function FocusPanel({
   const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
   const [hasManualSelection, setHasManualSelection] = React.useState(false);
   const [musicUrl, setMusicUrl] = React.useState("");
+  const [isPomodoroUpdating, setIsPomodoroUpdating] = React.useState(false);
   const hasActiveSession = Boolean(activeSession);
   const hasValidId = typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
@@ -122,6 +145,13 @@ export function FocusPanel({
     ? "Invalid start time. Refresh the page."
     : null;
   const isRunning = isActiveSessionValid;
+  const pomodoroPhase = pomodoroEnabled ? activeSession?.pomodoro_phase ?? null : null;
+  const pomodoroPhaseLabel = pomodoroEnabled && hasActiveSession
+    ? formatPomodoroPhase(pomodoroPhase)
+    : null;
+  const isPomodoroPaused = pomodoroEnabled
+    ? Boolean(activeSession?.pomodoro_is_paused)
+    : false;
   const effectiveTaskId = activeSession?.task_id ?? selectedTaskId;
   const effectiveTask = effectiveTaskId
     ? tasks.find((task) => task.id === effectiveTaskId) ?? null
@@ -175,6 +205,15 @@ export function FocusPanel({
       return;
     }
 
+    if (pomodoroEnabled && result.data?.id) {
+      setIsPomodoroUpdating(true);
+      const pomodoroResult = await pomodoroInit(result.data.id);
+      if (!pomodoroResult.success) {
+        setError(toEnglishError(pomodoroResult.error));
+      }
+      setIsPomodoroUpdating(false);
+    }
+
     setIsStarting(false);
     setMusicUrl("");
     router.refresh();
@@ -194,6 +233,54 @@ export function FocusPanel({
     }
 
     setIsStopping(false);
+    router.refresh();
+  }
+
+  async function handlePomodoroPause() {
+    if (!activeSession || !hasValidId || isPomodoroUpdating) return;
+    setIsPomodoroUpdating(true);
+    setError(null);
+    const result = await pomodoroPause(activeSession.id);
+    if (!result.success) {
+      setError(toEnglishError(result.error));
+    }
+    setIsPomodoroUpdating(false);
+    router.refresh();
+  }
+
+  async function handlePomodoroResume() {
+    if (!activeSession || !hasValidId || isPomodoroUpdating) return;
+    setIsPomodoroUpdating(true);
+    setError(null);
+    const result = await pomodoroResume(activeSession.id);
+    if (!result.success) {
+      setError(toEnglishError(result.error));
+    }
+    setIsPomodoroUpdating(false);
+    router.refresh();
+  }
+
+  async function handlePomodoroSkip() {
+    if (!activeSession || !hasValidId || isPomodoroUpdating) return;
+    setIsPomodoroUpdating(true);
+    setError(null);
+    const result = await pomodoroSkipPhase(activeSession.id);
+    if (!result.success) {
+      setError(toEnglishError(result.error));
+    }
+    setIsPomodoroUpdating(false);
+    router.refresh();
+  }
+
+  async function handlePomodoroRestart() {
+    if (!activeSession || !hasValidId || isPomodoroUpdating) return;
+    setIsPomodoroUpdating(true);
+    setError(null);
+    const result = await pomodoroRestartPhase(activeSession.id);
+    if (!result.success) {
+      setError(toEnglishError(result.error));
+    }
+    setIsPomodoroUpdating(false);
     router.refresh();
   }
 
@@ -222,6 +309,13 @@ export function FocusPanel({
             ? `Work remaining: ${formatElapsed(remainingSeconds)}`
             : `Work duration: ${effectivePomodoro.workMinutes}m`}
         </p>
+        {pomodoroEnabled && pomodoroPhaseLabel ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>Phase:</span>
+            <Badge variant="neutral">{pomodoroPhaseLabel}</Badge>
+            {isPomodoroPaused ? <Badge variant="neutral">Paused</Badge> : null}
+          </div>
+        ) : null}
         {activeTaskLabel ? (
           <p className="text-sm text-muted-foreground">Task: {activeTaskLabel}</p>
         ) : null}
@@ -305,6 +399,48 @@ export function FocusPanel({
             </Button>
           )}
         </div>
+
+        {pomodoroEnabled ? (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Pomodoro controls
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                onClick={handlePomodoroPause}
+                disabled={
+                  !hasActiveSession || !hasValidId || isPomodoroPaused || isPomodoroUpdating
+                }
+              >
+                {isPomodoroUpdating ? "Updating..." : "Pause"}
+              </Button>
+              <Button
+                type="button"
+                onClick={handlePomodoroResume}
+                disabled={
+                  !hasActiveSession || !hasValidId || !isPomodoroPaused || isPomodoroUpdating
+                }
+              >
+                {isPomodoroUpdating ? "Updating..." : "Resume"}
+              </Button>
+              <Button
+                type="button"
+                onClick={handlePomodoroSkip}
+                disabled={!hasActiveSession || !hasValidId || isPomodoroUpdating}
+              >
+                Skip phase
+              </Button>
+              <Button
+                type="button"
+                onClick={handlePomodoroRestart}
+                disabled={!hasActiveSession || !hasValidId || isPomodoroUpdating}
+              >
+                Restart phase
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-3">
