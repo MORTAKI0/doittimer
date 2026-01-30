@@ -38,6 +38,20 @@ async function readWorkPomodorosCompletedToday(page: Page): Promise<number> {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+async function readRemainingMinutes(page: Page): Promise<number> {
+  const text = (await page.getByText(/remaining:/i).first().innerText()).trim();
+  const match = text.match(/(\d+)m/);
+  if (!match) return 0;
+  const minutes = Number.parseInt(match[1] ?? "0", 10);
+  return Number.isFinite(minutes) ? minutes : 0;
+}
+
+async function expectRemainingMinutesNear(page: Page, expected: number) {
+  const minutes = await readRemainingMinutes(page);
+  expect(minutes).toBeGreaterThanOrEqual(Math.max(0, expected - 1));
+  expect(minutes).toBeLessThanOrEqual(expected);
+}
+
 test.describe("pomodoro v2", () => {
   test.skip(!pomodoroEnabled, "E2E_POMODORO_V2 not enabled for the test user.");
 
@@ -147,5 +161,68 @@ test.describe("pomodoro v2", () => {
     const row = page.locator("li", { hasText: title });
     await expect(row).toContainText("Pomodoros today: 2");
     await expect(row).toContainText("Pomodoros total: 2");
+  });
+
+  test("apply deep work preset updates focus durations", async ({ page }) => {
+    const title = uniqueTitle("E2E-Preset");
+    await page.goto("/tasks");
+    await page.getByLabel("Task title").fill(title);
+    await page.getByRole("button", { name: "Add task" }).click();
+
+    const row = page.locator("li", { hasText: title });
+    await expect(row).toBeVisible({ timeout: 20000 });
+    await row.getByRole("button", { name: "Edit task" }).click();
+
+    const presetBtn = page.getByRole("button", { name: /apply deep work preset/i });
+    await expect(presetBtn).toBeVisible({ timeout: 10000 });
+    await presetBtn.click();
+    const quickSaveResp = await page
+      .waitForResponse(
+        (r) => r.request().method() === "POST" && r.url().includes("/tasks"),
+        { timeout: 1500 },
+      )
+      .catch(() => null);
+
+    if (quickSaveResp) {
+      expect(quickSaveResp.ok()).toBeTruthy();
+    } else {
+      const saveBtn = page.getByRole("button", { name: "Save" });
+      if (await saveBtn.isVisible()) {
+        const [saveResp] = await Promise.all([
+          page.waitForResponse(
+            (r) => r.request().method() === "POST" && r.url().includes("/tasks"),
+            { timeout: 10000 },
+          ),
+          saveBtn.click(),
+        ]);
+        expect(saveResp.ok()).toBeTruthy();
+      }
+    }
+    await expect(page.getByTestId("task-pomodoro-work")).toHaveValue("50");
+    await expect(page.getByTestId("task-pomodoro-short")).toHaveValue("10");
+    await expect(page.getByTestId("task-pomodoro-long")).toHaveValue("20");
+    await expect(page.getByTestId("task-pomodoro-every")).toHaveValue("2");
+
+    await page.goto("/focus");
+    await ensureNoActiveSession(page);
+    await page.getByLabel("Link a task").selectOption({ label: title });
+    await startSession(page);
+
+    await expect(page.getByText("Work", { exact: true })).toBeVisible();
+    await expectRemainingMinutesNear(page, 50);
+
+    await skipPhase(page);
+    await expect(page.getByText("Short Break", { exact: true })).toBeVisible({ timeout: 10000 });
+    await expectRemainingMinutesNear(page, 10);
+
+    await skipPhase(page);
+    await expect(page.getByText("Work", { exact: true })).toBeVisible({ timeout: 10000 });
+    await expectRemainingMinutesNear(page, 50);
+
+    await skipPhase(page);
+    await expect(page.getByText("Long Break", { exact: true })).toBeVisible({ timeout: 10000 });
+    await expectRemainingMinutesNear(page, 20);
+
+    await stopSession(page);
   });
 });

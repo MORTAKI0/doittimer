@@ -19,6 +19,11 @@ import { Badge } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/icon-button";
 import { IconPencil, IconTrash } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
+import {
+  pomodoroPresets,
+  presetToOverrides,
+  type PomodoroPreset,
+} from "@/lib/pomodoro/presets";
 
 type TaskListProps = {
   tasks: TaskRow[];
@@ -146,6 +151,10 @@ export function TaskList({
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function formatDraftValue(value: number | null) {
+    return value == null ? "" : String(value);
+  }
+
   async function handleToggle(task: TaskRow) {
     if (pendingIds[task.id]) return;
     const nextCompleted = !task.completed;
@@ -197,6 +206,47 @@ export function TaskList({
     setDraftPomodoroShort("");
     setDraftPomodoroLong("");
     setDraftPomodoroEvery("");
+    setPending(task.id, false);
+    router.refresh();
+  }
+
+  async function handleApplyPomodoroPreset(task: TaskRow, preset: PomodoroPreset) {
+    if (pendingIds[task.id]) return;
+
+    const overrides = presetToOverrides(preset);
+    setUseCustomPomodoro(true);
+    setDraftPomodoroWork(formatDraftValue(overrides.pomodoro_work_minutes));
+    setDraftPomodoroShort(formatDraftValue(overrides.pomodoro_short_break_minutes));
+    setDraftPomodoroLong(formatDraftValue(overrides.pomodoro_long_break_minutes));
+    setDraftPomodoroEvery(formatDraftValue(overrides.pomodoro_long_break_every));
+    setError(task.id, null);
+
+    const trimmedTitle = draftTitle.trim();
+    const normalizedProjectId = draftProjectId.trim() !== "" ? draftProjectId : null;
+    const isDirtyNonPomodoro =
+      trimmedTitle !== task.title
+      || normalizedProjectId !== (task.project_id ?? null);
+
+    if (isDirtyNonPomodoro) return;
+
+    setPending(task.id, true);
+
+    const result = await updateTaskPomodoroOverrides(task.id, {
+      workMinutes: overrides.pomodoro_work_minutes,
+      shortBreakMinutes: overrides.pomodoro_short_break_minutes,
+      longBreakMinutes: overrides.pomodoro_long_break_minutes,
+      longBreakEvery: overrides.pomodoro_long_break_every,
+    });
+
+    if (!result.success) {
+      setError(task.id, toEnglishError(result.error));
+      setPending(task.id, false);
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) => (item.id === task.id ? result.data : item)),
+    );
     setPending(task.id, false);
     router.refresh();
   }
@@ -454,6 +504,30 @@ export function TaskList({
                             />
                             Use custom Pomodoro
                           </label>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Presets
+                          </p>
+                          <div
+                            role="group"
+                            aria-label="Pomodoro presets"
+                            className="flex flex-wrap gap-2"
+                          >
+                            {pomodoroPresets.map((preset) => (
+                              <Button
+                                key={preset.id}
+                                size="sm"
+                                type="button"
+                                variant="secondary"
+                                onClick={() => handleApplyPomodoroPreset(task, preset)}
+                                disabled={isPending}
+                                aria-label={`Apply ${preset.label} preset`}
+                              >
+                                {preset.label}
+                              </Button>
+                            ))}
+                          </div>
                         </div>
                         {useCustomPomodoro ? (
                           <div className="space-y-2">
