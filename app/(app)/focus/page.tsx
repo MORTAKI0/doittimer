@@ -44,6 +44,9 @@ export default async function FocusPage() {
       longBreakMinutes: 15,
       longBreakEvery: 4,
     };
+  const pomodoroEnabled = settingsResult.success
+    ? settingsResult.data.pomodoro_v2_enabled
+    : false;
   const errorMessage =
     !activeResult.success
       ? toEnglishError(activeResult.error)
@@ -76,6 +79,7 @@ export default async function FocusPage() {
             tasks={tasks}
             defaultTaskId={defaultTaskId}
             pomodoroDefaults={pomodoroDefaults}
+            pomodoroEnabled={pomodoroEnabled}
           />
         </Card>
       </div>

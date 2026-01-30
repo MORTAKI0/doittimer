@@ -17,6 +17,7 @@ export type UserSettings = {
   pomodoro_short_break_minutes: number;
   pomodoro_long_break_minutes: number;
   pomodoro_long_break_every: number;
+  pomodoro_v2_enabled: boolean;
 };
 
 const timezoneSchema = z.string().min(1);
@@ -143,6 +144,7 @@ function normalizeSettings(data: unknown): UserSettings | null {
     pomodoro_short_break_minutes?: unknown;
     pomodoro_long_break_minutes?: unknown;
     pomodoro_long_break_every?: unknown;
+    pomodoro_v2_enabled?: unknown;
   };
   const timezone = typeof record.timezone === "string" ? record.timezone : null;
   const defaultTaskId = typeof record.default_task_id === "string"
@@ -156,6 +158,9 @@ function normalizeSettings(data: unknown): UserSettings | null {
     ?? DEFAULT_POMODORO_SETTINGS.pomodoro_long_break_minutes;
   const pomodoroLongBreakEvery = toInteger(record.pomodoro_long_break_every)
     ?? DEFAULT_POMODORO_SETTINGS.pomodoro_long_break_every;
+  const pomodoroV2Enabled = typeof record.pomodoro_v2_enabled === "boolean"
+    ? record.pomodoro_v2_enabled
+    : false;
 
   if (!timezone) return null;
 
@@ -166,6 +171,7 @@ function normalizeSettings(data: unknown): UserSettings | null {
     pomodoro_short_break_minutes: pomodoroShortBreakMinutes,
     pomodoro_long_break_minutes: pomodoroLongBreakMinutes,
     pomodoro_long_break_every: pomodoroLongBreakEvery,
+    pomodoro_v2_enabled: pomodoroV2Enabled,
   };
 }
 
@@ -178,14 +184,41 @@ export async function getUserSettings(): Promise<ActionResult<UserSettings>> {
       return { success: false, error: "You must be signed in." };
     }
 
-    const { data, error } = await supabase.rpc("get_user_settings");
+    const { error: ensureError } = await supabase.rpc("get_user_settings");
+
+    if (ensureError) {
+      logServerError({
+        scope: "actions.settings.getUserSettings",
+        error: ensureError,
+        context: {
+          rpc: "get_user_settings",
+        },
+      });
+      return { success: false, error: "Unable to load settings." };
+    }
+
+    const { data, error } = await supabase
+      .from("user_settings")
+      .select(
+        [
+          "timezone",
+          "default_task_id",
+          "pomodoro_work_minutes",
+          "pomodoro_short_break_minutes",
+          "pomodoro_long_break_minutes",
+          "pomodoro_long_break_every",
+          "pomodoro_v2_enabled",
+        ].join(", "),
+      )
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
 
     if (error) {
       logServerError({
         scope: "actions.settings.getUserSettings",
         error,
         context: {
-          rpc: "get_user_settings",
+          table: "user_settings",
         },
       });
       return { success: false, error: "Unable to load settings." };

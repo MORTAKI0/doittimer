@@ -23,6 +23,10 @@ import { Input } from "@/components/ui/input";
 type TaskListProps = {
   tasks: TaskRow[];
   projects?: { id: string; name: string }[];
+  pomodoroStatsByTaskId?: Record<
+    string,
+    { pomodoros_today: number; pomodoros_total: number }
+  >;
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -44,7 +48,11 @@ function toEnglishError(message: string) {
   return ERROR_MAP[message] ?? message;
 }
 
-export function TaskList({ tasks, projects = [] }: TaskListProps) {
+export function TaskList({
+  tasks,
+  projects = [],
+  pomodoroStatsByTaskId = {},
+}: TaskListProps) {
   const router = useRouter();
   const [items, setItems] = React.useState<TaskRow[]>(tasks);
   const [editingId, setEditingId] = React.useState<string | null>(null);
@@ -386,6 +394,10 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
             ? projectLabelById.get(task.project_id) ?? "Project archived"
             : null;
           const isArchived = task.archived_at != null;
+          const pomodoroStats = pomodoroStatsByTaskId[task.id] ?? {
+            pomodoros_today: 0,
+            pomodoros_total: 0,
+          };
 
           return (
             <li key={task.id} className="px-4 py-3 hover:bg-muted">
@@ -545,21 +557,27 @@ export function TaskList({ tasks, projects = [] }: TaskListProps) {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={[
-                          "text-sm",
-                          task.completed
-                            ? "text-muted-foreground line-through"
-                            : "text-foreground",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                      >
-                        {task.title}
-                      </span>
-                      {isArchived ? <Badge variant="neutral">Archived</Badge> : null}
-                      {projectLabel ? <Badge variant="neutral">{projectLabel}</Badge> : null}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={[
+                            "text-sm",
+                            task.completed
+                              ? "text-muted-foreground line-through"
+                              : "text-foreground",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                        >
+                          {task.title}
+                        </span>
+                        {isArchived ? <Badge variant="neutral">Archived</Badge> : null}
+                        {projectLabel ? <Badge variant="neutral">{projectLabel}</Badge> : null}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Pomodoros today: {pomodoroStats.pomodoros_today} · Pomodoros total:{" "}
+                        {pomodoroStats.pomodoros_total}
+                      </div>
                     </div>
                   )}
                 </div>

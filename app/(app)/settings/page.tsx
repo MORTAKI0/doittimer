@@ -25,6 +25,7 @@ export default async function SettingsPage() {
       pomodoro_short_break_minutes: 5,
       pomodoro_long_break_minutes: 15,
       pomodoro_long_break_every: 4,
+      pomodoro_v2_enabled: false,
     };
   const settingsError = settingsResult.success ? null : settingsResult.error;
   const tasks = tasksResult.success ? tasksResult.data : [];

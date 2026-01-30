@@ -1,0 +1,20 @@
+{
+  "sprint_id": "2026-02",
+  "dates": {
+    "start": null,
+    "end": null
+  },
+  "scope": {
+    "planned_stories": 4,
+    "delivered_stories": null
+  },
+  "quality": {
+    "p0_incidents": null,
+    "p1_incidents": null,
+    "test_failures": null
+  },
+  "delivery": {
+    "milestones_planned": 7,
+    "milestones_completed": null
+  }
+}
