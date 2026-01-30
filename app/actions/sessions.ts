@@ -89,14 +89,14 @@ export async function startSession(
 
     userId = userData.user.id;
 
-    const { data: activeData, error: activeError } = await supabase.rpc("get_active_session");
+    const { data: activeData, error: activeError } = await supabase.rpc("get_active_session_v2");
 
     if (activeError) {
       logServerError({
         scope: "actions.sessions.startSession",
         userId,
         error: activeError,
-        context: { rpc: "get_active_session" },
+        context: { rpc: "get_active_session_v2" },
       });
       return {
         success: false,
@@ -247,19 +247,19 @@ export async function getActiveSession(): Promise<ActionResult<SessionRow | null
 
     userId = userData.user.id;
 
-    const { data, error } = await supabase.rpc("get_active_session");
+    const { data, error } = await supabase.rpc("get_active_session_v2");
 
     if (error) {
       logServerError({
         scope: "actions.sessions.getActiveSession",
         userId,
         error,
-        context: { rpc: "get_active_session" },
+        context: { rpc: "get_active_session_v2" },
       });
       return { success: false, error: "Impossible de charger la session active." };
     }
 
-    logRpcDataShape("get_active_session", data);
+    logRpcDataShape("get_active_session_v2", data);
     const session = normalizeActiveSession(data);
 
     return { success: true, data: session ?? null };

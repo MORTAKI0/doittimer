@@ -11,6 +11,11 @@ import {
   pomodoroSkipPhase,
   pomodoroRestartPhase,
 } from "@/app/actions/pomodoro";
+import {
+  computeElapsedSeconds,
+  getPhaseDurationSeconds,
+  type PomodoroPhase,
+} from "@/lib/pomodoro/phaseEngine";
 import { normalizeMusicUrl } from "@/lib/validation/session.schema";
 import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
@@ -129,10 +134,15 @@ export function FocusPanel({
   const [isStopping, setIsStopping] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
+  const [phaseRemainingSeconds, setPhaseRemainingSeconds] = React.useState<number | null>(null);
   const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
   const [hasManualSelection, setHasManualSelection] = React.useState(false);
   const [musicUrl, setMusicUrl] = React.useState("");
   const [isPomodoroUpdating, setIsPomodoroUpdating] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const toastTimeoutRef = React.useRef<number | null>(null);
+  const autoTransitionRef = React.useRef(false);
+  const previousPhaseRef = React.useRef<string | null>(null);
   const hasActiveSession = Boolean(activeSession);
   const hasValidId = typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
@@ -146,10 +156,11 @@ export function FocusPanel({
     : null;
   const isRunning = isActiveSessionValid;
   const pomodoroPhase = pomodoroEnabled ? activeSession?.pomodoro_phase ?? null : null;
-  const pomodoroPhaseLabel = pomodoroEnabled && hasActiveSession
+  const hasPomodoroPhase = pomodoroEnabled && typeof pomodoroPhase === "string";
+  const pomodoroPhaseLabel = hasPomodoroPhase
     ? formatPomodoroPhase(pomodoroPhase)
     : null;
-  const isPomodoroPaused = pomodoroEnabled
+  const isPomodoroPaused = hasPomodoroPhase
     ? Boolean(activeSession?.pomodoro_is_paused)
     : false;
   const effectiveTaskId = activeSession?.task_id ?? selectedTaskId;
@@ -157,7 +168,33 @@ export function FocusPanel({
     ? tasks.find((task) => task.id === effectiveTaskId) ?? null
     : null;
   const effectivePomodoro = resolveEffectivePomodoro(effectiveTask, pomodoroDefaults);
-  const remainingSeconds = Math.max(0, effectivePomodoro.workMinutes * 60 - elapsedSeconds);
+  const legacyRemainingSeconds = Math.max(
+    0,
+    effectivePomodoro.workMinutes * 60 - elapsedSeconds,
+  );
+  const parsedPhaseStartedAtMs =
+    hasPomodoroPhase && typeof activeSession?.pomodoro_phase_started_at === "string"
+      ? parseTimestamptz(activeSession.pomodoro_phase_started_at)
+      : null;
+  const parsedPausedAtMs =
+    hasPomodoroPhase && typeof activeSession?.pomodoro_paused_at === "string"
+      ? parseTimestamptz(activeSession.pomodoro_paused_at)
+      : null;
+  const phaseDurationSeconds = hasPomodoroPhase
+    ? getPhaseDurationSeconds(pomodoroPhase as PomodoroPhase, effectivePomodoro)
+    : null;
+
+  const handlePomodoroSkip = React.useCallback(async () => {
+    if (!activeSession || !hasValidId || isPomodoroUpdating) return;
+    setIsPomodoroUpdating(true);
+    setError(null);
+    const result = await pomodoroSkipPhase(activeSession.id);
+    if (!result.success) {
+      setError(toEnglishError(result.error));
+    }
+    setIsPomodoroUpdating(false);
+    router.refresh();
+  }, [activeSession, hasValidId, isPomodoroUpdating, router]);
 
   React.useEffect(() => {
     if (hasActiveSession || hasManualSelection || !defaultTaskId) return;
@@ -181,6 +218,85 @@ export function FocusPanel({
     const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
   }, [activeSession, isActiveSessionValid, parsedStartedAtMs]);
+
+  React.useEffect(() => {
+    if (!hasPomodoroPhase || !activeSession) {
+      setPhaseRemainingSeconds(null);
+      return;
+    }
+    if (!parsedPhaseStartedAtMs || !Number.isFinite(phaseDurationSeconds ?? NaN)) {
+      setPhaseRemainingSeconds(null);
+      return;
+    }
+
+    const tick = () => {
+      const elapsed = computeElapsedSeconds(
+        parsedPhaseStartedAtMs,
+        Date.now(),
+        isPomodoroPaused ? parsedPausedAtMs ?? null : null,
+      );
+      const remaining = Math.max(0, (phaseDurationSeconds ?? 0) - elapsed);
+      setPhaseRemainingSeconds(remaining);
+
+      if (remaining <= 0 && !isPomodoroPaused && !isPomodoroUpdating && !autoTransitionRef.current) {
+        autoTransitionRef.current = true;
+        void handlePomodoroSkip();
+      }
+    };
+
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [
+    activeSession,
+    handlePomodoroSkip,
+    hasPomodoroPhase,
+    isPomodoroPaused,
+    isPomodoroUpdating,
+    parsedPhaseStartedAtMs,
+    parsedPausedAtMs,
+    phaseDurationSeconds,
+  ]);
+
+  React.useEffect(() => {
+    autoTransitionRef.current = false;
+  }, [pomodoroPhase, activeSession?.pomodoro_phase_started_at]);
+
+  React.useEffect(() => {
+    if (!hasPomodoroPhase) {
+      previousPhaseRef.current = null;
+      return;
+    }
+    const currentPhase = pomodoroPhase;
+    const previousPhase = previousPhaseRef.current;
+    if (previousPhase && currentPhase && previousPhase !== currentPhase) {
+      const message =
+        currentPhase === "work"
+          ? "Work started"
+          : currentPhase === "long_break"
+            ? "Long break started"
+            : "Short break started";
+      setToastMessage(message);
+    }
+    previousPhaseRef.current = currentPhase;
+  }, [hasPomodoroPhase, pomodoroPhase]);
+
+  React.useEffect(() => {
+    if (!toastMessage) return;
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      toastTimeoutRef.current = null;
+    }, 2500);
+    return () => {
+      if (toastTimeoutRef.current) {
+        window.clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = null;
+      }
+    };
+  }, [toastMessage]);
 
   const activeTaskLabel = resolveTaskLabel(activeSession, tasks);
 
@@ -260,18 +376,6 @@ export function FocusPanel({
     router.refresh();
   }
 
-  async function handlePomodoroSkip() {
-    if (!activeSession || !hasValidId || isPomodoroUpdating) return;
-    setIsPomodoroUpdating(true);
-    setError(null);
-    const result = await pomodoroSkipPhase(activeSession.id);
-    if (!result.success) {
-      setError(toEnglishError(result.error));
-    }
-    setIsPomodoroUpdating(false);
-    router.refresh();
-  }
-
   async function handlePomodoroRestart() {
     if (!activeSession || !hasValidId || isPomodoroUpdating) return;
     setIsPomodoroUpdating(true);
@@ -305,11 +409,13 @@ export function FocusPanel({
           {isActiveSessionValid ? formatElapsed(elapsedSeconds) : "00m"}
         </p>
         <p className="text-sm text-muted-foreground">
-          {isRunning
-            ? `Work remaining: ${formatElapsed(remainingSeconds)}`
-            : `Work duration: ${effectivePomodoro.workMinutes}m`}
+          {hasPomodoroPhase
+            ? `${pomodoroPhaseLabel} remaining: ${formatElapsed(phaseRemainingSeconds ?? 0)}`
+            : isRunning
+              ? `Work remaining: ${formatElapsed(legacyRemainingSeconds)}`
+              : `Work duration: ${effectivePomodoro.workMinutes}m`}
         </p>
-        {pomodoroEnabled && pomodoroPhaseLabel ? (
+        {hasPomodoroPhase && pomodoroPhaseLabel ? (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>Phase:</span>
             <Badge variant="neutral">{pomodoroPhaseLabel}</Badge>
@@ -331,6 +437,15 @@ export function FocusPanel({
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </p>
+      ) : null}
+      {toastMessage ? (
+        <div
+          className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700"
+          role="status"
+          aria-live="polite"
+        >
+          {toastMessage}
+        </div>
       ) : null}
 
       <div className="space-y-3">
@@ -400,7 +515,7 @@ export function FocusPanel({
           )}
         </div>
 
-        {pomodoroEnabled ? (
+        {hasPomodoroPhase ? (
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Pomodoro controls

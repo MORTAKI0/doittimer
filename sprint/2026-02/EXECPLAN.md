@@ -45,15 +45,18 @@ Current-state mirror:
   - function: `get_active_session_v2()`
   - function: `upsert_user_settings(p_timezone, p_default_task_id, p_pomodoro_work_minutes, p_pomodoro_short_break_minutes, p_pomodoro_long_break_minutes, p_pomodoro_long_break_every)`
 Note: This migration mirrors current prod Supabase state; it does NOT include pomodoro_v2_enabled or pomodoro RPCs yet.
-Next migration needed:
-- add user_settings.pomodoro_v2_enabled + pomodoro RPCs + constraints (Milestone 1/2 work)
+Next migration needed (added for Milestone 1/2):
+- `20260130_s2026_02_story1_pomodoro_v2_enable_and_rpcs.sql` (flag + constraints + pomodoro RPC skeletons)
+- `20260131_s2026_02_story1_pomodoro_phase_engine.sql` (phase engine behavior)
 Manual apply steps:
 1) Open Supabase Dashboard -> SQL Editor for the project.
 2) Paste the full contents of `supabase/migrations/20260129_s2026_02_story1_pomodoro_v2.sql`.
 3) Run the query and confirm success in the SQL editor output.
 4) Paste the full contents of `supabase/migrations/20260130_s2026_02_story1_pomodoro_v2_enable_and_rpcs.sql`.
 5) Run the query and confirm success in the SQL editor output.
-6) Record the apply time in your migration log.
+6) Paste the full contents of `supabase/migrations/20260131_s2026_02_story1_pomodoro_phase_engine.sql`.
+7) Run the query and confirm success in the SQL editor output.
+8) Record the apply time in your migration log.
 
 ## RLS-first security plan
 - Define RLS policies before exposing any data access.
@@ -247,3 +250,5 @@ APPROVED: @ega — 2026-01-29
 | 2026-01-29 | Milestone 1: fixed migration for 42P13 by keeping `get_user_settings()` untouched, adding `get_user_settings_v2()`, and adding `upsert_user_settings` overloads with a v1 wrapper. Removed explicit `updated_at` assignment. Updated DB workflow note. |
 | 2026-01-29 | Milestone 1: synced migration to current Supabase state; removed pomodoro_v2_enabled flag changes, sessions CHECK constraints, get_user_settings_v2(), pomodoro_* RPCs, and extra upsert overloads. Migration now only adds sessions pomodoro columns and defines get_active_session_v2() + 6-arg upsert_user_settings(). Updated DB workflow and dependency tracker. |
 | 2026-01-29 | Milestone 1: added `20260130_s2026_02_story1_pomodoro_v2_enable_and_rpcs.sql` for pomodoro_v2_enabled flag, sessions CHECK constraints, and pomodoro RPC skeletons. Updated DB workflow to apply migrations in order. |
+| 2026-01-29 | Milestone 2: implemented phase engine (DB RPC updates) + client auto-transition/timer/paused handling + toast, added unit tests and E2E spec (flag-gated). Updated settings fetch to read pomodoro_v2_enabled and sessions RPC to v2. Added migration `20260131_s2026_02_story1_pomodoro_phase_engine.sql` and DB workflow updates. Commands: `pnpm lint` OK, `pnpm typecheck` OK, `pnpm test:e2e` failed (missing E2E_EMAIL/E2E_PASSWORD). Files: `supabase/migrations/20260131_s2026_02_story1_pomodoro_phase_engine.sql`, `lib/pomodoro/phaseEngine.ts`, `tests/unit/pomodoro-phase-engine.test.ts`, `tests/e2e/pomodoro.spec.ts`, `app/actions/settings.ts`, `app/actions/sessions.ts`, `app/(app)/focus/FocusPanel.tsx`, `sprint/2026-02/EXECPLAN.md`. |
+| 2026-01-29 | Milestone 2: fixed Playwright strict mode locator in pomodoro E2E by asserting exact "Work" phase badge text. Suggested: `pnpm exec playwright test tests/e2e/pomodoro.spec.ts --workers=1` (expect pass with E2E_POMODORO_V2=1 and creds). Files: `tests/e2e/pomodoro.spec.ts`, `sprint/2026-02/EXECPLAN.md`. |

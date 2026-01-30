@@ -184,14 +184,41 @@ export async function getUserSettings(): Promise<ActionResult<UserSettings>> {
       return { success: false, error: "You must be signed in." };
     }
 
-    const { data, error } = await supabase.rpc("get_user_settings");
+    const { error: ensureError } = await supabase.rpc("get_user_settings");
+
+    if (ensureError) {
+      logServerError({
+        scope: "actions.settings.getUserSettings",
+        error: ensureError,
+        context: {
+          rpc: "get_user_settings",
+        },
+      });
+      return { success: false, error: "Unable to load settings." };
+    }
+
+    const { data, error } = await supabase
+      .from("user_settings")
+      .select(
+        [
+          "timezone",
+          "default_task_id",
+          "pomodoro_work_minutes",
+          "pomodoro_short_break_minutes",
+          "pomodoro_long_break_minutes",
+          "pomodoro_long_break_every",
+          "pomodoro_v2_enabled",
+        ].join(", "),
+      )
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
 
     if (error) {
       logServerError({
         scope: "actions.settings.getUserSettings",
         error,
         context: {
-          rpc: "get_user_settings",
+          table: "user_settings",
         },
       });
       return { success: false, error: "Unable to load settings." };
