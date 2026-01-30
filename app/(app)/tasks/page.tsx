@@ -2,7 +2,7 @@ import { CreateTaskForm } from "./components/CreateTaskForm";
 import { EmptyState } from "./components/EmptyState";
 import { ProjectsPanel } from "./components/ProjectsPanel";
 import { TaskList } from "./components/TaskList";
-import { getTasks } from "@/app/actions/tasks";
+import { getTaskPomodoroStats, getTasks } from "@/app/actions/tasks";
 import { getProjects } from "@/app/actions/projects";
 import { Card } from "@/components/ui/card";
 
@@ -27,6 +27,25 @@ export default async function TasksPage() {
   const projects = projectsResult.success ? projectsResult.data : [];
   const projectsError = projectsResult.success ? null : projectsResult.error;
   const activeProjects = projects.filter((project) => !project.archived_at);
+  const pomodoroStatsByTaskId: Record<
+    string,
+    { pomodoros_today: number; pomodoros_total: number }
+  > =
+    tasksResult.success && tasks.length > 0
+      ? Object.fromEntries(
+          await Promise.all(
+            tasks.map(async (task) => {
+              const statsResult = await getTaskPomodoroStats(task.id);
+              return [
+                task.id,
+                statsResult.success
+                  ? statsResult.data
+                  : { pomodoros_today: 0, pomodoros_total: 0 },
+              ] as const;
+            }),
+          ),
+        )
+      : {};
 
   return (
     <div className="space-y-6">
@@ -50,7 +69,11 @@ export default async function TasksPage() {
             ) : tasks.length === 0 ? (
               <EmptyState />
             ) : (
-              <TaskList tasks={tasks} projects={activeProjects} />
+              <TaskList
+                tasks={tasks}
+                projects={activeProjects}
+                pomodoroStatsByTaskId={pomodoroStatsByTaskId}
+              />
             )}
           </div>
         </Card>

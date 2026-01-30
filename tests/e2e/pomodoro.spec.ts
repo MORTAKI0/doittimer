@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { ensureNoActiveSession, startSession } from "./helpers";
+import { ensureNoActiveSession, startSession, stopSession, uniqueTitle } from "./helpers";
 
 const pomodoroEnabled = process.env.E2E_POMODORO_V2 === "1";
 
@@ -11,6 +11,31 @@ async function setPomodoroDurations(page: Page) {
   await page.getByLabel("Long break every").fill("2");
   await page.getByRole("button", { name: "Save settings" }).click();
   await expect(page.getByText("Settings saved.")).toBeVisible();
+}
+
+async function skipPhase(page: Page) {
+  const [skipResp] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes("/focus") && r.request().method() === "POST",
+      { timeout: 10_000 },
+    ),
+    page.getByRole("button", { name: /skip phase/i }).click(),
+  ]);
+
+  expect(skipResp.ok()).toBeTruthy();
+  await page.waitForTimeout(250);
+}
+
+async function readWorkPomodorosCompletedToday(page: Page): Promise<number> {
+  await page.goto("/dashboard");
+  const card = page
+    .getByText("Work pomodoros completed today")
+    .locator("..")
+    .locator("..");
+
+  const raw = (await card.locator("p").first().innerText()).trim();
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 test.describe("pomodoro v2", () => {
@@ -81,5 +106,46 @@ test.describe("pomodoro v2", () => {
       page.off("response", responseLogger);
       await ensureNoActiveSession(page);
     }
+  });
+
+  test("work pomodoros completed today appear on dashboard", async ({ page }) => {
+    await setPomodoroDurations(page);
+
+    // NOTE: This test runs after "phase transitions..." which may have already recorded a work_completed event.
+    // We assert the delta (+2) instead of an absolute value.
+    const baseline = await readWorkPomodorosCompletedToday(page);
+
+    const title = uniqueTitle("E2E-Pomodoro");
+    await page.goto("/tasks");
+    await page.getByLabel("Task title").fill(title);
+    await page.getByRole("button", { name: "Add task" }).click();
+    await expect(page.locator("li", { hasText: title })).toBeVisible({ timeout: 20000 });
+
+    await page.goto("/focus");
+    await ensureNoActiveSession(page);
+    await page.getByLabel("Link a task").selectOption({ label: title });
+    await startSession(page);
+
+    await expect(page.getByText("Work", { exact: true })).toBeVisible();
+
+    await skipPhase(page); // Work -> Short Break (work_completed)
+    await expect(page.getByText("Short Break", { exact: true })).toBeVisible({ timeout: 10000 });
+
+    await skipPhase(page); // Short Break -> Work
+    await expect(page.getByText("Work", { exact: true })).toBeVisible({ timeout: 10000 });
+
+    await skipPhase(page); // Work -> Long Break (work_completed)
+    await expect(page.getByText("Long Break", { exact: true })).toBeVisible({ timeout: 10000 });
+
+    await stopSession(page);
+
+    const after = await readWorkPomodorosCompletedToday(page);
+    expect(after).toBe(baseline + 2);
+
+    // Assert task-level stats using the Tasks list (stable: this is a brand-new task).
+    await page.goto("/tasks");
+    const row = page.locator("li", { hasText: title });
+    await expect(row).toContainText("Pomodoros today: 2");
+    await expect(row).toContainText("Pomodoros total: 2");
   });
 });

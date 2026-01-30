@@ -1,4 +1,4 @@
-import { getDashboardTodayStats } from "@/app/actions/dashboard";
+import { getDashboardPomodoroStats, getDashboardTodayStats } from "@/app/actions/dashboard";
 import { Card } from "@/components/ui/card";
 import { IconCheck, IconFocus, IconPulse } from "@/components/ui/icons";
 
@@ -15,7 +15,10 @@ function formatFocusTime(totalSeconds: number) {
 }
 
 export default async function DashboardPage() {
-  const statsResult = await getDashboardTodayStats();
+  const [statsResult, pomodoroStatsResult] = await Promise.all([
+    getDashboardTodayStats(),
+    getDashboardPomodoroStats(),
+  ]);
   const stats = statsResult.success
     ? statsResult.data
     : {
@@ -23,6 +26,12 @@ export default async function DashboardPage() {
         sessions_count: 0,
         tasks_total: 0,
         tasks_completed: 0,
+      };
+  const pomodoroStats = pomodoroStatsResult.success
+    ? pomodoroStatsResult.data
+    : {
+        total_work_completed_today: 0,
+        top_tasks_today: [],
       };
   const showEmptyFocusHint =
     statsResult.success && stats.focus_seconds === 0 && stats.sessions_count === 0;
@@ -43,7 +52,13 @@ export default async function DashboardPage() {
         </p>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      {!pomodoroStatsResult.success ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {pomodoroStatsResult.error}
+        </p>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-t-4 border-emerald-500 p-4">
           <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <span>Focus today</span>
@@ -71,6 +86,15 @@ export default async function DashboardPage() {
             {stats.tasks_completed} / {stats.tasks_total}
           </p>
         </Card>
+        <Card className="border-t-4 border-emerald-200 p-4">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span>Work pomodoros completed today</span>
+            <IconPulse className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+          </div>
+          <p className="mt-3 text-2xl font-semibold text-foreground">
+            {pomodoroStats.total_work_completed_today}
+          </p>
+        </Card>
       </div>
 
       {showEmptyFocusHint ? (
@@ -84,6 +108,27 @@ export default async function DashboardPage() {
           No tasks yet. Create one in Tasks.
         </p>
       ) : null}
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span>Top tasks today</span>
+          <IconPulse className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+        </div>
+        {pomodoroStats.top_tasks_today.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No task-linked pomodoros yet today.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {pomodoroStats.top_tasks_today.map((task) => (
+              <li key={task.task_id} className="flex items-center justify-between text-sm">
+                <span className="truncate text-foreground">{task.task_title}</span>
+                <span className="text-muted-foreground">{task.pomodoros}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }

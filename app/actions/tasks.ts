@@ -37,6 +37,11 @@ export type TaskPomodoroOverrides = {
   longBreakEvery: number | null;
 };
 
+export type TaskPomodoroStats = {
+  pomodoros_today: number;
+  pomodoros_total: number;
+};
+
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
 function isRecentDuplicate(task: TaskRow | null) {
@@ -44,6 +49,15 @@ function isRecentDuplicate(task: TaskRow | null) {
   const createdAt = Date.parse(task.created_at);
   if (Number.isNaN(createdAt)) return false;
   return Date.now() - createdAt < DUPLICATE_WINDOW_MS;
+}
+
+function toNumber(value: unknown) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
 }
 
 export async function createTask(
@@ -176,6 +190,64 @@ export async function getTasks(
   } catch (error) {
     logServerError({
       scope: "actions.tasks.getTasks",
+      error,
+    });
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function getTaskPomodoroStats(
+  taskId: string,
+): Promise<ActionResult<TaskPomodoroStats>> {
+  const parsedId = taskIdSchema.safeParse(taskId);
+
+  if (!parsedId.success) {
+    return {
+      success: false,
+      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  try {
+    let userId: string | undefined;
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    userId = userData.user.id;
+
+    const { data, error } = await supabase.rpc("get_task_pomodoro_stats", {
+      p_task_id: parsedId.data,
+    });
+
+    if (error) {
+      logServerError({
+        scope: "actions.tasks.getTaskPomodoroStats",
+        userId,
+        error,
+        context: { rpc: "get_task_pomodoro_stats" },
+      });
+      return { success: false, error: "Impossible de charger les stats pomodoro." };
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+
+    return {
+      success: true,
+      data: {
+        pomodoros_today: toNumber(row?.pomodoros_today),
+        pomodoros_total: toNumber(row?.pomodoros_total),
+      },
+    };
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.getTaskPomodoroStats",
       error,
     });
     return {
