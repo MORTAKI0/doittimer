@@ -3,6 +3,7 @@ import { EmptyState } from "./components/EmptyState";
 import { ProjectsPanel } from "./components/ProjectsPanel";
 import { TaskList } from "./components/TaskList";
 import { getTaskPomodoroStats, getTasks } from "@/app/actions/tasks";
+import { getTaskQueue } from "@/app/actions/queue";
 import { getProjects } from "@/app/actions/projects";
 import { Card } from "@/components/ui/card";
 
@@ -18,14 +19,16 @@ function toEnglishError(message: string | null) {
 }
 
 export default async function TasksPage() {
-  const [tasksResult, projectsResult] = await Promise.all([
+  const [tasksResult, projectsResult, queueResult] = await Promise.all([
     getTasks({ includeArchived: true }),
     getProjects({ includeArchived: true }),
+    getTaskQueue(),
   ]);
   const tasks = tasksResult.success ? tasksResult.data : [];
   const listError = tasksResult.success ? null : toEnglishError(tasksResult.error);
   const projects = projectsResult.success ? projectsResult.data : [];
   const projectsError = projectsResult.success ? null : projectsResult.error;
+  const queueItems = queueResult.success ? queueResult.data : [];
   const activeProjects = projects.filter((project) => !project.archived_at);
   const pomodoroStatsByTaskId: Record<
     string,
@@ -73,6 +76,7 @@ export default async function TasksPage() {
                 tasks={tasks}
                 projects={activeProjects}
                 pomodoroStatsByTaskId={pomodoroStatsByTaskId}
+                queueItems={queueItems}
               />
             )}
           </div>

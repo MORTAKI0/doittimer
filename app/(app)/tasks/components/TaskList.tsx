@@ -5,6 +5,14 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  addTaskToQueue,
+  getTaskQueue,
+  moveTaskQueueDown,
+  moveTaskQueueUp,
+  removeTaskFromQueue,
+  TaskQueueRow,
+} from "@/app/actions/queue";
+import {
   deleteTask,
   restoreTask,
   toggleTaskCompletion,
@@ -32,6 +40,7 @@ type TaskListProps = {
     string,
     { pomodoros_today: number; pomodoros_total: number }
   >;
+  queueItems?: TaskQueueRow[];
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -46,6 +55,10 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible de supprimer la tache.": "Unable to delete the task.",
   "Impossible de restaurer la tache.": "Unable to restore the task.",
   "Parametres pomodoro invalides.": "Invalid pomodoro settings.",
+  "Impossible de charger la file.": "Unable to load the queue.",
+  "Impossible de mettre a jour la file.": "Unable to update the queue.",
+  "Limite de 7 elements atteinte.": "Queue limit reached (7 items).",
+  "Tache introuvable.": "Task not found.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
 };
 
@@ -57,8 +70,10 @@ export function TaskList({
   tasks,
   projects = [],
   pomodoroStatsByTaskId = {},
+  queueItems = [],
 }: TaskListProps) {
   const router = useRouter();
+  const [queue, setQueue] = React.useState<TaskQueueRow[]>(queueItems);
   const [items, setItems] = React.useState<TaskRow[]>(tasks);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftTitle, setDraftTitle] = React.useState("");
@@ -69,11 +84,17 @@ export function TaskList({
   const [draftPomodoroLong, setDraftPomodoroLong] = React.useState("");
   const [draftPomodoroEvery, setDraftPomodoroEvery] = React.useState("");
   const [pendingIds, setPendingIds] = React.useState<Record<string, boolean>>({});
+  const [queuePendingIds, setQueuePendingIds] = React.useState<Record<string, boolean>>(
+    {},
+  );
   const [errorsById, setErrorsById] = React.useState<Record<string, string | null>>(
     {},
   );
+  const [queueError, setQueueError] = React.useState<string | null>(null);
   const [projectFilter, setProjectFilter] = React.useState<string>("all");
   const [showArchived, setShowArchived] = React.useState(false);
+
+  const MAX_QUEUE_ITEMS = 7;
 
   const projectIds = React.useMemo(() => {
     return new Set(projects.map((project) => project.id));
@@ -82,6 +103,10 @@ export function TaskList({
   React.useEffect(() => {
     setItems(tasks);
   }, [tasks]);
+
+  React.useEffect(() => {
+    setQueue(queueItems);
+  }, [queueItems]);
 
   React.useEffect(() => {
     if (projectFilter === "all" || projectFilter === "none") return;
@@ -96,6 +121,10 @@ export function TaskList({
 
   function setError(id: string, message: string | null) {
     setErrorsById((prev) => ({ ...prev, [id]: message }));
+  }
+
+  function setQueuePending(id: string, value: boolean) {
+    setQueuePendingIds((prev) => ({ ...prev, [id]: value }));
   }
 
   function startEditing(task: TaskRow) {
@@ -381,6 +410,79 @@ export function TaskList({
     setPending(task.id, false);
   }
 
+  async function handleQueueRefresh() {
+    const result = await getTaskQueue();
+    if (!result.success) {
+      setQueueError(toEnglishError(result.error));
+      return;
+    }
+    setQueue(result.data);
+  }
+
+  async function handleQueueAdd(task: TaskRow) {
+    if (queuePendingIds[task.id]) return;
+    setQueuePending(task.id, true);
+    setQueueError(null);
+
+    const result = await addTaskToQueue(task.id);
+    if (!result.success) {
+      setQueueError(toEnglishError(result.error));
+      setQueuePending(task.id, false);
+      return;
+    }
+    setQueue(result.data);
+    setQueuePending(task.id, false);
+    router.refresh();
+  }
+
+  async function handleQueueRemove(taskId: string) {
+    if (queuePendingIds[taskId]) return;
+    setQueuePending(taskId, true);
+    setQueueError(null);
+
+    const result = await removeTaskFromQueue(taskId);
+    if (!result.success) {
+      setQueueError(toEnglishError(result.error));
+      setQueuePending(taskId, false);
+      return;
+    }
+    setQueue(result.data);
+    setQueuePending(taskId, false);
+    router.refresh();
+  }
+
+  async function handleQueueMoveUp(taskId: string) {
+    if (queuePendingIds[taskId]) return;
+    setQueuePending(taskId, true);
+    setQueueError(null);
+
+    const result = await moveTaskQueueUp(taskId);
+    if (!result.success) {
+      setQueueError(toEnglishError(result.error));
+      setQueuePending(taskId, false);
+      return;
+    }
+    setQueue(result.data);
+    setQueuePending(taskId, false);
+    router.refresh();
+  }
+
+  async function handleQueueMoveDown(taskId: string) {
+    if (queuePendingIds[taskId]) return;
+    setQueuePending(taskId, true);
+    setQueueError(null);
+
+    const result = await moveTaskQueueDown(taskId);
+    if (!result.success) {
+      setQueueError(toEnglishError(result.error));
+      setQueuePending(taskId, false);
+      return;
+    }
+    setQueue(result.data);
+    setQueuePending(taskId, false);
+    router.refresh();
+  }
+
   const projectLabelById = React.useMemo(() => {
     const entries = (projects ?? []).map((project) => [project.id, project.name] as const);
     return new Map(entries);
@@ -396,9 +498,91 @@ export function TaskList({
     showArchived ? true : task.archived_at == null,
   );
   const hasArchived = items.some((task) => task.archived_at != null);
+  const queueIds = new Set(queue.map((item) => item.task_id));
+  const queueIsFull = queue.length >= MAX_QUEUE_ITEMS;
 
   return (
     <div className="space-y-3">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Today queue
+          </h2>
+          <Button
+            size="sm"
+            type="button"
+            variant="secondary"
+            onClick={handleQueueRefresh}
+          >
+            Refresh
+          </Button>
+        </div>
+        {queueError ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {queueError}
+          </p>
+        ) : null}
+        <div data-testid="today-queue">
+          {queue.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
+              No tasks in Today queue yet.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+              {queue.map((item, index) => {
+                const isFirst = index === 0;
+                const isLast = index === queue.length - 1;
+                const isPending = Boolean(queuePendingIds[item.task_id]);
+                return (
+                  <li key={item.task_id} className="flex flex-wrap items-center gap-2 px-4 py-3">
+                    <div className="flex flex-1 items-center gap-2 text-sm text-foreground">
+                      <span>{item.title}</span>
+                      {item.archived_at ? (
+                        <Badge variant="neutral">Archived</Badge>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                        onClick={() => handleQueueMoveUp(item.task_id)}
+                        disabled={isFirst || isPending}
+                        aria-label="Move up"
+                        data-testid={`queue-move-up-${item.task_id}`}
+                      >
+                        Up
+                      </Button>
+                      <Button
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                        onClick={() => handleQueueMoveDown(item.task_id)}
+                        disabled={isLast || isPending}
+                        aria-label="Move down"
+                        data-testid={`queue-move-down-${item.task_id}`}
+                      >
+                        Down
+                      </Button>
+                      <Button
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                        onClick={() => handleQueueRemove(item.task_id)}
+                        disabled={isPending}
+                        aria-label="Remove from queue"
+                        data-testid={`queue-remove-${item.task_id}`}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Your tasks
       </h2>
@@ -670,6 +854,17 @@ export function TaskList({
                       </Button>
                     ) : (
                       <>
+                        <Button
+                          size="sm"
+                          type="button"
+                          variant="secondary"
+                          onClick={() => handleQueueAdd(task)}
+                          disabled={queueIds.has(task.id) || queueIsFull || isPending}
+                          aria-label="Add to Today queue"
+                          data-testid={`queue-add-${task.id}`}
+                        >
+                          Add to queue
+                        </Button>
                         <IconButton
                           type="button"
                           onClick={() => startEditing(task)}
