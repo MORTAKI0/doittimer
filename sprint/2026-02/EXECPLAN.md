@@ -219,6 +219,10 @@ Risks + rollout notes
 - RLS-first for queue table and mutations
 - Server timestamps only for created_at
 
+Manual smoke (US4)
+- /tasks: add A/B/C to Today queue → Move up B → confirm B/A/C order
+- /focus: Next up shows first queue item → Switch changes selection (no auto-start)
+
 ## Failure protocol
 Stop -> capture evidence -> revert smallest unit -> update plan -> re-approve if material.
 
@@ -253,3 +257,6 @@ APPROVED: @ega — 2026-01-29
 | 2026-01-29 | Milestone 2: implemented phase engine (DB RPC updates) + client auto-transition/timer/paused handling + toast, added unit tests and E2E spec (flag-gated). Updated settings fetch to read pomodoro_v2_enabled and sessions RPC to v2. Added migration `20260131_s2026_02_story1_pomodoro_phase_engine.sql` and DB workflow updates. Commands: `pnpm lint` OK, `pnpm typecheck` OK, `pnpm test:e2e` failed (missing E2E_EMAIL/E2E_PASSWORD). Files: `supabase/migrations/20260131_s2026_02_story1_pomodoro_phase_engine.sql`, `lib/pomodoro/phaseEngine.ts`, `tests/unit/pomodoro-phase-engine.test.ts`, `tests/e2e/pomodoro.spec.ts`, `app/actions/settings.ts`, `app/actions/sessions.ts`, `app/(app)/focus/FocusPanel.tsx`, `sprint/2026-02/EXECPLAN.md`. |
 | 2026-01-29 | Milestone 2: fixed Playwright strict mode locator in pomodoro E2E by asserting exact "Work" phase badge text. Suggested: `pnpm exec playwright test tests/e2e/pomodoro.spec.ts --workers=1` (expect pass with E2E_POMODORO_V2=1 and creds). Files: `tests/e2e/pomodoro.spec.ts`, `sprint/2026-02/EXECPLAN.md`. |
 | 2026-01-30 | Milestone 3 (Story 2): added `session_pomodoro_events` table + RLS + stats RPCs and idempotent event insert in `pomodoro_skip_phase`; wired dashboard + tasks pomodoro stats; added pomodoro stats E2E. Files: `supabase/migrations/20260202_s2026_02_story2_pomodoro_stats.sql`, `app/actions/dashboard.ts`, `app/actions/tasks.ts`, `app/(app)/dashboard/page.tsx`, `app/(app)/tasks/page.tsx`, `app/(app)/tasks/components/TaskList.tsx`, `tests/e2e/pomodoro.spec.ts`, `sprint/2026-02/EXECPLAN.md`. |
+| 2026-01-30 | Milestone 4 (Story 3): added pomodoro presets module + task edit quick-apply UI + unit test + E2E preset flow. Tests: `node --test tests/unit` failed (EPERM spawn); `pnpm test:e2e -- tests/e2e/pomodoro.spec.ts --workers=1` failed (missing `E2E_EMAIL`/`E2E_PASSWORD`). Files: `lib/pomodoro/presets.ts`, `app/(app)/tasks/components/TaskList.tsx`, `tests/unit/pomodoro-presets.test.ts`, `tests/e2e/pomodoro.spec.ts`, `sprint/2026-02/EXECPLAN.md`. |
+| 2026-01-31 | Milestone 5 (Story 4): added task queue migration with RLS + RPCs, queue server actions, Tasks/Focus UI wiring (Today queue + Next up), and unit/E2E tests. Tests not run in this session. Files: `supabase/migrations/20260203_s2026_02_story4_task_queue.sql`, `app/actions/queue.ts`, `app/(app)/tasks/page.tsx`, `app/(app)/tasks/components/TaskList.tsx`, `app/(app)/focus/page.tsx`, `app/(app)/focus/FocusPanel.tsx`, `lib/queue/nextUp.ts`, `tests/unit/task-queue.test.ts`, `tests/e2e/queue.spec.ts`, `sprint/2026-02/EXECPLAN.md`. |
+| 2026-01-31 | US4 hardening: task_queue_move_up/down updated to use a temp-slot swap to avoid 23505 under unique (user_id, sort_order). Earlier failure: duplicate key value violates unique constraint "idx_task_queue_items_user_sort_unique" (23505). Manual smoke checklist added. Verification: `pnpm lint` OK; `pnpm typecheck` OK; `pnpm exec playwright test --workers=1` blocked (E2E_EMAIL/E2E_PASSWORD missing). |

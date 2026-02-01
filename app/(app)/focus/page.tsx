@@ -1,6 +1,7 @@
 import { getActiveSession, getTodaySessions } from "@/app/actions/sessions";
 import { getUserSettings } from "@/app/actions/settings";
 import { getTasks } from "@/app/actions/tasks";
+import { getTaskQueue } from "@/app/actions/queue";
 import { Card } from "@/components/ui/card";
 import { FocusPanel } from "./FocusPanel";
 
@@ -18,11 +19,12 @@ function toEnglishError(message: string | null) {
 }
 
 export default async function FocusPage() {
-  const [activeResult, todayResult, tasksResult, settingsResult] = await Promise.all([
+  const [activeResult, todayResult, tasksResult, settingsResult, queueResult] = await Promise.all([
     getActiveSession(),
     getTodaySessions(),
     getTasks(),
     getUserSettings(),
+    getTaskQueue(),
   ]);
 
   const activeSession = activeResult.success ? activeResult.data : null;
@@ -47,6 +49,7 @@ export default async function FocusPage() {
   const pomodoroEnabled = settingsResult.success
     ? settingsResult.data.pomodoro_v2_enabled
     : false;
+  const queueItems = queueResult.success ? queueResult.data : [];
   const errorMessage =
     !activeResult.success
       ? toEnglishError(activeResult.error)
@@ -80,6 +83,7 @@ export default async function FocusPage() {
             defaultTaskId={defaultTaskId}
             pomodoroDefaults={pomodoroDefaults}
             pomodoroEnabled={pomodoroEnabled}
+            queueItems={queueItems}
           />
         </Card>
       </div>

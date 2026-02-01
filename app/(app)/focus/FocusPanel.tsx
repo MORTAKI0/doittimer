@@ -11,11 +11,13 @@ import {
   pomodoroSkipPhase,
   pomodoroRestartPhase,
 } from "@/app/actions/pomodoro";
+import type { TaskQueueRow } from "@/app/actions/queue";
 import {
   computeElapsedSeconds,
   getPhaseDurationSeconds,
   type PomodoroPhase,
 } from "@/lib/pomodoro/phaseEngine";
+import { getNextUpTask } from "@/lib/queue/nextUp";
 import { normalizeMusicUrl } from "@/lib/validation/session.schema";
 import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +36,7 @@ type FocusPanelProps = {
     longBreakEvery: number;
   };
   pomodoroEnabled: boolean;
+  queueItems: TaskQueueRow[];
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -128,6 +131,7 @@ export function FocusPanel({
   defaultTaskId,
   pomodoroDefaults,
   pomodoroEnabled,
+  queueItems,
 }: FocusPanelProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = React.useState(false);
@@ -183,6 +187,12 @@ export function FocusPanel({
   const phaseDurationSeconds = hasPomodoroPhase
     ? getPhaseDurationSeconds(pomodoroPhase as PomodoroPhase, effectivePomodoro)
     : null;
+  const nextUp = getNextUpTask(queueItems, activeSession?.task_id ?? null);
+  const canSwitchToNextUp = Boolean(
+    nextUp
+      && !nextUp.archived_at
+      && tasks.some((task) => task.id === nextUp.task_id),
+  );
 
   const handlePomodoroSkip = React.useCallback(async () => {
     if (!activeSession || !hasValidId || isPomodoroUpdating) return;
@@ -388,6 +398,12 @@ export function FocusPanel({
     router.refresh();
   }
 
+  function handleSwitchToNextUp() {
+    if (!nextUp || !canSwitchToNextUp || hasActiveSession) return;
+    setHasManualSelection(true);
+    setSelectedTaskId(nextUp.task_id);
+  }
+
   return (
     <div className="space-y-6">
       <div
@@ -447,6 +463,37 @@ export function FocusPanel({
           {toastMessage}
         </div>
       ) : null}
+
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Next up
+        </h2>
+        {nextUp ? (
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3"
+            data-testid="next-up"
+          >
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <span>{nextUp.title}</span>
+              {nextUp.archived_at ? <Badge variant="neutral">Archived</Badge> : null}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSwitchToNextUp}
+              disabled={hasActiveSession || !canSwitchToNextUp}
+              aria-label="Switch to next up"
+              data-testid="next-up-switch"
+            >
+              Switch
+            </Button>
+          </div>
+        ) : (
+          <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
+            No tasks in Today queue. <a href="/tasks" className="text-emerald-600">Add tasks</a>.
+          </p>
+        )}
+      </div>
 
       <div className="space-y-3">
         <div className="space-y-2">
