@@ -63,9 +63,16 @@ export function CreateTaskForm({ projects = [] }: CreateTaskFormProps) {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">Create a task</h2>
+    <form className="space-y-5" onSubmit={handleSubmit}>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400/20 to-emerald-600/20">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
+          <h2 className="gradient-text text-lg font-semibold">Create a task</h2>
+        </div>
         <p className="text-sm text-muted-foreground">
           Keep tasks short and actionable to stay focused.
         </p>
@@ -84,6 +91,7 @@ export function CreateTaskForm({ projects = [] }: CreateTaskFormProps) {
           disabled={isPending}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? "task-title-error" : undefined}
+          className="transition-all duration-200 focus:scale-[1.01]"
         />
       </div>
       <div className="space-y-2">
@@ -95,7 +103,7 @@ export function CreateTaskForm({ projects = [] }: CreateTaskFormProps) {
           name="project"
           value={projectId}
           onChange={(event) => setProjectId(event.target.value)}
-          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground transition-all duration-200 focus:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isPending || projects.length === 0}
         >
           <option value="">No project</option>
@@ -120,10 +128,10 @@ export function CreateTaskForm({ projects = [] }: CreateTaskFormProps) {
         </p>
       ) : null}
 
-      <Button type="submit" disabled={isDisabled} className="w-full">
+      <Button type="submit" disabled={isDisabled} className="btn-premium w-full">
         {isPending ? "Creating..." : "Add task"}
       </Button>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-center text-xs text-muted-foreground">
         Your task will appear in the list instantly.
       </p>
     </form>

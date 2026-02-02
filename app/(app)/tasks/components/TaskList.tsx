@@ -502,18 +502,35 @@ export function TaskList({
   const queueIsFull = queue.length >= MAX_QUEUE_ITEMS;
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-2">
+    <div className="space-y-6">
+      {/* Today Queue Section */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Today queue
-          </h2>
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400/20 to-orange-500/20">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+              Today Queue
+            </h2>
+            {queue.length > 0 && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                {queue.length}/{MAX_QUEUE_ITEMS}
+              </span>
+            )}
+          </div>
           <Button
             size="sm"
             type="button"
             variant="secondary"
             onClick={handleQueueRefresh}
+            className="gap-1"
           >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
             Refresh
           </Button>
         </div>
@@ -524,24 +541,38 @@ export function TaskList({
         ) : null}
         <div data-testid="today-queue">
           {queue.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
-              No tasks in Today queue yet.
-            </p>
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-gradient-to-br from-amber-50/50 to-orange-50/50 p-6 text-center">
+              <div className="rounded-full bg-amber-100 p-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-foreground">No tasks in queue</p>
+              <p className="text-xs text-muted-foreground">Add tasks from the list below to prioritize your day</p>
+            </div>
           ) : (
-            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+            <ul className="space-y-2">
               {queue.map((item, index) => {
                 const isFirst = index === 0;
                 const isLast = index === queue.length - 1;
                 const isPending = Boolean(queuePendingIds[item.task_id]);
+                const positionNumber = index + 1;
                 return (
-                  <li key={item.task_id} className="flex flex-wrap items-center gap-2 px-4 py-3">
-                    <div className="flex flex-1 items-center gap-2 text-sm text-foreground">
+                  <li
+                    key={item.task_id}
+                    className="group flex flex-wrap items-center gap-3 rounded-xl border border-border bg-gradient-to-r from-amber-50/30 to-transparent px-4 py-3 transition-all duration-200 hover:border-amber-200 hover:shadow-sm"
+                  >
+                    {/* Position Badge */}
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-xs font-bold text-white shadow-sm">
+                      {positionNumber}
+                    </div>
+                    <div className="flex flex-1 items-center gap-2 text-sm font-medium text-foreground">
                       <span>{item.title}</span>
                       {item.archived_at ? (
                         <Badge variant="neutral">Archived</Badge>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 opacity-70 transition-opacity group-hover:opacity-100">
                       <Button
                         size="sm"
                         type="button"
@@ -550,8 +581,11 @@ export function TaskList({
                         disabled={isFirst || isPending}
                         aria-label="Move up"
                         data-testid={`queue-move-up-${item.task_id}`}
+                        className="h-8 w-8 p-0"
                       >
-                        Up
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
                       </Button>
                       <Button
                         size="sm"
@@ -561,8 +595,11 @@ export function TaskList({
                         disabled={isLast || isPending}
                         aria-label="Move down"
                         data-testid={`queue-move-down-${item.task_id}`}
+                        className="h-8 w-8 p-0"
                       >
-                        Down
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
                       </Button>
                       <Button
                         size="sm"
@@ -572,6 +609,7 @@ export function TaskList({
                         disabled={isPending}
                         aria-label="Remove from queue"
                         data-testid={`queue-remove-${item.task_id}`}
+                        className="text-red-500 hover:bg-red-50 hover:text-red-600"
                       >
                         Remove
                       </Button>
@@ -583,43 +621,72 @@ export function TaskList({
           )}
         </div>
       </div>
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Your tasks
-      </h2>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Filter by project
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <select
-            data-testid="projects-filter"
-            value={projectFilter}
-            onChange={(event) => setProjectFilter(event.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
-          >
-            <option value="all">All projects</option>
-            <option value="none">No project</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-          {hasArchived ? (
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(event) => setShowArchived(event.target.checked)}
-                className="h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
-                data-testid="tasks-archived-toggle"
-              />
-              Show archived
-            </label>
-          ) : null}
+
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
         </div>
       </div>
-      <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+      {/* Your Tasks Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400/20 to-emerald-600/20">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+            Your Tasks
+          </h2>
+          {visibleItems.length > 0 && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              {visibleItems.filter(t => t.completed).length}/{visibleItems.length} done
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Filter by project
+            </label>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <select
+              data-testid="projects-filter"
+              value={projectFilter}
+              onChange={(event) => setProjectFilter(event.target.value)}
+              className="h-9 rounded-lg border border-border bg-background px-3 pr-8 text-sm text-foreground transition-all duration-200 hover:border-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+            >
+              <option value="all">All projects</option>
+              <option value="none">No project</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            {hasArchived ? (
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(event) => setShowArchived(event.target.checked)}
+                  className="h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+                  data-testid="tasks-archived-toggle"
+                />
+                Show archived
+              </label>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <ul className="space-y-2">
         {visibleItems.map((task) => {
           const isEditing = editingId === task.id;
           const isPending = Boolean(pendingIds[task.id]);
@@ -634,17 +701,35 @@ export function TaskList({
           };
 
           return (
-            <li key={task.id} className="px-4 py-3 hover:bg-muted">
+            <li
+              key={task.id}
+              className={[
+                "group rounded-xl border border-border bg-card px-4 py-3 transition-all duration-200",
+                isArchived ? "opacity-60" : "hover:border-emerald-200 hover:shadow-sm",
+              ].filter(Boolean).join(" ")}
+            >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-1 items-start gap-3">
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
-                    checked={task.completed}
-                    onChange={() => handleToggle(task)}
-                    disabled={isPending || isEditing || isArchived}
-                    aria-label={`Mark ${task.title} as completed`}
-                  />
+                  {/* Custom styled checkbox */}
+                  <div className="relative mt-0.5">
+                    <input
+                      type="checkbox"
+                      className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-border bg-background transition-all checked:border-emerald-500 checked:bg-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                      checked={task.completed}
+                      onChange={() => handleToggle(task)}
+                      disabled={isPending || isEditing || isArchived}
+                      aria-label={`Mark ${task.title} as completed`}
+                    />
+                    <svg
+                      className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 text-white opacity-0 peer-checked:opacity-100"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
                   {isEditing ? (
                     <div className="w-full space-y-2">
                       <Input
@@ -815,13 +900,13 @@ export function TaskList({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={[
-                            "text-sm",
+                            "text-sm font-medium transition-all duration-200",
                             task.completed
-                              ? "text-muted-foreground line-through"
+                              ? "text-muted-foreground line-through decoration-emerald-400"
                               : "text-foreground",
                           ]
                             .filter(Boolean)
@@ -829,12 +914,36 @@ export function TaskList({
                         >
                           {task.title}
                         </span>
-                        {isArchived ? <Badge variant="neutral">Archived</Badge> : null}
-                        {projectLabel ? <Badge variant="neutral">{projectLabel}</Badge> : null}
+                        {isArchived ? (
+                          <Badge variant="neutral">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                            </svg>
+                            Archived
+                          </Badge>
+                        ) : null}
+                        {projectLabel ? (
+                          <Badge variant="neutral">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                            </svg>
+                            {projectLabel}
+                          </Badge>
+                        ) : null}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Pomodoros today: {pomodoroStats.pomodoros_today} · Pomodoros total:{" "}
-                        {pomodoroStats.pomodoros_total}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Today: {pomodoroStats.pomodoros_today}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                          Total: {pomodoroStats.pomodoros_total}
+                        </span>
                       </div>
                     </div>
                   )}
