@@ -28,7 +28,9 @@ export default async function SettingsPage() {
       pomodoro_v2_enabled: false,
     };
   const settingsError = settingsResult.success ? null : settingsResult.error;
-  const tasks = tasksResult.success ? tasksResult.data : [];
+  const tasks = tasksResult.success
+    ? tasksResult.data.tasks.map((t) => ({ id: t.id, title: t.title }))
+    : [];
   const notionConnection = notionResult.success
     ? notionResult.data
     : {
