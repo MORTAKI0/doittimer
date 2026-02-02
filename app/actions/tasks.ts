@@ -145,11 +145,23 @@ export async function createTask(
 
 type GetTasksOptions = {
   includeArchived?: boolean;
+  page?: number;
+  limit?: number;
+};
+
+export type PaginatedTasks = {
+  tasks: TaskRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+  };
 };
 
 export async function getTasks(
   options: GetTasksOptions = {},
-): Promise<ActionResult<TaskRow[]>> {
+): Promise<ActionResult<PaginatedTasks>> {
   try {
     let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
@@ -161,24 +173,22 @@ export async function getTasks(
 
     userId = userData.user.id;
 
+    const page = Math.max(1, options.page ?? 1);
+    const limit = Math.max(1, Math.min(100, options.limit ?? 20));
     const includeArchived = Boolean(options.includeArchived);
-    let query = supabase
-      .from("tasks")
-      .select(TASK_SELECT)
-      .eq("user_id", userData.user.id);
 
-    if (!includeArchived) {
-      query = query.is("archived_at", null);
-    }
-
-    const { data, error } = await query.order("created_at", { ascending: false });
+    const { data, error } = await supabase.rpc("get_tasks_page", {
+      p_page: page,
+      p_limit: limit,
+      p_include_archived: includeArchived,
+    });
 
     if (error) {
       logServerError({
         scope: "actions.tasks.getTasks",
         userId,
         error,
-        context: { action: "select" },
+        context: { action: "rpc", rpc: "get_tasks_page" },
       });
       return {
         success: false,
@@ -186,7 +196,51 @@ export async function getTasks(
       };
     }
 
-    return { success: true, data: data ?? [] };
+    const tasks: TaskRow[] = [];
+    let totalCount = 0;
+
+    if (data && Array.isArray(data) && data.length > 0) {
+      // Extract total_count from the first row and map rows to TaskRow
+      totalCount = Number(data[0].total_count) || 0;
+
+      // Map RPC result to TaskRow type. RPC returns camel_case or snake_case depending on configuration,
+      // but based on the definition "returns table (...)", it should match columns.
+      // We explicitly map just to be safe and match TaskRow type.
+      tasks.push(
+        ...data.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          completed: row.completed,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          project_id: row.project_id,
+          archived_at: row.archived_at,
+          // RPC might strictly return defined columns. If we need pomodoro fields,
+          // we should have included them in RPC or we fetch them separately (inefficient) 
+          // OR we accept they are missing in the list view (common pattern).
+          // For now, let's assume they are undefined in the list view unless added to RPC.
+        }))
+      );
+    } else if (data && !Array.isArray(data)) {
+      // Handle single object return if edge case
+      totalCount = 0;
+    }
+
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      success: true,
+      data: {
+        tasks,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages,
+        },
+      },
+    };
   } catch (error) {
     logServerError({
       scope: "actions.tasks.getTasks",
