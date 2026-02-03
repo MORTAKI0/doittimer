@@ -7,6 +7,7 @@ import { getTasks } from "@/app/actions/tasks";
 import { getNotionConnection } from "@/app/actions/notion";
 import { SettingsForm } from "./SettingsForm";
 import { NotionIntegrationCard } from "./NotionIntegrationCard";
+import { DataManagementCard } from "./DataManagementCard";
 
 export default async function SettingsPage() {
   const user = await getUser();
@@ -90,6 +91,7 @@ export default async function SettingsPage() {
           />
         </div>
       </Card>
+      <DataManagementCard />
       <NotionIntegrationCard
         initialConnection={notionConnection}
         initialError={notionError}

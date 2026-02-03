@@ -22,7 +22,7 @@ export default async function FocusPage() {
   const [activeResult, todayResult, tasksResult, settingsResult, queueResult] = await Promise.all([
     getActiveSession(),
     getTodaySessions(),
-    getTasks({ limit: 50 }),
+    getTasks({ limit: 200 }),
     getUserSettings(),
     getTaskQueue(),
   ]);

@@ -9,17 +9,43 @@ test("today queue supports add, reorder, and focus next up", async ({ page }) =>
   async function clearTodayQueue() {
     await page.goto("/tasks");
     const queue = page.getByTestId("today-queue");
+    const items = queue.locator("li");
 
-    for (let i = 0; i < 20; i += 1) {
-      const items = queue.locator("li");
+    async function clickQueueMutation(locator: ReturnType<typeof page.locator>) {
+      const [response] = await Promise.all([
+        page.waitForResponse(
+          (r) => r.url().includes("/tasks") && r.request().method() === "POST",
+          { timeout: 15000 },
+        ),
+        locator.click(),
+      ]);
+
+      if (!response.ok()) {
+        const body = await response.text().catch(() => "");
+        throw new Error(`Queue mutation failed (${response.status()}): ${body}`);
+      }
+    }
+
+    async function getQueueRowKey(li: ReturnType<typeof page.locator>) {
+      const raw = await li.locator("span").first().innerText();
+      return raw.replace(/\s+/g, " ").trim();
+    }
+
+    for (let i = 0; i < 50; i += 1) {
       const count = await items.count();
       if (count === 0) break;
 
-      await items.first().getByRole("button", { name: /remove from queue/i }).click();
-      await expect(queue.locator("li")).toHaveCount(count - 1, { timeout: 10000 });
+      const first = items.first();
+      const key = await getQueueRowKey(first);
+      const removeButton = first.getByRole("button", { name: /remove from queue/i });
+      await first.scrollIntoViewIfNeeded();
+      await expect(removeButton).toBeEnabled();
+      await clickQueueMutation(removeButton);
+      await expect(queue.locator("li", { hasText: key })).toHaveCount(0, { timeout: 20000 });
+      await expect.poll(async () => items.count()).toBeLessThan(count);
     }
 
-    await expect(queue.locator("li")).toHaveCount(0);
+    await expect(items).toHaveCount(0, { timeout: 20000 });
   }
 
   await clearTodayQueue();

@@ -260,3 +260,11 @@ APPROVED: @ega — 2026-01-29
 | 2026-01-30 | Milestone 4 (Story 3): added pomodoro presets module + task edit quick-apply UI + unit test + E2E preset flow. Tests: `node --test tests/unit` failed (EPERM spawn); `pnpm test:e2e -- tests/e2e/pomodoro.spec.ts --workers=1` failed (missing `E2E_EMAIL`/`E2E_PASSWORD`). Files: `lib/pomodoro/presets.ts`, `app/(app)/tasks/components/TaskList.tsx`, `tests/unit/pomodoro-presets.test.ts`, `tests/e2e/pomodoro.spec.ts`, `sprint/2026-02/EXECPLAN.md`. |
 | 2026-01-31 | Milestone 5 (Story 4): added task queue migration with RLS + RPCs, queue server actions, Tasks/Focus UI wiring (Today queue + Next up), and unit/E2E tests. Tests not run in this session. Files: `supabase/migrations/20260203_s2026_02_story4_task_queue.sql`, `app/actions/queue.ts`, `app/(app)/tasks/page.tsx`, `app/(app)/tasks/components/TaskList.tsx`, `app/(app)/focus/page.tsx`, `app/(app)/focus/FocusPanel.tsx`, `lib/queue/nextUp.ts`, `tests/unit/task-queue.test.ts`, `tests/e2e/queue.spec.ts`, `sprint/2026-02/EXECPLAN.md`. |
 | 2026-01-31 | US4 hardening: task_queue_move_up/down updated to use a temp-slot swap to avoid 23505 under unique (user_id, sort_order). Earlier failure: duplicate key value violates unique constraint "idx_task_queue_items_user_sort_unique" (23505). Manual smoke checklist added. Verification: `pnpm lint` OK; `pnpm typecheck` OK; `pnpm exec playwright test --workers=1` blocked (E2E_EMAIL/E2E_PASSWORD missing). |
+
+## DP-1 — Data Management UI (Settings)
+Checklist
+- [x] Added `DataManagementCard` client component with export/import UI, state gating, and result/error panels.
+- [x] Wired card into `app/(app)/settings/page.tsx` without changing layout structure.
+- [x] Implemented FormData POST to `/api/data/import` with robust error handling for 404/500.
+- [x] Added Playwright E2E coverage for card presence, export hrefs, and import gating.
+- [x] No DB or backend endpoint changes; UI only.
