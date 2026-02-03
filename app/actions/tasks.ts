@@ -215,10 +215,10 @@ export async function getTasks(
           updated_at: row.updated_at,
           project_id: row.project_id,
           archived_at: row.archived_at,
-          // RPC might strictly return defined columns. If we need pomodoro fields,
-          // we should have included them in RPC or we fetch them separately (inefficient) 
-          // OR we accept they are missing in the list view (common pattern).
-          // For now, let's assume they are undefined in the list view unless added to RPC.
+          pomodoro_work_minutes: row.pomodoro_work_minutes ?? null,
+          pomodoro_short_break_minutes: row.pomodoro_short_break_minutes ?? null,
+          pomodoro_long_break_minutes: row.pomodoro_long_break_minutes ?? null,
+          pomodoro_long_break_every: row.pomodoro_long_break_every ?? null,
         }))
       );
     } else if (data && !Array.isArray(data)) {

@@ -28,12 +28,8 @@ async function skipPhase(page: Page) {
 
 async function readWorkPomodorosCompletedToday(page: Page): Promise<number> {
   await page.goto("/dashboard");
-  const card = page
-    .getByText("Work pomodoros completed today")
-    .locator("..")
-    .locator("..");
-
-  const raw = (await card.locator("p").first().innerText()).trim();
+  const card = page.getByText("Pomodoros", { exact: true }).locator("..").locator("..");
+  const raw = (await card.locator(".stat-value").first().innerText()).trim();
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -159,8 +155,8 @@ test.describe("pomodoro v2", () => {
     // Assert task-level stats using the Tasks list (stable: this is a brand-new task).
     await page.goto("/tasks");
     const row = page.locator("li", { hasText: title });
-    await expect(row).toContainText("Pomodoros today: 2");
-    await expect(row).toContainText("Pomodoros total: 2");
+    await expect(row).toContainText("Today: 2");
+    await expect(row).toContainText("Total: 2");
   });
 
   test("apply deep work preset updates focus durations", async ({ page }) => {

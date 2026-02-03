@@ -25,8 +25,8 @@ export async function stopSession(page: Page) {
 }
 
 export async function getSessionsCount(page: Page) {
-  const card = page.getByText("Sessions today").locator("..").locator("..");
-  const value = (await card.locator("p").first().innerText()).trim();
+  const card = page.getByText("Sessions", { exact: true }).locator("..").locator("..");
+  const value = (await card.locator(".stat-value").first().innerText()).trim();
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? 0 : parsed;
 }
