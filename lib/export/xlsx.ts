@@ -1,3 +1,4 @@
+// lib/export/xlsx.ts
 import ExcelJS from "exceljs";
 
 export const EXPORT_SHEETS = [
@@ -93,6 +94,12 @@ export function buildExportWorkbook(data: ExportData, exportedAtIso?: string) {
   manifest.addRow(["exported_at", exportedAt]);
   manifest.addRow(["app", "doittimer"]);
   manifest.addRow(["notes", ""]);
+  manifest.addRow(["projects_count", String(data.projects.length)]);
+  manifest.addRow(["tasks_count", String(data.tasks.length)]);
+  manifest.addRow(["sessions_count", String(data.sessions.length)]);
+  manifest.addRow(["pomodoro_events_count", String(data.pomodoroEvents.length)]);
+  manifest.addRow(["queue_count", String(data.queue.length)]);
+  manifest.addRow(["settings_present", data.settings ? "1" : "0"]);
 
   addTableSheet(workbook, "Projects", data.projects);
   addTableSheet(workbook, "Tasks", data.tasks);
@@ -100,6 +107,18 @@ export function buildExportWorkbook(data: ExportData, exportedAtIso?: string) {
   addTableSheet(workbook, "PomodoroEvents", data.pomodoroEvents);
   addTableSheet(workbook, "Queue", data.queue);
   addTableSheet(workbook, "Settings", data.settings ? [data.settings] : []);
+
+  workbook.views = [
+    {
+      x: 0,
+      y: 0,
+      width: 10000,
+      height: 20000,
+      firstSheet: 0,
+      activeTab: EXPORT_SHEETS.indexOf("Tasks"),
+      visibility: "visible",
+    },
+  ];
 
   return { workbook, exportedAt };
 }
