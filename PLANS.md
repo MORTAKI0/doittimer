@@ -1,4 +1,4 @@
-# Sprint ExecPlan Template
+﻿# Sprint ExecPlan Template
 
 ## Sprint header
 - Sprint ID:
@@ -100,9 +100,17 @@ Stop -> capture evidence -> revert smallest unit -> update plan -> re-approve if
 - After each milestone
 
 ## Approval
-APPROVED: ____________________ � __________
+APPROVED: ____________________ — __________
 
 ## Progress log
 | Date | Update |
 | --- | --- |
 | YYYY-MM-DD | Initialized plan |
+## DP-4 Import (Merge)
+Scope:
+- Add /api/data/import merge-only endpoint for XLSX/ZIP v1 exports with manifest validation.
+- Normalize/validate rows, apply LWW for projects/tasks/settings, insert-only for sessions/events, overwrite queue (cap 7).
+- Return summary counts + warnings; revalidate /tasks, /focus, /dashboard.
+Tests:
+- Playwright E2E for XLSX import idempotency, ended_at synthesis, and queue truncation warning.
+

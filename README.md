@@ -60,6 +60,36 @@ Run:
 pnpm dev
 ```
 
+## Production run (clean build)
+Always rebuild before `pnpm start` after code changes:
+```bash
+# PowerShell
+if (Test-Path .next) { Remove-Item -Recurse -Force .next }
+pnpm build
+pnpm start
+```
+
+If you previously enabled the service worker and see stale client behavior (for example Server Action mismatch), clear service workers + cache once in browser DevTools Console:
+```js
+await navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister())));
+await caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+location.reload();
+```
+
+## Import API smoke test
+The importer supports **merge mode only** with `.xlsx` and `.zip` (Schema v1):
+```bash
+# PowerShell
+curl.exe -i -X POST "http://localhost:3000/api/data/import" `
+  -F "mode=merge" `
+  -F "file=@C:\path\to\doittimer-export.xlsx;type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+```
+
+Expected error shape:
+```json
+{ "success": false, "code": "some_code", "message": "Some message", "details": {} }
+```
+
 ## Scripts
 - `pnpm dev`
 - `pnpm build`

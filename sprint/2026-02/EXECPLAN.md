@@ -1,7 +1,7 @@
-# Sprint 2026-02 ExecPlan
+﻿# Sprint 2026-02 ExecPlan
 Spec: sprint/2026-02/SPEC.md
 
-Source spec: "Pomodoro Improvements � Implementation Spec (4 Small User Stories)"
+Source spec: "Pomodoro Improvements ï¿½ Implementation Spec (4 Small User Stories)"
 Status: READY (spec linked; migration workflow confirmed; feature flag column pending).
 
 ## Scope
@@ -201,8 +201,8 @@ Risks + rollout notes
 | Reorder up/down + max items enforced server-side | Implement reorder logic; enforce max (e.g., 7); tests |
 
 AC checklist
-- [ ] Tasks page “Today queue” add/remove works
-- [ ] Focus page shows “Next up” with one-tap switch
+- [ ] Tasks page â€œToday queueâ€ add/remove works
+- [ ] Focus page shows â€œNext upâ€ with one-tap switch
 - [ ] Reorder via Up/Down buttons (no drag)
 - [ ] Max items enforced on server
 - [ ] Owner-only RLS for queue table
@@ -210,7 +210,7 @@ AC checklist
 Task breakdown
 - DB: add `task_queue_items` table with PK `(user_id, task_id)` and RLS
 - Server: add/remove/move_up/move_down/list actions; enforce max items
-- Client: tasks page queue section; focus “Next up” + reorder controls
+- Client: tasks page queue section; focus â€œNext upâ€ + reorder controls
 - Tests: unit reorder logic; Playwright queue add/reorder/switch
 
 Risks + rollout notes
@@ -220,8 +220,8 @@ Risks + rollout notes
 - Server timestamps only for created_at
 
 Manual smoke (US4)
-- /tasks: add A/B/C to Today queue → Move up B → confirm B/A/C order
-- /focus: Next up shows first queue item → Switch changes selection (no auto-start)
+- /tasks: add A/B/C to Today queue â†’ Move up B â†’ confirm B/A/C order
+- /focus: Next up shows first queue item â†’ Switch changes selection (no auto-start)
 
 ## Failure protocol
 Stop -> capture evidence -> revert smallest unit -> update plan -> re-approve if material.
@@ -241,7 +241,7 @@ Stop -> capture evidence -> revert smallest unit -> update plan -> re-approve if
 - After each milestone
 
 ## Approval
-APPROVED: @ega — 2026-01-29
+APPROVED: @ega â€” 2026-01-29
 ## Progress log
 | Date | Update |
 | --- | --- |
@@ -262,10 +262,12 @@ APPROVED: @ega — 2026-01-29
 | 2026-01-31 | US4 hardening: task_queue_move_up/down updated to use a temp-slot swap to avoid 23505 under unique (user_id, sort_order). Earlier failure: duplicate key value violates unique constraint "idx_task_queue_items_user_sort_unique" (23505). Manual smoke checklist added. Verification: `pnpm lint` OK; `pnpm typecheck` OK; `pnpm exec playwright test --workers=1` blocked (E2E_EMAIL/E2E_PASSWORD missing). |
 | 2026-02-03 | DP-2: added XLSX export route with exceljs, workbook builder, unit test for sheets/headers, and E2E export check. Files: `app/api/data/export/route.ts`, `lib/export/xlsx.ts`, `tests/unit/export-xlsx.test.ts`, `tests/e2e/export-xlsx.spec.ts`, `package.json`. |
 
-## DP-1 — Data Management UI (Settings)
+## DP-1 â€” Data Management UI (Settings)
 Checklist
 - [x] Added `DataManagementCard` client component with export/import UI, state gating, and result/error panels.
 - [x] Wired card into `app/(app)/settings/page.tsx` without changing layout structure.
 - [x] Implemented FormData POST to `/api/data/import` with robust error handling for 404/500.
 - [x] Added Playwright E2E coverage for card presence, export hrefs, and import gating.
 - [x] No DB or backend endpoint changes; UI only.
+| 2026-02-04 | DP-4: added import merge API (xlsx/zip parsing), validation/merge logic, and Playwright import E2E; added jszip + papaparse deps. |
+

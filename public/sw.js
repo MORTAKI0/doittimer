@@ -1,4 +1,4 @@
-const CACHE_VERSION = "doittimer-static-v1";
+const CACHE_VERSION = "doittimer-static-v2";
 const PRECACHE_URLS = [
   "/offline",
   "/manifest.webmanifest",
@@ -29,7 +29,6 @@ self.addEventListener("activate", (event) => {
 
 function isStaticAsset(url) {
   return (
-    url.pathname.startsWith("/_next/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname === "/manifest.webmanifest" ||
     url.pathname === "/favicon.ico" ||
@@ -45,6 +44,10 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
+
+  if (url.pathname.startsWith("/api/")) {
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(

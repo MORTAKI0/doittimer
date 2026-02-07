@@ -16,11 +16,9 @@ test("data management card controls exist on settings", async ({ page }) => {
   const submitButton = page.getByTestId("data-import-submit");
   await expect(submitButton).toBeDisabled();
 
-  await expect(page.getByTestId("data-import-confirm")).toHaveCount(0);
-
-  const modeSelect = page.getByTestId("data-import-mode");
-  await modeSelect.selectOption("replace");
-  await expect(page.getByTestId("data-import-confirm")).toBeVisible();
+  const modeInput = page.getByTestId("data-import-mode");
+  await expect(modeInput).toHaveValue("merge (only)");
+  await expect(modeInput).toBeDisabled();
 
   const fileInput = page.getByTestId("data-import-file");
   await fileInput.setInputFiles({
@@ -29,12 +27,5 @@ test("data management card controls exist on settings", async ({ page }) => {
     buffer: Buffer.from("test"),
   });
 
-  await expect(submitButton).toBeDisabled();
-
-  await page.getByTestId("data-import-confirm").fill("DELETE");
-  await expect(submitButton).toBeEnabled();
-
-  await modeSelect.selectOption("merge");
-  await expect(page.getByTestId("data-import-confirm")).toHaveCount(0);
   await expect(submitButton).toBeEnabled();
 });
