@@ -12,6 +12,7 @@ type ImportResult = Record<string, unknown>;
 type ImportError = {
   message: string;
   code?: string;
+  details?: unknown;
 };
 
 const IMPORT_TABLES = [
@@ -33,15 +34,13 @@ function readCount(value: unknown) {
 
 export function DataManagementCard() {
   const [file, setFile] = React.useState<File | null>(null);
-  const [mode, setMode] = React.useState<"merge" | "replace">("merge");
-  const [confirmText, setConfirmText] = React.useState("");
+  const [mode] = React.useState<"merge">("merge");
   const [result, setResult] = React.useState<ImportResult | null>(null);
   const [error, setError] = React.useState<ImportError | null>(null);
   const [isPending, startTransition] = React.useTransition();
+  const [showDetails, setShowDetails] = React.useState(false);
 
-  const isReplace = mode === "replace";
-  const confirmReady = !isReplace || confirmText === "DELETE";
-  const canSubmit = Boolean(file) && confirmReady && !isPending;
+  const canSubmit = Boolean(file) && !isPending;
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null;
@@ -50,20 +49,13 @@ export function DataManagementCard() {
     setError(null);
   }
 
-  function handleModeChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    const nextMode = event.target.value === "replace" ? "replace" : "merge";
-    setMode(nextMode);
-    if (nextMode !== "replace") {
-      setConfirmText("");
-    }
-  }
-
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file) return;
 
     setError(null);
     setResult(null);
+    setShowDetails(false);
 
     startTransition(async () => {
       try {
@@ -91,7 +83,8 @@ export function DataManagementCard() {
           const code =
             (payload && (payload.code as string)) ??
             (payload && (payload.error_code as string));
-          setError({ message, code: code ?? undefined });
+          const details = payload && "details" in payload ? payload.details : undefined;
+          setError({ message, code: code ?? undefined, details });
           return;
         }
 
@@ -101,7 +94,8 @@ export function DataManagementCard() {
           const code =
             (payload.code as string | undefined) ??
             (payload.error_code as string | undefined);
-          setError({ message, code: code ?? undefined });
+          const details = "details" in payload ? payload.details : undefined;
+          setError({ message, code: code ?? undefined, details });
           return;
         }
 
@@ -179,39 +173,15 @@ export function DataManagementCard() {
             <label className="text-sm font-medium text-foreground" htmlFor="data-import-mode">
               Mode
             </label>
-            <select
+            <Input
               id="data-import-mode"
               name="data-import-mode"
-              value={mode}
-              onChange={handleModeChange}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+              value="merge (only)"
+              readOnly
+              disabled
               data-testid="data-import-mode"
-              disabled={isPending}
-            >
-              <option value="merge">Merge (recommended)</option>
-              <option value="replace">Replace existing data</option>
-            </select>
+            />
           </div>
-          {isReplace ? (
-            <div className="space-y-2">
-              <label
-                className="text-sm font-medium text-foreground"
-                htmlFor="data-import-confirm"
-              >
-                Type DELETE to confirm
-              </label>
-              <Input
-                id="data-import-confirm"
-                name="data-import-confirm"
-                placeholder="DELETE"
-                value={confirmText}
-                onChange={(event) => setConfirmText(event.target.value)}
-                data-testid="data-import-confirm"
-                disabled={isPending}
-                autoComplete="off"
-              />
-            </div>
-          ) : null}
           <p className="text-xs text-muted-foreground">
             Imports apply to the signed-in account only. The file cannot select a user.
           </p>
@@ -265,6 +235,22 @@ export function DataManagementCard() {
             <p className="font-medium text-red-700">{error.message}</p>
             {error.code ? (
               <p className="mt-1 text-xs text-red-600">Code: {error.code}</p>
+            ) : null}
+            {error.details != null ? (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  className="text-xs font-medium underline underline-offset-2"
+                  onClick={() => setShowDetails((prev) => !prev)}
+                >
+                  {showDetails ? "Hide details" : "Show details"}
+                </button>
+                {showDetails ? (
+                  <pre className="mt-2 max-h-48 overflow-auto rounded-md border border-red-200 bg-red-100 p-2 text-xs text-red-700">
+                    {JSON.stringify(error.details, null, 2)}
+                  </pre>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : null}
