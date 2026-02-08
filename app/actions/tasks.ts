@@ -8,18 +8,21 @@ import {
   taskIdSchema,
   taskPomodoroOverridesSchema,
   taskProjectIdSchema,
+  taskScheduledForSchema,
   taskTitleSchema,
 } from "@/lib/validation/task.schema";
 import { logServerError } from "@/lib/logging/logServerError";
 
 const DUPLICATE_WINDOW_MS = 10_000;
 const TASK_SELECT =
-  "id, title, completed, created_at, updated_at, project_id, archived_at, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
+  "id, title, completed, completed_at, scheduled_for, created_at, updated_at, project_id, archived_at, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
 
 export type TaskRow = {
   id: string;
   title: string;
   completed: boolean;
+  completed_at?: string | null;
+  scheduled_for?: string | null;
   created_at: string;
   updated_at: string;
   project_id: string | null;
@@ -176,19 +179,28 @@ export async function getTasks(
     const page = Math.max(1, options.page ?? 1);
     const limit = Math.max(1, Math.min(100, options.limit ?? 20));
     const includeArchived = Boolean(options.includeArchived);
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
 
-    const { data, error } = await supabase.rpc("get_tasks_page", {
-      p_page: page,
-      p_limit: limit,
-      p_include_archived: includeArchived,
-    });
+    let query = supabase
+      .from("tasks")
+      .select(TASK_SELECT, { count: "exact" })
+      .eq("user_id", userData.user.id)
+      .order("updated_at", { ascending: false })
+      .range(from, to);
+
+    if (!includeArchived) {
+      query = query.is("archived_at", null);
+    }
+
+    const { data, error, count } = await query;
 
     if (error) {
       logServerError({
         scope: "actions.tasks.getTasks",
         userId,
         error,
-        context: { action: "rpc", rpc: "get_tasks_page" },
+        context: { action: "select" },
       });
       return {
         success: false,
@@ -196,37 +208,8 @@ export async function getTasks(
       };
     }
 
-    const tasks: TaskRow[] = [];
-    let totalCount = 0;
-
-    if (data && Array.isArray(data) && data.length > 0) {
-      // Extract total_count from the first row and map rows to TaskRow
-      totalCount = Number(data[0].total_count) || 0;
-
-      // Map RPC result to TaskRow type. RPC returns camel_case or snake_case depending on configuration,
-      // but based on the definition "returns table (...)", it should match columns.
-      // We explicitly map just to be safe and match TaskRow type.
-      tasks.push(
-        ...data.map((row: any) => ({
-          id: row.id,
-          title: row.title,
-          completed: row.completed,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          project_id: row.project_id,
-          archived_at: row.archived_at,
-          pomodoro_work_minutes: row.pomodoro_work_minutes ?? null,
-          pomodoro_short_break_minutes: row.pomodoro_short_break_minutes ?? null,
-          pomodoro_long_break_minutes: row.pomodoro_long_break_minutes ?? null,
-          pomodoro_long_break_every: row.pomodoro_long_break_every ?? null,
-        }))
-      );
-    } else if (data && !Array.isArray(data)) {
-      // Handle single object return if edge case
-      totalCount = 0;
-    }
-
-
+    const tasks: TaskRow[] = Array.isArray(data) ? data : [];
+    const totalCount = count ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
 
     return {
@@ -311,7 +294,83 @@ export async function getTaskPomodoroStats(
   }
 }
 
-export async function toggleTaskCompletion(
+export async function setTaskScheduledFor(
+  taskId: string,
+  scheduledFor: string | null,
+): Promise<ActionResult<TaskRow>> {
+  const parsedId = taskIdSchema.safeParse(taskId);
+
+  if (!parsedId.success) {
+    return {
+      success: false,
+      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  if (scheduledFor !== null) {
+    const parsedScheduledFor = taskScheduledForSchema.safeParse(scheduledFor);
+    if (!parsedScheduledFor.success) {
+      return {
+        success: false,
+        error:
+          parsedScheduledFor.error.issues[0]?.message
+          ?? "Date invalide. Format attendu: YYYY-MM-DD.",
+      };
+    }
+  }
+
+  try {
+    let userId: string | undefined;
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    userId = userData.user.id;
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({ scheduled_for: scheduledFor })
+      .eq("id", parsedId.data)
+      .eq("user_id", userData.user.id)
+      .select(TASK_SELECT)
+      .maybeSingle();
+
+    if (error) {
+      logServerError({
+        scope: "actions.tasks.setTaskScheduledFor",
+        userId,
+        error,
+        context: { action: "update" },
+      });
+      return {
+        success: false,
+        error: "Impossible de mettre a jour la tache.",
+      };
+    }
+
+    if (!data) {
+      return { success: false, error: "Task not found" };
+    }
+
+    revalidatePath("/tasks");
+
+    return { success: true, data };
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.setTaskScheduledFor",
+      error,
+    });
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function setTaskCompleted(
   taskId: string,
   completed: boolean,
 ): Promise<ActionResult<TaskRow>> {
@@ -335,20 +394,18 @@ export async function toggleTaskCompletion(
 
     userId = userData.user.id;
 
+    const completedAt = completed ? new Date().toISOString() : null;
     const { data, error } = await supabase
       .from("tasks")
-      .update({ completed })
+      .update({ completed, completed_at: completedAt })
       .eq("id", parsedId.data)
       .eq("user_id", userData.user.id)
       .select(TASK_SELECT)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === "PGRST116") {
-        return { success: false, error: "Task not found" };
-      }
       logServerError({
-        scope: "actions.tasks.toggleTaskCompletion",
+        scope: "actions.tasks.setTaskCompleted",
         userId,
         error,
         context: { action: "update" },
@@ -368,7 +425,7 @@ export async function toggleTaskCompletion(
     return { success: true, data };
   } catch (error) {
     logServerError({
-      scope: "actions.tasks.toggleTaskCompletion",
+      scope: "actions.tasks.setTaskCompleted",
       error,
     });
     return {
@@ -376,6 +433,13 @@ export async function toggleTaskCompletion(
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
     };
   }
+}
+
+export async function toggleTaskCompletion(
+  taskId: string,
+  completed: boolean,
+): Promise<ActionResult<TaskRow>> {
+  return setTaskCompleted(taskId, completed);
 }
 
 export async function updateTaskTitle(

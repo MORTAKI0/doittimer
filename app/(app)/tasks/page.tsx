@@ -24,7 +24,10 @@ type SearchParams = Promise<{ page?: string; limit?: string }>;
 export default async function TasksPage(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams;
   const page = Number(searchParams.page) || 1;
-  const limit = Number(searchParams.limit) || 5;
+  const parsedLimit = Number(searchParams.limit);
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
+    ? Math.max(5, Math.min(100, Math.floor(parsedLimit)))
+    : 5;
 
   const [tasksResult, projectsResult, queueResult] = await Promise.all([
     getTasks({ includeArchived: true, page, limit }),

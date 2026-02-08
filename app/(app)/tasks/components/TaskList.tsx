@@ -15,7 +15,8 @@ import {
 import {
   deleteTask,
   restoreTask,
-  toggleTaskCompletion,
+  setTaskCompleted,
+  setTaskScheduledFor,
   updateTaskTitle,
   updateTaskProject,
   updateTaskPomodoroOverrides,
@@ -54,6 +55,8 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible de mettre a jour la tache.": "Unable to update the task.",
   "Impossible de supprimer la tache.": "Unable to delete the task.",
   "Impossible de restaurer la tache.": "Unable to restore the task.",
+  "Date invalide.": "Invalid date.",
+  "Date invalide. Format attendu: YYYY-MM-DD.": "Invalid date format. Use YYYY-MM-DD.",
   "Parametres pomodoro invalides.": "Invalid pomodoro settings.",
   "Impossible de charger la file.": "Unable to load the queue.",
   "Impossible de mettre a jour la file.": "Unable to update the queue.",
@@ -64,6 +67,14 @@ const ERROR_MAP: Record<string, string> = {
 
 function toEnglishError(message: string) {
   return ERROR_MAP[message] ?? message;
+}
+
+function todayYYYYMMDD(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export function TaskList({
@@ -197,7 +208,7 @@ export function TaskList({
       ),
     );
 
-    const result = await toggleTaskCompletion(task.id, nextCompleted);
+    const result = await setTaskCompleted(task.id, nextCompleted);
 
     if (!result.success) {
       setItems((prev) =>
@@ -210,6 +221,38 @@ export function TaskList({
       router.refresh();
     }
 
+    setPending(task.id, false);
+  }
+
+  async function handleSetScheduledFor(task: TaskRow, scheduledFor: string | null) {
+    if (pendingIds[task.id]) return;
+    const previousScheduledFor = task.scheduled_for ?? null;
+    if (previousScheduledFor === scheduledFor) return;
+
+    setPending(task.id, true);
+    setError(task.id, null);
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === task.id ? { ...item, scheduled_for: scheduledFor } : item,
+      ),
+    );
+
+    const result = await setTaskScheduledFor(task.id, scheduledFor);
+
+    if (!result.success) {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === task.id ? { ...item, scheduled_for: previousScheduledFor } : item,
+        ),
+      );
+      setError(task.id, toEnglishError(result.error));
+      setPending(task.id, false);
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) => (item.id === task.id ? result.data : item)),
+    );
     setPending(task.id, false);
   }
 
@@ -930,6 +973,11 @@ export function TaskList({
                             {projectLabel}
                           </Badge>
                         ) : null}
+                        {task.scheduled_for ? (
+                          <Badge variant="neutral">
+                            Scheduled: {task.scheduled_for}
+                          </Badge>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -945,6 +993,45 @@ export function TaskList({
                           Total: {pomodoroStats.pomodoros_total}
                         </span>
                       </div>
+                      {!isArchived ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <label className="sr-only" htmlFor={`task-scheduled-for-${task.id}`}>
+                            Scheduled date for {task.title}
+                          </label>
+                          <input
+                            id={`task-scheduled-for-${task.id}`}
+                            type="date"
+                            value={task.scheduled_for ?? ""}
+                            disabled={isPending || isEditing}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              void handleSetScheduledFor(task, value === "" ? null : value);
+                            }}
+                            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground transition-all duration-200 hover:border-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                            data-testid={`task-scheduled-for-${task.id}`}
+                          />
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="secondary"
+                            disabled={isPending || isEditing}
+                            onClick={() => void handleSetScheduledFor(task, todayYYYYMMDD())}
+                            data-testid={`task-scheduled-today-${task.id}`}
+                          >
+                            Today
+                          </Button>
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="secondary"
+                            disabled={isPending || isEditing || !task.scheduled_for}
+                            onClick={() => void handleSetScheduledFor(task, null)}
+                            data-testid={`task-scheduled-clear-${task.id}`}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
