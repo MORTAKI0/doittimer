@@ -26,7 +26,7 @@ export function NavLinks() {
             href={link.href}
             aria-current={isActive ? "page" : undefined}
             className={[
-              "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35",
               isActive
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                 : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground",

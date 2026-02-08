@@ -16,8 +16,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const errorMessage = error ? decodeURIComponent(error) : null;
 
   return (
-    <main className="min-h-dvh bg-white text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white/80">
+    <main className="min-h-dvh bg-background text-foreground">
+      <header className="border-b border-border/80 bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Brand />
           <Link href="/signup" className={buttonStyles({ variant: "secondary", size: "sm" })}>
@@ -26,7 +26,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
       </header>
 
-      <section className="bg-zinc-50">
+      <section className="bg-muted/20">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-12">
           <div className="w-full max-w-md space-y-3">
             {showSignup ? (
@@ -43,9 +43,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="w-full max-w-md">
             <LoginForm />
           </div>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted-foreground">
             Need an account?{" "}
-            <Link href="/signup" className="font-medium text-zinc-900 hover:underline">
+            <Link href="/signup" className="font-medium text-foreground hover:underline">
               Create one
             </Link>
           </p>

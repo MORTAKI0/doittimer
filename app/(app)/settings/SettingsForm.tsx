@@ -10,6 +10,8 @@ import {
   upsertUserSettings,
 } from "@/app/actions/settings";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 type TaskOption = {
   id: string;
@@ -105,20 +107,6 @@ export function SettingsForm({
         try {
           await new Promise((resolve) => setTimeout(resolve, 100));
           const result = await getUserSettings();
-          console.log("[settings] verification result", result);
-          console.log("[settings] verification success", result.success);
-          console.log("[settings] verification expected", {
-            timezone,
-            default_task_id: normalizedDefaultTaskId,
-            pomodoro_work_minutes: pomodoroWorkMinutes,
-            pomodoro_short_break_minutes: pomodoroShortBreakMinutes,
-            pomodoro_long_break_minutes: pomodoroLongBreakMinutes,
-            pomodoro_long_break_every: pomodoroLongBreakEvery,
-            auto_archive_completed: autoArchiveCompleted,
-          });
-          if (result.success) {
-            console.log("[settings] verification saved", result.data);
-          }
 
           if (result.success) {
             const saved = result.data;
@@ -138,9 +126,7 @@ export function SettingsForm({
               return;
             }
           }
-        } catch (verificationError) {
-          console.error("[settings] verification failed", verificationError);
-        }
+        } catch {}
 
         setIsError(true);
         router.refresh();
@@ -156,31 +142,29 @@ export function SettingsForm({
         <label className="text-sm font-medium text-foreground" htmlFor="timezone">
           Timezone
         </label>
-        <select
+        <Select
           id="timezone"
           name="timezone"
           value={timezone}
           onChange={(event) => setTimezone(event.target.value)}
-          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
         >
           {TIMEZONE_OPTIONS.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-foreground" htmlFor="default-task">
           Default task
         </label>
-        <select
+        <Select
           id="default-task"
           name="default-task"
           value={defaultTaskId}
           onChange={(event) => setDefaultTaskId(event.target.value)}
-          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
           disabled={tasks.length === 0}
         >
           <option value="">No default task</option>
@@ -189,7 +173,7 @@ export function SettingsForm({
               {task.title}
             </option>
           ))}
-        </select>
+        </Select>
         {tasks.length === 0 ? (
           <p className="text-xs text-muted-foreground">Create a task to set a default.</p>
         ) : null}
@@ -203,7 +187,7 @@ export function SettingsForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-sm text-foreground">
             <span className="text-sm font-medium text-foreground">Work minutes</span>
-            <input
+            <Input
               type="number"
               min={WORK_MINUTES_RANGE.min}
               max={WORK_MINUTES_RANGE.max}
@@ -213,14 +197,13 @@ export function SettingsForm({
                 const next = Number(event.target.value);
                 setPomodoroWorkMinutes(Number.isFinite(next) ? next : 0);
               }}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
               disabled={isPending}
               required
             />
           </label>
           <label className="space-y-1 text-sm text-foreground">
             <span className="text-sm font-medium text-foreground">Short break minutes</span>
-            <input
+            <Input
               type="number"
               min={SHORT_BREAK_RANGE.min}
               max={SHORT_BREAK_RANGE.max}
@@ -230,14 +213,13 @@ export function SettingsForm({
                 const next = Number(event.target.value);
                 setPomodoroShortBreakMinutes(Number.isFinite(next) ? next : 0);
               }}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
               disabled={isPending}
               required
             />
           </label>
           <label className="space-y-1 text-sm text-foreground">
             <span className="text-sm font-medium text-foreground">Long break minutes</span>
-            <input
+            <Input
               type="number"
               min={LONG_BREAK_RANGE.min}
               max={LONG_BREAK_RANGE.max}
@@ -247,7 +229,6 @@ export function SettingsForm({
                 const next = Number(event.target.value);
                 setPomodoroLongBreakMinutes(Number.isFinite(next) ? next : 0);
               }}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
               disabled={isPending}
               required
             />
@@ -256,7 +237,7 @@ export function SettingsForm({
             <span className="text-sm font-medium text-foreground">
               Long break every
             </span>
-            <input
+            <Input
               type="number"
               min={LONG_BREAK_EVERY_RANGE.min}
               max={LONG_BREAK_EVERY_RANGE.max}
@@ -266,7 +247,6 @@ export function SettingsForm({
                 const next = Number(event.target.value);
                 setPomodoroLongBreakEvery(Number.isFinite(next) ? next : 0);
               }}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
               disabled={isPending}
               required
             />
@@ -277,7 +257,7 @@ export function SettingsForm({
         </p>
       </div>
 
-      <div className="space-y-2 rounded-lg border border-border/70 p-3">
+      <div className="space-y-2 rounded-xl border border-border/70 p-3">
         <p className="text-sm font-medium text-foreground">Task archiving</p>
         <label className="flex items-start gap-3 text-sm text-foreground">
           <input

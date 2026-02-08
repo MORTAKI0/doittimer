@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/icon-button";
 import { IconPencil, IconTrash } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
+import { selectStyles } from "@/components/ui/select";
 import {
   pomodoroPresets,
   presetToOverrides,
@@ -533,7 +534,7 @@ export function TaskList({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400/20 to-orange-500/20">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
@@ -567,7 +568,7 @@ export function TaskList({
         ) : null}
         <div data-testid="today-queue">
           {queue.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-gradient-to-br from-amber-50/50 to-orange-50/50 p-6 text-center">
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 p-6 text-center">
               <div className="rounded-full bg-amber-100 p-3">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -657,7 +658,7 @@ export function TaskList({
       {/* Your Tasks Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400/20 to-emerald-600/20">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
@@ -689,7 +690,9 @@ export function TaskList({
               key={task.id}
               className={[
                 "group rounded-xl border border-border bg-card px-4 py-3 transition-all duration-200",
-                isArchived ? "opacity-60" : "hover:border-emerald-200 hover:shadow-sm",
+                isArchived
+                  ? "border-dashed bg-muted/20 opacity-75"
+                  : "hover:border-emerald-200 hover:shadow-sm",
               ].filter(Boolean).join(" ")}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -731,7 +734,7 @@ export function TaskList({
                           value={draftProjectId}
                           onChange={(event) => setDraftProjectId(event.target.value)}
                           disabled={isPending}
-                          className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                          className={[selectStyles, "h-9"].join(" ")}
                         >
                           <option value="">No project</option>
                           {projects.map((project) => (
@@ -797,7 +800,7 @@ export function TaskList({
                                   value={draftPomodoroWork}
                                   onChange={(event) => setDraftPomodoroWork(event.target.value)}
                                   disabled={isPending}
-                                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                  className={[selectStyles, "h-9"].join(" ")}
                                   data-testid="task-pomodoro-work"
                                 />
                               </label>
@@ -813,7 +816,7 @@ export function TaskList({
                                   value={draftPomodoroShort}
                                   onChange={(event) => setDraftPomodoroShort(event.target.value)}
                                   disabled={isPending}
-                                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                  className={[selectStyles, "h-9"].join(" ")}
                                   data-testid="task-pomodoro-short"
                                 />
                               </label>
@@ -829,7 +832,7 @@ export function TaskList({
                                   value={draftPomodoroLong}
                                   onChange={(event) => setDraftPomodoroLong(event.target.value)}
                                   disabled={isPending}
-                                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                  className={[selectStyles, "h-9"].join(" ")}
                                   data-testid="task-pomodoro-long"
                                 />
                               </label>
@@ -845,7 +848,7 @@ export function TaskList({
                                   value={draftPomodoroEvery}
                                   onChange={(event) => setDraftPomodoroEvery(event.target.value)}
                                   disabled={isPending}
-                                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+                                  className={[selectStyles, "h-9"].join(" ")}
                                   data-testid="task-pomodoro-every"
                                 />
                               </label>
@@ -934,7 +937,7 @@ export function TaskList({
                               const value = event.target.value;
                               void handleSetScheduledFor(task, value === "" ? null : value);
                             }}
-                            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground transition-all duration-200 hover:border-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-9 rounded-xl border border-border bg-background px-3 text-sm text-foreground transition-colors hover:border-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
                             data-testid={`task-scheduled-for-${task.id}`}
                           />
                           {canSetToFilterDate ? (

@@ -4,6 +4,7 @@ import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 type TasksFiltersBarProps = {
   projects: { id: string; name: string }[];
@@ -83,8 +84,8 @@ export function TasksFiltersBar({
   const isAll = currentRange === "all";
 
   return (
-    <div className="rounded-xl border border-border bg-gradient-to-r from-emerald-50/40 to-transparent p-4">
-      <div className="flex flex-col gap-3">
+    <div className="rounded-xl border border-border bg-muted/20 p-4">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
@@ -133,94 +134,96 @@ export function TasksFiltersBar({
                 params.set("date", value);
               });
             }}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+            className="h-9 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 focus-visible:border-emerald-400"
             aria-label="Filter by scheduled date"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="grid gap-3 md:grid-cols-4">
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Status
+            <Select
+              value={currentStatus}
+              onChange={(event) => {
+                const value = event.target.value as "active" | "completed" | "archived" | "all";
+                pushParams((params) => {
+                  if (value === "all") {
+                    params.delete("status");
+                  } else {
+                    params.set("status", value);
+                  }
+                });
+              }}
+              className="h-9"
+            >
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="archived">Archived</option>
+              <option value="all">All</option>
+            </Select>
           </label>
-          <select
-            value={currentStatus}
-            onChange={(event) => {
-              const value = event.target.value as "active" | "completed" | "archived" | "all";
-              pushParams((params) => {
-                if (value === "all") {
-                  params.delete("status");
-                } else {
-                  params.set("status", value);
-                }
-              });
-            }}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
-          >
-            <option value="active">Active</option>
-            <option value="completed">Completed</option>
-            <option value="archived">Archived</option>
-            <option value="all">All</option>
-          </select>
-          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Project
+            <Select
+              value={currentProjectId ?? "all"}
+              onChange={(event) => {
+                const value = event.target.value;
+                pushParams((params) => {
+                  if (value === "all") {
+                    params.delete("project");
+                  } else {
+                    params.set("project", value);
+                  }
+                });
+              }}
+              className="h-9"
+            >
+              <option value="all">All projects</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </Select>
           </label>
-          <select
-            value={currentProjectId ?? "all"}
-            onChange={(event) => {
-              const value = event.target.value;
-              pushParams((params) => {
-                if (value === "all") {
-                  params.delete("project");
-                } else {
-                  params.set("project", value);
-                }
-              });
-            }}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
-          >
-            <option value="all">All projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Schedule
+            <Select
+              value={currentScheduledOnly}
+              onChange={(event) => {
+                const value = event.target.value as "all" | "scheduled" | "unscheduled";
+                pushParams((params) => {
+                  if (value === "all") {
+                    params.delete("scheduled");
+                  } else {
+                    params.set("scheduled", value);
+                  }
+                });
+              }}
+              className="h-9"
+            >
+              <option value="all">All</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="unscheduled">Unscheduled</option>
+            </Select>
           </label>
-          <select
-            value={currentScheduledOnly}
-            onChange={(event) => {
-              const value = event.target.value as "all" | "scheduled" | "unscheduled";
-              pushParams((params) => {
-                if (value === "all") {
+          <div className="flex items-end">
+            <Button
+              size="sm"
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                pushParams((params) => {
+                  params.delete("project");
+                  params.delete("status");
+                  params.delete("range");
+                  params.delete("date");
                   params.delete("scheduled");
-                } else {
-                  params.set("scheduled", value);
-                }
-              });
-            }}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
-          >
-            <option value="all">All</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="unscheduled">Unscheduled</option>
-          </select>
-          <Button
-            size="sm"
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              pushParams((params) => {
-                params.delete("project");
-                params.delete("status");
-                params.delete("range");
-                params.delete("date");
-                params.delete("scheduled");
-              });
-            }}
-          >
-            Clear filters
-          </Button>
+                });
+              }}
+            >
+              Clear filters
+            </Button>
+          </div>
         </div>
       </div>
     </div>

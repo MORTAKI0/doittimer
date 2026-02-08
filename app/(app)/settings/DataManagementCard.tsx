@@ -1,4 +1,4 @@
-// app/(app)/settings/DataManagementCard.tsx
+﻿// app/(app)/settings/DataManagementCard.tsx
 "use client";
 
 import * as React from "react";
@@ -121,19 +121,19 @@ export function DataManagementCard() {
       : [];
 
   return (
-    <Card className="p-6">
+    <Card className="space-y-4 p-6">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Data tools
       </p>
-      <div className="mt-4 space-y-4">
+      <div className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Data Management</h2>
+          <h2 className="text-section-title text-foreground">Data Management</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Backup your data or import it when switching accounts.
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 rounded-xl border border-border/70 p-4">
           <p className="text-sm font-medium text-foreground">Export</p>
           <div className="flex flex-wrap gap-2">
             <a
@@ -153,7 +153,7 @@ export function DataManagementCard() {
           </div>
         </div>
 
-        <form className="space-y-3" onSubmit={handleSubmit}>
+        <form className="space-y-3 rounded-xl border border-border/70 p-4" onSubmit={handleSubmit}>
           <p className="text-sm font-medium text-foreground">Import</p>
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground" htmlFor="data-import-file">

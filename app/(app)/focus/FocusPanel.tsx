@@ -23,6 +23,8 @@ import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconFocus } from "@/components/ui/icons";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 type FocusPanelProps = {
   activeSession: SessionRow | null;
@@ -76,6 +78,14 @@ function formatElapsed(seconds: number) {
 function formatStartTime(value: string) {
   const date = new Date(value);
   return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatClock(seconds: number) {
+  const clamped = Math.max(0, seconds);
+  const hours = Math.floor(clamped / 3600);
+  const minutes = Math.floor((clamped % 3600) / 60);
+  const secs = clamped % 60;
+  return [hours, minutes, secs].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
 function formatPomodoroPhase(phase: string | null | undefined) {
@@ -408,7 +418,7 @@ export function FocusPanel({
     <div className="space-y-6">
       <div
         className={[
-          "space-y-3 rounded-2xl border bg-muted p-4",
+          "space-y-3 rounded-2xl border bg-muted/25 p-4",
           isRunning ? "border-emerald-200 ring-1 ring-emerald-100 shadow-sm" : "border-border",
         ]
           .filter(Boolean)
@@ -421,8 +431,8 @@ export function FocusPanel({
           </div>
           {isRunning ? <Badge variant="accent">Running</Badge> : null}
         </div>
-        <p className="text-4xl font-semibold text-foreground">
-          {isActiveSessionValid ? formatElapsed(elapsedSeconds) : "00m"}
+        <p className="numeric-tabular text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+          {isActiveSessionValid ? formatClock(elapsedSeconds) : "00:00:00"}
         </p>
         <p className="text-sm text-muted-foreground">
           {hasPomodoroPhase
@@ -484,6 +494,7 @@ export function FocusPanel({
               disabled={hasActiveSession || !canSwitchToNextUp}
               aria-label="Switch to next up"
               data-testid="next-up-switch"
+              variant="secondary"
             >
               Switch
             </Button>
@@ -500,7 +511,7 @@ export function FocusPanel({
           <label htmlFor="task-select" className="text-sm font-medium text-foreground">
             Link a task
           </label>
-          <select
+          <Select
             id="task-select"
             value={selectedTaskId ?? ""}
             onChange={(event) => {
@@ -509,7 +520,6 @@ export function FocusPanel({
               setSelectedTaskId(value.length > 0 ? value : null);
             }}
             disabled={hasActiveSession || isStarting || isStopping}
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="">No task</option>
             {tasks.map((task) => (
@@ -517,7 +527,7 @@ export function FocusPanel({
                 {task.title}
               </option>
             ))}
-          </select>
+          </Select>
           {tasks.length === 0 ? (
             <p className="text-xs text-muted-foreground">No tasks available.</p>
           ) : null}
@@ -526,7 +536,7 @@ export function FocusPanel({
           <label htmlFor="music-url" className="text-sm font-medium text-foreground">
             Music link (optional)
           </label>
-          <input
+          <Input
             id="music-url"
             type="url"
             inputMode="url"
@@ -538,7 +548,6 @@ export function FocusPanel({
             }}
             disabled={hasActiveSession || isStarting || isStopping}
             data-testid="focus-music-url"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 
@@ -548,6 +557,7 @@ export function FocusPanel({
               type="button"
               onClick={handleStop}
               disabled={isStopping || isStarting || !hasValidId}
+              variant="danger"
             >
               {isStopping ? "Stopping..." : "Stop session"}
             </Button>

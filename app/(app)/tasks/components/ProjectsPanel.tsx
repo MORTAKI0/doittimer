@@ -207,8 +207,10 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
       ) : null}
 
       {visibleItems.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
-          No projects yet. Create one to get started.
+        <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+          {showArchived
+            ? "No archived projects."
+            : "No projects yet. Create one to get started."}
         </p>
       ) : (
         <div className="space-y-2">
@@ -221,11 +223,11 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
             return (
               <div
                 key={project.id}
-                className="rounded-lg border border-border bg-card px-3 py-2"
+                className="rounded-xl border border-border bg-card px-3 py-2.5"
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    {archived ? <Badge variant="neutral">Archived</Badge> : null}
+                    {archived ? <Badge variant="warning">Archived</Badge> : null}
                     <span>{project.name}</span>
                   </div>
 
@@ -244,7 +246,7 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
                       <Button
                         type="button"
                         size="sm"
-                        variant="secondary"
+                        variant={archived ? "primary" : "secondary"}
                         onClick={() => handleArchiveToggle(project, !archived)}
                         disabled={isPending}
                       >

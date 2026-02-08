@@ -33,7 +33,7 @@ export function ThemeToggle({ initialTheme }: ThemeToggleProps) {
           void setThemeAction(nextTheme);
         });
       }}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {theme === "dark" ? (
         <IconSun className="h-4 w-4" aria-hidden="true" />

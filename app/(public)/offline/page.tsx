@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buttonStyles } from "@/components/ui/button";
 
 export default function OfflinePage() {
   return (
@@ -12,7 +13,7 @@ export default function OfflinePage() {
       </p>
       <Link
         href="/"
-        className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        className={buttonStyles({ variant: "secondary" })}
       >
         Retry
       </Link>

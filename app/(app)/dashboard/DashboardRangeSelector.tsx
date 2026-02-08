@@ -70,7 +70,7 @@ export function DashboardRangeSelector({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {RANGE_OPTIONS.map((option) => (
           <Button
@@ -85,7 +85,10 @@ export function DashboardRangeSelector({
         ))}
       </div>
 
-      <form className="flex flex-wrap items-end gap-2" onSubmit={handleCustomSubmit}>
+      <form
+        className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 sm:grid-cols-[1fr_1fr_auto]"
+        onSubmit={handleCustomSubmit}
+      >
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           <span>From</span>
           <Input
@@ -96,7 +99,7 @@ export function DashboardRangeSelector({
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          <span>To (exclusive)</span>
+          <span>To</span>
           <Input
             type="date"
             value={toInput}
@@ -105,9 +108,10 @@ export function DashboardRangeSelector({
           />
         </label>
         <Button
-          size="sm"
+          size="md"
           type="submit"
           variant={currentRange === "custom" ? "primary" : "secondary"}
+          className="sm:self-end"
         >
           Apply custom
         </Button>

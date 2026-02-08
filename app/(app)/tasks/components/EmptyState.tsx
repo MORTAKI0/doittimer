@@ -1,10 +1,13 @@
+import { EmptyState as SharedEmptyState } from "@/components/ui/empty-state";
+
 export function EmptyState() {
   return (
-    <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border px-6 py-10 text-center">
-      <p className="text-sm font-medium text-foreground">No tasks yet.</p>
-      <p className="text-sm text-muted-foreground">
-        Add your first task to start your day with clarity.
-      </p>
-    </div>
+    <SharedEmptyState
+      title="No tasks yet"
+      description="Add your first task to start your day with clarity."
+      actionLabel="Create task"
+      actionHref="/tasks"
+      className="min-h-[220px]"
+    />
   );
 }

@@ -123,7 +123,7 @@ export function NotionIntegrationCard({
   }
 
   return (
-    <Card className="p-6">
+    <Card className="space-y-4 p-6">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Integrations
       </p>
@@ -135,7 +135,7 @@ export function NotionIntegrationCard({
           </p>
         </div>
 
-        <form className="space-y-3" onSubmit={handleConnect}>
+        <form className="space-y-3 rounded-xl border border-border/70 p-4" onSubmit={handleConnect}>
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground" htmlFor="notion-token">
               Notion token

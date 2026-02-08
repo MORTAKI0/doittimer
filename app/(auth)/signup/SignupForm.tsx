@@ -27,8 +27,8 @@ export function SignupForm() {
 
   return (
     <Card className="w-full p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">Create account</h1>
-      <p className="mt-2 text-sm text-zinc-600">Start tracking focused work in minutes.</p>
+      <h1 className="text-section-title text-foreground">Create account</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Start tracking focused work in minutes.</p>
       {errorMessage ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {errorMessage}
@@ -46,6 +46,9 @@ export function SignupForm() {
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Creating..." : "Create account"}
         </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          You can update your timezone and defaults anytime in settings.
+        </p>
       </form>
     </Card>
   );

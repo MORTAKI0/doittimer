@@ -2,7 +2,7 @@ import { getActiveSession, getTodaySessions } from "@/app/actions/sessions";
 import { getUserSettings } from "@/app/actions/settings";
 import { getTasks } from "@/app/actions/tasks";
 import { getTaskQueue } from "@/app/actions/queue";
-import { Card } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FocusPanel } from "./FocusPanel";
 
 const ERROR_MAP: Record<string, string> = {
@@ -61,9 +61,9 @@ export default async function FocusPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Focus</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+      <div className="space-y-1">
+        <h1 className="text-page-title text-foreground">Focus</h1>
+        <p className="text-sm text-muted-foreground">
           Start a session to track your focused time.
         </p>
       </div>
@@ -75,7 +75,11 @@ export default async function FocusPage() {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
-        <Card>
+        <Card className="space-y-3">
+          <CardHeader>
+            <CardTitle>Session controls</CardTitle>
+            <CardDescription>Choose a task, start focus, and control Pomodoro phases.</CardDescription>
+          </CardHeader>
           <FocusPanel
             activeSession={activeSession}
             todaySessions={todaySessions}
