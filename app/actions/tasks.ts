@@ -8,18 +8,21 @@ import {
   taskIdSchema,
   taskPomodoroOverridesSchema,
   taskProjectIdSchema,
+  taskScheduledForSchema,
   taskTitleSchema,
 } from "@/lib/validation/task.schema";
 import { logServerError } from "@/lib/logging/logServerError";
 
 const DUPLICATE_WINDOW_MS = 10_000;
 const TASK_SELECT =
-  "id, title, completed, created_at, updated_at, project_id, archived_at, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
+  "id, title, completed, completed_at, scheduled_for, created_at, updated_at, project_id, archived_at, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
 
 export type TaskRow = {
   id: string;
   title: string;
   completed: boolean;
+  completed_at?: string | null;
+  scheduled_for?: string | null;
   created_at: string;
   updated_at: string;
   project_id: string | null;
@@ -147,6 +150,11 @@ type GetTasksOptions = {
   includeArchived?: boolean;
   page?: number;
   limit?: number;
+  projectId?: string | null;
+  status?: "active" | "completed" | "archived" | "all";
+  scheduledRange?: "all" | "day" | "week";
+  scheduledDate?: string | null;
+  includeUnscheduled?: boolean;
 };
 
 export type PaginatedTasks = {
@@ -158,6 +166,89 @@ export type PaginatedTasks = {
     totalPages: number;
   };
 };
+
+function toDateOnly(value: string): string | null {
+  const parsed = taskScheduledForSchema.safeParse(value);
+  if (!parsed.success) return null;
+  return parsed.data;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function startOfWeekMonday(date: Date): Date {
+  const day = date.getUTCDay();
+  const delta = day === 0 ? -6 : 1 - day;
+  return addDays(date, delta);
+}
+
+function formatDateUTC(date: Date): string {
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function applyTaskFilters<T extends {
+  eq: (column: string, value: unknown) => T;
+  is: (column: string, value: null) => T;
+  not: (column: string, operator: string, value: unknown) => T;
+  gte: (column: string, value: string) => T;
+  lte: (column: string, value: string) => T;
+  or: (filters: string) => T;
+}>(
+  query: T,
+  options: {
+    userId: string;
+    includeArchived: boolean;
+    projectId: string | null;
+    status: "active" | "completed" | "archived" | "all";
+    scheduledRange: "all" | "day" | "week";
+    scheduledDate: string;
+    includeUnscheduled: boolean;
+  },
+) {
+  let next = query.eq("user_id", options.userId);
+
+  if (options.projectId) {
+    next = next.eq("project_id", options.projectId);
+  }
+
+  if (options.status === "active") {
+    next = next.eq("completed", false).is("archived_at", null);
+  } else if (options.status === "completed") {
+    next = next.eq("completed", true).is("archived_at", null);
+  } else if (options.status === "archived") {
+    next = next.not("archived_at", "is", null);
+  } else if (!options.includeArchived) {
+    next = next.is("archived_at", null);
+  }
+
+  if (options.scheduledRange === "day") {
+    if (options.includeUnscheduled) {
+      next = next.or(`scheduled_for.eq.${options.scheduledDate},scheduled_for.is.null`);
+    } else {
+      next = next.eq("scheduled_for", options.scheduledDate);
+    }
+  } else if (options.scheduledRange === "week") {
+    const anchor = new Date(`${options.scheduledDate}T00:00:00.000Z`);
+    const weekStart = formatDateUTC(startOfWeekMonday(anchor));
+    const weekEnd = formatDateUTC(addDays(startOfWeekMonday(anchor), 6));
+
+    if (options.includeUnscheduled) {
+      next = next.or(
+        `and(scheduled_for.gte.${weekStart},scheduled_for.lte.${weekEnd}),scheduled_for.is.null`,
+      );
+    } else {
+      next = next.gte("scheduled_for", weekStart).lte("scheduled_for", weekEnd);
+    }
+  }
+
+  return next;
+}
 
 export async function getTasks(
   options: GetTasksOptions = {},
@@ -176,19 +267,36 @@ export async function getTasks(
     const page = Math.max(1, options.page ?? 1);
     const limit = Math.max(1, Math.min(100, options.limit ?? 20));
     const includeArchived = Boolean(options.includeArchived);
+    const projectId = options.projectId ?? null;
+    const status = options.status ?? "all";
+    const scheduledRange = options.scheduledRange ?? "all";
+    const includeUnscheduled = options.includeUnscheduled ?? true;
+    const today = formatDateUTC(new Date());
+    const scheduledDate = options.scheduledDate ? toDateOnly(options.scheduledDate) : null;
+    const effectiveDate = scheduledDate ?? today;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
 
-    const { data, error } = await supabase.rpc("get_tasks_page", {
-      p_page: page,
-      p_limit: limit,
-      p_include_archived: includeArchived,
+    let countQuery = supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true });
+    countQuery = applyTaskFilters(countQuery, {
+      userId: userData.user.id,
+      includeArchived,
+      projectId,
+      status,
+      scheduledRange,
+      scheduledDate: effectiveDate,
+      includeUnscheduled,
     });
 
-    if (error) {
+    const { error: countError, count } = await countQuery;
+    if (countError) {
       logServerError({
         scope: "actions.tasks.getTasks",
         userId,
-        error,
-        context: { action: "rpc", rpc: "get_tasks_page" },
+        error: countError,
+        context: { action: "count-select" },
       });
       return {
         success: false,
@@ -196,37 +304,38 @@ export async function getTasks(
       };
     }
 
-    const tasks: TaskRow[] = [];
-    let totalCount = 0;
+    let dataQuery = supabase
+      .from("tasks")
+      .select(TASK_SELECT)
+      .order("updated_at", { ascending: false })
+      .range(from, to);
+    dataQuery = applyTaskFilters(dataQuery, {
+      userId: userData.user.id,
+      includeArchived,
+      projectId,
+      status,
+      scheduledRange,
+      scheduledDate: effectiveDate,
+      includeUnscheduled,
+    });
 
-    if (data && Array.isArray(data) && data.length > 0) {
-      // Extract total_count from the first row and map rows to TaskRow
-      totalCount = Number(data[0].total_count) || 0;
+    const { data, error } = await dataQuery;
 
-      // Map RPC result to TaskRow type. RPC returns camel_case or snake_case depending on configuration,
-      // but based on the definition "returns table (...)", it should match columns.
-      // We explicitly map just to be safe and match TaskRow type.
-      tasks.push(
-        ...data.map((row: any) => ({
-          id: row.id,
-          title: row.title,
-          completed: row.completed,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          project_id: row.project_id,
-          archived_at: row.archived_at,
-          pomodoro_work_minutes: row.pomodoro_work_minutes ?? null,
-          pomodoro_short_break_minutes: row.pomodoro_short_break_minutes ?? null,
-          pomodoro_long_break_minutes: row.pomodoro_long_break_minutes ?? null,
-          pomodoro_long_break_every: row.pomodoro_long_break_every ?? null,
-        }))
-      );
-    } else if (data && !Array.isArray(data)) {
-      // Handle single object return if edge case
-      totalCount = 0;
+    if (error) {
+      logServerError({
+        scope: "actions.tasks.getTasks",
+        userId,
+        error,
+        context: { action: "select" },
+      });
+      return {
+        success: false,
+        error: "Impossible de charger les taches.",
+      };
     }
 
-
+    const tasks: TaskRow[] = Array.isArray(data) ? data : [];
+    const totalCount = count ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
 
     return {
@@ -311,7 +420,83 @@ export async function getTaskPomodoroStats(
   }
 }
 
-export async function toggleTaskCompletion(
+export async function setTaskScheduledFor(
+  taskId: string,
+  scheduledFor: string | null,
+): Promise<ActionResult<TaskRow>> {
+  const parsedId = taskIdSchema.safeParse(taskId);
+
+  if (!parsedId.success) {
+    return {
+      success: false,
+      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  if (scheduledFor !== null) {
+    const parsedScheduledFor = taskScheduledForSchema.safeParse(scheduledFor);
+    if (!parsedScheduledFor.success) {
+      return {
+        success: false,
+        error:
+          parsedScheduledFor.error.issues[0]?.message
+          ?? "Date invalide. Format attendu: YYYY-MM-DD.",
+      };
+    }
+  }
+
+  try {
+    let userId: string | undefined;
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    userId = userData.user.id;
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({ scheduled_for: scheduledFor })
+      .eq("id", parsedId.data)
+      .eq("user_id", userData.user.id)
+      .select(TASK_SELECT)
+      .maybeSingle();
+
+    if (error) {
+      logServerError({
+        scope: "actions.tasks.setTaskScheduledFor",
+        userId,
+        error,
+        context: { action: "update" },
+      });
+      return {
+        success: false,
+        error: "Impossible de mettre a jour la tache.",
+      };
+    }
+
+    if (!data) {
+      return { success: false, error: "Task not found" };
+    }
+
+    revalidatePath("/tasks");
+
+    return { success: true, data };
+  } catch (error) {
+    logServerError({
+      scope: "actions.tasks.setTaskScheduledFor",
+      error,
+    });
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function setTaskCompleted(
   taskId: string,
   completed: boolean,
 ): Promise<ActionResult<TaskRow>> {
@@ -335,20 +520,18 @@ export async function toggleTaskCompletion(
 
     userId = userData.user.id;
 
+    const completedAt = completed ? new Date().toISOString() : null;
     const { data, error } = await supabase
       .from("tasks")
-      .update({ completed })
+      .update({ completed, completed_at: completedAt })
       .eq("id", parsedId.data)
       .eq("user_id", userData.user.id)
       .select(TASK_SELECT)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === "PGRST116") {
-        return { success: false, error: "Task not found" };
-      }
       logServerError({
-        scope: "actions.tasks.toggleTaskCompletion",
+        scope: "actions.tasks.setTaskCompleted",
         userId,
         error,
         context: { action: "update" },
@@ -368,7 +551,7 @@ export async function toggleTaskCompletion(
     return { success: true, data };
   } catch (error) {
     logServerError({
-      scope: "actions.tasks.toggleTaskCompletion",
+      scope: "actions.tasks.setTaskCompleted",
       error,
     });
     return {
@@ -376,6 +559,13 @@ export async function toggleTaskCompletion(
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
     };
   }
+}
+
+export async function toggleTaskCompletion(
+  taskId: string,
+  completed: boolean,
+): Promise<ActionResult<TaskRow>> {
+  return setTaskCompleted(taskId, completed);
 }
 
 export async function updateTaskTitle(
