@@ -102,14 +102,7 @@ export function TaskList({
     {},
   );
   const [queueError, setQueueError] = React.useState<string | null>(null);
-  const [projectFilter, setProjectFilter] = React.useState<string>("all");
-  const [showArchived, setShowArchived] = React.useState(false);
-
   const MAX_QUEUE_ITEMS = 7;
-
-  const projectIds = React.useMemo(() => {
-    return new Set(projects.map((project) => project.id));
-  }, [projects]);
 
   React.useEffect(() => {
     setItems(tasks);
@@ -118,13 +111,6 @@ export function TaskList({
   React.useEffect(() => {
     setQueue(queueItems);
   }, [queueItems]);
-
-  React.useEffect(() => {
-    if (projectFilter === "all" || projectFilter === "none") return;
-    if (projectFilter && !projectIds.has(projectFilter)) {
-      setProjectFilter("all");
-    }
-  }, [projectFilter, projectIds]);
 
   function setPending(id: string, value: boolean) {
     setPendingIds((prev) => ({ ...prev, [id]: value }));
@@ -531,16 +517,7 @@ export function TaskList({
     return new Map(entries);
   }, [projects]);
 
-  const filteredItems = items.filter((task) => {
-    if (projectFilter === "all") return true;
-    if (projectFilter === "none") return task.project_id == null;
-    return task.project_id === projectFilter;
-  });
-
-  const visibleItems = filteredItems.filter((task) =>
-    showArchived ? true : task.archived_at == null,
-  );
-  const hasArchived = items.some((task) => task.archived_at != null);
+  const visibleItems = items;
   const queueIds = new Set(queue.map((item) => item.task_id));
   const queueIsFull = queue.length >= MAX_QUEUE_ITEMS;
 
@@ -689,44 +666,6 @@ export function TaskList({
           )}
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Filter by project
-            </label>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <select
-              data-testid="projects-filter"
-              value={projectFilter}
-              onChange={(event) => setProjectFilter(event.target.value)}
-              className="h-9 rounded-lg border border-border bg-background px-3 pr-8 text-sm text-foreground transition-all duration-200 hover:border-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
-            >
-              <option value="all">All projects</option>
-              <option value="none">No project</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-            {hasArchived ? (
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted">
-                <input
-                  type="checkbox"
-                  checked={showArchived}
-                  onChange={(event) => setShowArchived(event.target.checked)}
-                  className="h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
-                  data-testid="tasks-archived-toggle"
-                />
-                Show archived
-              </label>
-            ) : null}
-          </div>
-        </div>
       </div>
 
       <ul className="space-y-2">

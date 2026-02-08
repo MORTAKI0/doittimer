@@ -150,6 +150,11 @@ type GetTasksOptions = {
   includeArchived?: boolean;
   page?: number;
   limit?: number;
+  projectId?: string | null;
+  status?: "active" | "completed" | "archived" | "all";
+  scheduledRange?: "all" | "day" | "week";
+  scheduledDate?: string | null;
+  includeUnscheduled?: boolean;
 };
 
 export type PaginatedTasks = {
@@ -161,6 +166,89 @@ export type PaginatedTasks = {
     totalPages: number;
   };
 };
+
+function toDateOnly(value: string): string | null {
+  const parsed = taskScheduledForSchema.safeParse(value);
+  if (!parsed.success) return null;
+  return parsed.data;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function startOfWeekMonday(date: Date): Date {
+  const day = date.getUTCDay();
+  const delta = day === 0 ? -6 : 1 - day;
+  return addDays(date, delta);
+}
+
+function formatDateUTC(date: Date): string {
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function applyTaskFilters<T extends {
+  eq: (column: string, value: unknown) => T;
+  is: (column: string, value: null) => T;
+  not: (column: string, operator: string, value: unknown) => T;
+  gte: (column: string, value: string) => T;
+  lte: (column: string, value: string) => T;
+  or: (filters: string) => T;
+}>(
+  query: T,
+  options: {
+    userId: string;
+    includeArchived: boolean;
+    projectId: string | null;
+    status: "active" | "completed" | "archived" | "all";
+    scheduledRange: "all" | "day" | "week";
+    scheduledDate: string;
+    includeUnscheduled: boolean;
+  },
+) {
+  let next = query.eq("user_id", options.userId);
+
+  if (options.projectId) {
+    next = next.eq("project_id", options.projectId);
+  }
+
+  if (options.status === "active") {
+    next = next.eq("completed", false).is("archived_at", null);
+  } else if (options.status === "completed") {
+    next = next.eq("completed", true).is("archived_at", null);
+  } else if (options.status === "archived") {
+    next = next.not("archived_at", "is", null);
+  } else if (!options.includeArchived) {
+    next = next.is("archived_at", null);
+  }
+
+  if (options.scheduledRange === "day") {
+    if (options.includeUnscheduled) {
+      next = next.or(`scheduled_for.eq.${options.scheduledDate},scheduled_for.is.null`);
+    } else {
+      next = next.eq("scheduled_for", options.scheduledDate);
+    }
+  } else if (options.scheduledRange === "week") {
+    const anchor = new Date(`${options.scheduledDate}T00:00:00.000Z`);
+    const weekStart = formatDateUTC(startOfWeekMonday(anchor));
+    const weekEnd = formatDateUTC(addDays(startOfWeekMonday(anchor), 6));
+
+    if (options.includeUnscheduled) {
+      next = next.or(
+        `and(scheduled_for.gte.${weekStart},scheduled_for.lte.${weekEnd}),scheduled_for.is.null`,
+      );
+    } else {
+      next = next.gte("scheduled_for", weekStart).lte("scheduled_for", weekEnd);
+    }
+  }
+
+  return next;
+}
 
 export async function getTasks(
   options: GetTasksOptions = {},
@@ -179,21 +267,59 @@ export async function getTasks(
     const page = Math.max(1, options.page ?? 1);
     const limit = Math.max(1, Math.min(100, options.limit ?? 20));
     const includeArchived = Boolean(options.includeArchived);
+    const projectId = options.projectId ?? null;
+    const status = options.status ?? "all";
+    const scheduledRange = options.scheduledRange ?? "all";
+    const includeUnscheduled = options.includeUnscheduled ?? true;
+    const today = formatDateUTC(new Date());
+    const scheduledDate = options.scheduledDate ? toDateOnly(options.scheduledDate) : null;
+    const effectiveDate = scheduledDate ?? today;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    let query = supabase
+    let countQuery = supabase
       .from("tasks")
-      .select(TASK_SELECT, { count: "exact" })
-      .eq("user_id", userData.user.id)
-      .order("updated_at", { ascending: false })
-      .range(from, to);
+      .select("id", { count: "exact", head: true });
+    countQuery = applyTaskFilters(countQuery, {
+      userId: userData.user.id,
+      includeArchived,
+      projectId,
+      status,
+      scheduledRange,
+      scheduledDate: effectiveDate,
+      includeUnscheduled,
+    });
 
-    if (!includeArchived) {
-      query = query.is("archived_at", null);
+    const { error: countError, count } = await countQuery;
+    if (countError) {
+      logServerError({
+        scope: "actions.tasks.getTasks",
+        userId,
+        error: countError,
+        context: { action: "count-select" },
+      });
+      return {
+        success: false,
+        error: "Impossible de charger les taches.",
+      };
     }
 
-    const { data, error, count } = await query;
+    let dataQuery = supabase
+      .from("tasks")
+      .select(TASK_SELECT)
+      .order("updated_at", { ascending: false })
+      .range(from, to);
+    dataQuery = applyTaskFilters(dataQuery, {
+      userId: userData.user.id,
+      includeArchived,
+      projectId,
+      status,
+      scheduledRange,
+      scheduledDate: effectiveDate,
+      includeUnscheduled,
+    });
+
+    const { data, error } = await dataQuery;
 
     if (error) {
       logServerError({

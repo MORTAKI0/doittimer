@@ -1,12 +1,18 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
 import { CreateTaskForm } from "./components/CreateTaskForm";
 import { EmptyState } from "./components/EmptyState";
 import { ProjectsPanel } from "./components/ProjectsPanel";
 import { TaskList } from "./components/TaskList";
+import { TasksFiltersBar } from "./components/TasksFiltersBar";
 import { getTaskPomodoroStats, getTasks } from "@/app/actions/tasks";
 import { getTaskQueue } from "@/app/actions/queue";
 import { getProjects } from "@/app/actions/projects";
+import { buttonStyles } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Pagination } from "@/components/ui/pagination";
+import { taskScheduledForSchema } from "@/lib/validation/task.schema";
 
 const ERROR_MAP: Record<string, string> = {
   "Tu dois etre connecte.": "You must be signed in.",
@@ -19,18 +25,67 @@ function toEnglishError(message: string | null) {
   return ERROR_MAP[message] ?? message;
 }
 
-type SearchParams = Promise<{ page?: string; limit?: string }>;
+type SearchParams = Promise<{
+  page?: string;
+  limit?: string;
+  pageSize?: string;
+  project?: string;
+  status?: string;
+  range?: string;
+  date?: string;
+}>;
+
+function formatDate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default async function TasksPage(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams;
-  const page = Number(searchParams.page) || 1;
-  const parsedLimit = Number(searchParams.limit);
-  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
-    ? Math.max(5, Math.min(100, Math.floor(parsedLimit)))
+  const parsedPage = Number(searchParams.page);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0
+    ? Math.floor(parsedPage)
+    : 1;
+  const rawPageSize = searchParams.pageSize ?? searchParams.limit;
+  const parsedPageSize = Number(rawPageSize);
+  const pageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0
+    ? Math.max(5, Math.min(100, Math.floor(parsedPageSize)))
     : 5;
+  const statusParam = searchParams.status;
+  const status =
+    statusParam === "active"
+    || statusParam === "completed"
+    || statusParam === "archived"
+    || statusParam === "all"
+      ? statusParam
+      : "all";
+  const rangeParam = searchParams.range;
+  const scheduledRange =
+    rangeParam === "day" || rangeParam === "week" || rangeParam === "all"
+      ? rangeParam
+      : "all";
+  const parsedDate = searchParams.date
+    ? taskScheduledForSchema.safeParse(searchParams.date)
+    : null;
+  const today = formatDate(new Date());
+  const scheduledDate = parsedDate?.success ? parsedDate.data : today;
+  const projectId = searchParams.project && searchParams.project.trim() !== ""
+    ? searchParams.project
+    : null;
 
   const [tasksResult, projectsResult, queueResult] = await Promise.all([
-    getTasks({ includeArchived: true, page, limit }),
+    getTasks({
+      includeArchived: false,
+      page,
+      limit: pageSize,
+      projectId,
+      status,
+      scheduledRange,
+      scheduledDate,
+      includeUnscheduled: true,
+    }),
     getProjects({ includeArchived: true }),
     getTaskQueue(),
   ]);
@@ -39,11 +94,25 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
   const tasks = tasksData.tasks;
   const pagination = tasksData.pagination;
   const listError = tasksResult.success ? null : toEnglishError(tasksResult.error);
+  if (tasksResult.success && pagination.totalPages > 0 && pagination.page > pagination.totalPages) {
+    const params = new URLSearchParams();
+    params.set("page", String(pagination.totalPages));
+    params.set("pageSize", String(pageSize));
+    if (projectId) params.set("project", projectId);
+    if (status !== "all") params.set("status", status);
+    if (scheduledRange !== "all") params.set("range", scheduledRange);
+    if (scheduledRange !== "all") params.set("date", scheduledDate);
+    redirect(`/tasks?${params.toString()}`);
+  }
 
   const projects = projectsResult.success ? projectsResult.data : [];
   const projectsError = projectsResult.success ? null : projectsResult.error;
   const queueItems = queueResult.success ? queueResult.data : [];
   const activeProjects = projects.filter((project) => !project.archived_at);
+  const hasActiveFilters =
+    Boolean(projectId)
+    || status !== "all"
+    || scheduledRange !== "all";
   const pomodoroStatsByTaskId: Record<
     string,
     { pomodoros_today: number; pomodoros_total: number }
@@ -113,32 +182,50 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                 <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {listError}
                 </p>
-              ) : tasks.length === 0 ? (
-                <div className="flex flex-col gap-4">
-                  <EmptyState />
-                  {/* Show pagination even if empty if we are on a high page to allow going back? No, empty state usually implies no tasks. But if page > 1 and tasks empty, show BACK button. */}
-                  {pagination.page > 1 && (
-                    <Pagination
-                      currentPage={pagination.page}
-                      totalPages={pagination.totalPages}
-                    />
-                  )}
-                </div>
               ) : (
-                <div className="space-y-6">
-                  <TaskList
-                    tasks={tasks}
+                <div className="flex flex-col gap-4">
+                  <TasksFiltersBar
                     projects={activeProjects}
-                    pomodoroStatsByTaskId={pomodoroStatsByTaskId}
-                    queueItems={queueItems}
+                    currentStatus={status}
+                    currentRange={scheduledRange}
+                    currentDate={scheduledDate}
+                    currentProjectId={projectId}
                   />
+                  {tasks.length === 0 ? (
+                    <div className="flex flex-col gap-4">
+                      {hasActiveFilters ? (
+                        <div className="rounded-xl border border-border bg-muted/30 p-6">
+                          <p className="text-sm font-medium text-foreground">No tasks match filters.</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Try adjusting your filters or clear them.
+                          </p>
+                          <div className="mt-4">
+                            <Link href="/tasks" className={buttonStyles({ variant: "secondary" })}>
+                              Clear filters
+                            </Link>
+                          </div>
+                        </div>
+                      ) : (
+                        <EmptyState />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <TaskList
+                        tasks={tasks}
+                        projects={activeProjects}
+                        pomodoroStatsByTaskId={pomodoroStatsByTaskId}
+                        queueItems={queueItems}
+                      />
 
-                  <div className="border-t border-border pt-4">
-                    <Pagination
-                      currentPage={pagination.page}
-                      totalPages={pagination.totalPages}
-                    />
-                  </div>
+                      <div className="border-t border-border pt-4">
+                        <Pagination
+                          currentPage={pagination.page}
+                          totalPages={pagination.totalPages}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
