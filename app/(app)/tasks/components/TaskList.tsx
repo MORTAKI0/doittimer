@@ -42,6 +42,8 @@ type TaskListProps = {
     { pomodoros_today: number; pomodoros_total: number }
   >;
   queueItems?: TaskQueueRow[];
+  currentRange?: "all" | "day" | "week";
+  currentDate?: string;
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -80,8 +82,10 @@ function todayYYYYMMDD(): string {
 export function TaskList({
   tasks,
   projects = [],
-  pomodoroStatsByTaskId = {},
+  pomodoroStatsByTaskId: _pomodoroStatsByTaskId = {},
   queueItems = [],
+  currentRange = "all",
+  currentDate = "",
 }: TaskListProps) {
   const router = useRouter();
   const [queue, setQueue] = React.useState<TaskQueueRow[]>(queueItems);
@@ -103,6 +107,8 @@ export function TaskList({
   );
   const [queueError, setQueueError] = React.useState<string | null>(null);
   const MAX_QUEUE_ITEMS = 7;
+  const canSetToFilterDate = currentRange === "day" && currentDate.trim() !== "";
+  void _pomodoroStatsByTaskId;
 
   React.useEffect(() => {
     setItems(tasks);
@@ -677,10 +683,6 @@ export function TaskList({
             ? projectLabelById.get(task.project_id) ?? "Project archived"
             : null;
           const isArchived = task.archived_at != null;
-          const pomodoroStats = pomodoroStatsByTaskId[task.id] ?? {
-            pomodoros_today: 0,
-            pomodoros_total: 0,
-          };
 
           return (
             <li
@@ -918,20 +920,6 @@ export function TaskList({
                           </Badge>
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Today: {pomodoroStats.pomodoros_today}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                          </svg>
-                          Total: {pomodoroStats.pomodoros_total}
-                        </span>
-                      </div>
                       {!isArchived ? (
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <label className="sr-only" htmlFor={`task-scheduled-for-${task.id}`}>
@@ -949,6 +937,18 @@ export function TaskList({
                             className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground transition-all duration-200 hover:border-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
                             data-testid={`task-scheduled-for-${task.id}`}
                           />
+                          {canSetToFilterDate ? (
+                            <Button
+                              size="sm"
+                              type="button"
+                              variant="secondary"
+                              disabled={isPending || isEditing || task.scheduled_for === currentDate}
+                              onClick={() => void handleSetScheduledFor(task, currentDate)}
+                              data-testid={`task-scheduled-filter-date-${task.id}`}
+                            >
+                              Set to filter date
+                            </Button>
+                          ) : null}
                           <Button
                             size="sm"
                             type="button"

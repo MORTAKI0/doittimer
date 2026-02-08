@@ -4,7 +4,11 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
-import { getUserSettings, upsertUserSettings } from "@/app/actions/settings";
+import {
+  getUserSettings,
+  updateAutoArchiveCompleted,
+  upsertUserSettings,
+} from "@/app/actions/settings";
 import { Button } from "@/components/ui/button";
 
 type TaskOption = {
@@ -19,6 +23,7 @@ type SettingsFormProps = {
   initialPomodoroShortBreakMinutes: number;
   initialPomodoroLongBreakMinutes: number;
   initialPomodoroLongBreakEvery: number;
+  initialAutoArchiveCompleted: boolean;
   tasks: TaskOption[];
 };
 
@@ -42,6 +47,7 @@ export function SettingsForm({
   initialPomodoroShortBreakMinutes,
   initialPomodoroLongBreakMinutes,
   initialPomodoroLongBreakEvery,
+  initialAutoArchiveCompleted,
   tasks,
 }: SettingsFormProps) {
   const router = useRouter();
@@ -59,6 +65,9 @@ export function SettingsForm({
   const [pomodoroLongBreakEvery, setPomodoroLongBreakEvery] = React.useState(
     initialPomodoroLongBreakEvery,
   );
+  const [autoArchiveCompleted, setAutoArchiveCompleted] = React.useState(
+    initialAutoArchiveCompleted,
+  );
   const [message, setMessage] = React.useState<string | null>(null);
   const [isError, setIsError] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
@@ -73,14 +82,21 @@ export function SettingsForm({
         defaultTaskId.trim() !== "" ? defaultTaskId : null;
 
       try {
-        await upsertUserSettings(
-          timezone,
-          normalizedDefaultTaskId,
-          pomodoroWorkMinutes,
-          pomodoroShortBreakMinutes,
-          pomodoroLongBreakMinutes,
-          pomodoroLongBreakEvery,
-        );
+        const [, autoArchiveResult] = await Promise.all([
+          upsertUserSettings(
+            timezone,
+            normalizedDefaultTaskId,
+            pomodoroWorkMinutes,
+            pomodoroShortBreakMinutes,
+            pomodoroLongBreakMinutes,
+            pomodoroLongBreakEvery,
+          ),
+          updateAutoArchiveCompleted(autoArchiveCompleted),
+        ]);
+
+        if (!autoArchiveResult.success) {
+          throw new Error(autoArchiveResult.error);
+        }
 
         setIsError(false);
         setMessage("Settings saved.");
@@ -98,6 +114,7 @@ export function SettingsForm({
             pomodoro_short_break_minutes: pomodoroShortBreakMinutes,
             pomodoro_long_break_minutes: pomodoroLongBreakMinutes,
             pomodoro_long_break_every: pomodoroLongBreakEvery,
+            auto_archive_completed: autoArchiveCompleted,
           });
           if (result.success) {
             console.log("[settings] verification saved", result.data);
@@ -111,7 +128,8 @@ export function SettingsForm({
               && saved.pomodoro_work_minutes === pomodoroWorkMinutes
               && saved.pomodoro_short_break_minutes === pomodoroShortBreakMinutes
               && saved.pomodoro_long_break_minutes === pomodoroLongBreakMinutes
-              && saved.pomodoro_long_break_every === pomodoroLongBreakEvery;
+              && saved.pomodoro_long_break_every === pomodoroLongBreakEvery
+              && saved.auto_archive_completed === autoArchiveCompleted;
 
             if (settingsMatch) {
               setIsError(false);
@@ -257,6 +275,25 @@ export function SettingsForm({
         <p className="text-xs text-muted-foreground">
           Long break every = number of work sessions before a long break.
         </p>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-border/70 p-3">
+        <p className="text-sm font-medium text-foreground">Task archiving</p>
+        <label className="flex items-start gap-3 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={autoArchiveCompleted}
+            onChange={(event) => setAutoArchiveCompleted(event.target.checked)}
+            disabled={isPending}
+            className="mt-0.5 h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+          />
+          <span>
+            <span className="block font-medium">Auto-archive completed tasks</span>
+            <span className="block text-xs text-muted-foreground">
+              When enabled, completing a task moves it to archive automatically.
+            </span>
+          </span>
+        </label>
       </div>
 
       {message ? (

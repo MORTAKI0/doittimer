@@ -18,6 +18,7 @@ export type UserSettings = {
   pomodoro_long_break_minutes: number;
   pomodoro_long_break_every: number;
   pomodoro_v2_enabled: boolean;
+  auto_archive_completed: boolean;
 };
 
 const timezoneSchema = z.string().min(1);
@@ -145,6 +146,7 @@ function normalizeSettings(data: unknown): UserSettings | null {
     pomodoro_long_break_minutes?: unknown;
     pomodoro_long_break_every?: unknown;
     pomodoro_v2_enabled?: unknown;
+    auto_archive_completed?: unknown;
   };
   const timezone = typeof record.timezone === "string" ? record.timezone : null;
   const defaultTaskId = typeof record.default_task_id === "string"
@@ -161,6 +163,9 @@ function normalizeSettings(data: unknown): UserSettings | null {
   const pomodoroV2Enabled = typeof record.pomodoro_v2_enabled === "boolean"
     ? record.pomodoro_v2_enabled
     : false;
+  const autoArchiveCompleted = typeof record.auto_archive_completed === "boolean"
+    ? record.auto_archive_completed
+    : false;
 
   if (!timezone) return null;
 
@@ -172,6 +177,7 @@ function normalizeSettings(data: unknown): UserSettings | null {
     pomodoro_long_break_minutes: pomodoroLongBreakMinutes,
     pomodoro_long_break_every: pomodoroLongBreakEvery,
     pomodoro_v2_enabled: pomodoroV2Enabled,
+    auto_archive_completed: autoArchiveCompleted,
   };
 }
 
@@ -208,6 +214,7 @@ export async function getUserSettings(): Promise<ActionResult<UserSettings>> {
           "pomodoro_long_break_minutes",
           "pomodoro_long_break_every",
           "pomodoro_v2_enabled",
+          "auto_archive_completed",
         ].join(", "),
       )
       .eq("user_id", userData.user.id)
@@ -358,6 +365,81 @@ export async function upsertUserSettings(
 
   revalidatePath("/settings");
   revalidatePath("/focus");
+}
+
+export async function updateAutoArchiveCompleted(
+  autoArchiveCompleted: boolean,
+): Promise<ActionResult<UserSettings>> {
+  const parsedFlag = z.boolean().safeParse(autoArchiveCompleted);
+  if (!parsedFlag.success) {
+    return { success: false, error: "Invalid auto-archive preference." };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "You must be signed in." };
+    }
+
+    const { error: ensureError } = await supabase.rpc("get_user_settings");
+
+    if (ensureError) {
+      logServerError({
+        scope: "actions.settings.updateAutoArchiveCompleted",
+        userId: userData.user.id,
+        error: ensureError,
+        context: { rpc: "get_user_settings" },
+      });
+      return { success: false, error: "Unable to save settings." };
+    }
+
+    const { data, error } = await supabase
+      .from("user_settings")
+      .update({ auto_archive_completed: parsedFlag.data })
+      .eq("user_id", userData.user.id)
+      .select(
+        [
+          "timezone",
+          "default_task_id",
+          "pomodoro_work_minutes",
+          "pomodoro_short_break_minutes",
+          "pomodoro_long_break_minutes",
+          "pomodoro_long_break_every",
+          "pomodoro_v2_enabled",
+          "auto_archive_completed",
+        ].join(", "),
+      )
+      .maybeSingle();
+
+    if (error) {
+      logServerError({
+        scope: "actions.settings.updateAutoArchiveCompleted",
+        userId: userData.user.id,
+        error,
+        context: { table: "user_settings" },
+      });
+      return { success: false, error: "Unable to save settings." };
+    }
+
+    const settings = normalizeSettings(data);
+    if (!settings) {
+      return { success: false, error: "Unable to save settings." };
+    }
+
+    revalidatePath("/settings");
+    revalidatePath("/tasks");
+    revalidatePath("/focus");
+
+    return { success: true, data: settings };
+  } catch (error) {
+    logServerError({
+      scope: "actions.settings.updateAutoArchiveCompleted",
+      error,
+    });
+    return { success: false, error: "Network error. Check your connection and try again." };
+  }
 }
 
 function toInteger(value: unknown): number | null {
