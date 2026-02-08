@@ -71,49 +71,35 @@ export function DashboardRangeSelector({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="inline-flex w-full flex-wrap gap-1 rounded-xl border border-border bg-muted/30 p-1">
         {RANGE_OPTIONS.map((option) => (
-          <Button
+          <button
             key={option.value}
-            size="sm"
             type="button"
-            variant={currentRange === option.value ? "primary" : "secondary"}
             onClick={() => navigateWith({ range: option.value })}
+            className={[
+              "rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+              currentRange === option.value
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            ].join(" ")}
           >
             {option.label}
-          </Button>
+          </button>
         ))}
       </div>
 
-      <form
-        className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 sm:grid-cols-[1fr_1fr_auto]"
-        onSubmit={handleCustomSubmit}
-      >
+      <form className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 sm:grid-cols-[1fr_1fr_auto]" onSubmit={handleCustomSubmit}>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           <span>From</span>
-          <Input
-            type="date"
-            value={fromInput}
-            onChange={(event) => setFromInput(event.target.value)}
-            aria-label="Custom range from"
-          />
+          <Input type="date" value={fromInput} onChange={(event) => setFromInput(event.target.value)} aria-label="Custom range from" />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           <span>To</span>
-          <Input
-            type="date"
-            value={toInput}
-            onChange={(event) => setToInput(event.target.value)}
-            aria-label="Custom range to"
-          />
+          <Input type="date" value={toInput} onChange={(event) => setToInput(event.target.value)} aria-label="Custom range to" />
         </label>
-        <Button
-          size="md"
-          type="submit"
-          variant={currentRange === "custom" ? "primary" : "secondary"}
-          className="sm:self-end"
-        >
-          Apply custom
+        <Button size="md" type="submit" variant={currentRange === "custom" ? "primary" : "secondary"} className="sm:self-end">
+          Apply
         </Button>
       </form>
     </div>

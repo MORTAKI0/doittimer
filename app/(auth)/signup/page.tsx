@@ -6,7 +6,7 @@ import { SignupForm } from "./SignupForm";
 
 export default function SignupPage() {
   return (
-    <main className="min-h-dvh bg-background text-foreground">
+    <main className="min-h-dvh bg-[var(--gradient-surface)] text-foreground">
       <header className="border-b border-border/80 bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Brand />
@@ -16,11 +16,18 @@ export default function SignupPage() {
         </div>
       </header>
 
-      <section className="bg-muted/20">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-12">
-          <div className="w-full max-w-md">
-            <SignupForm />
+      <section className="mx-auto grid max-w-6xl gap-8 px-6 py-12 lg:grid-cols-[1fr_420px] lg:items-center">
+        <div className="space-y-4">
+          <p className="text-overline">Start fresh</p>
+          <h1 className="text-page-title">Build a calmer focus system.</h1>
+          <p className="max-w-lg text-sm text-muted-foreground">Create your workspace and start with a clean task + focus loop that stays reliable across devices.</p>
+          <div className="rounded-xl border border-border bg-card/70 p-4 text-sm text-muted-foreground">
+            Your timezone and defaults can be updated any time in Settings.
           </div>
+        </div>
+
+        <div className="space-y-3">
+          <SignupForm />
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/login" className="font-medium text-foreground hover:underline">

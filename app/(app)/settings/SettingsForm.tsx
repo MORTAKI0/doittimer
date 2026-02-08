@@ -1,4 +1,3 @@
-// app/(app)/settings/SettingsForm.tsx
 "use client";
 
 import * as React from "react";
@@ -12,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
 
 type TaskOption = {
   id: string;
@@ -29,6 +29,16 @@ type SettingsFormProps = {
   tasks: TaskOption[];
 };
 
+type DraftSettings = {
+  timezone: string;
+  defaultTaskId: string;
+  work: number;
+  shortBreak: number;
+  longBreak: number;
+  longEvery: number;
+  autoArchive: boolean;
+};
+
 const TIMEZONE_OPTIONS = [
   "Africa/Casablanca",
   "UTC",
@@ -37,224 +47,172 @@ const TIMEZONE_OPTIONS = [
   "Asia/Dubai",
   "Asia/Tokyo",
 ];
+
 const WORK_MINUTES_RANGE = { min: 1, max: 240 };
 const SHORT_BREAK_RANGE = { min: 1, max: 60 };
 const LONG_BREAK_RANGE = { min: 1, max: 120 };
 const LONG_BREAK_EVERY_RANGE = { min: 1, max: 12 };
 
-export function SettingsForm({
-  initialTimezone,
-  initialDefaultTaskId,
-  initialPomodoroWorkMinutes,
-  initialPomodoroShortBreakMinutes,
-  initialPomodoroLongBreakMinutes,
-  initialPomodoroLongBreakEvery,
-  initialAutoArchiveCompleted,
-  tasks,
-}: SettingsFormProps) {
+function toDraft(props: SettingsFormProps): DraftSettings {
+  return {
+    timezone: props.initialTimezone,
+    defaultTaskId: props.initialDefaultTaskId ?? "",
+    work: props.initialPomodoroWorkMinutes,
+    shortBreak: props.initialPomodoroShortBreakMinutes,
+    longBreak: props.initialPomodoroLongBreakMinutes,
+    longEvery: props.initialPomodoroLongBreakEvery,
+    autoArchive: props.initialAutoArchiveCompleted,
+  };
+}
+
+function sameSettings(a: DraftSettings, b: DraftSettings) {
+  return (
+    a.timezone === b.timezone
+    && a.defaultTaskId === b.defaultTaskId
+    && a.work === b.work
+    && a.shortBreak === b.shortBreak
+    && a.longBreak === b.longBreak
+    && a.longEvery === b.longEvery
+    && a.autoArchive === b.autoArchive
+  );
+}
+
+export function SettingsForm(props: SettingsFormProps) {
+  const { tasks } = props;
   const router = useRouter();
-  const [timezone, setTimezone] = React.useState(initialTimezone);
-  const [defaultTaskId, setDefaultTaskId] = React.useState(initialDefaultTaskId ?? "");
-  const [pomodoroWorkMinutes, setPomodoroWorkMinutes] = React.useState(
-    initialPomodoroWorkMinutes,
-  );
-  const [pomodoroShortBreakMinutes, setPomodoroShortBreakMinutes] = React.useState(
-    initialPomodoroShortBreakMinutes,
-  );
-  const [pomodoroLongBreakMinutes, setPomodoroLongBreakMinutes] = React.useState(
-    initialPomodoroLongBreakMinutes,
-  );
-  const [pomodoroLongBreakEvery, setPomodoroLongBreakEvery] = React.useState(
-    initialPomodoroLongBreakEvery,
-  );
-  const [autoArchiveCompleted, setAutoArchiveCompleted] = React.useState(
-    initialAutoArchiveCompleted,
-  );
-  const [message, setMessage] = React.useState<string | null>(null);
-  const [isError, setIsError] = React.useState(false);
-  const [isPending, startTransition] = React.useTransition();
+  const { pushToast } = useToast();
+  const [draft, setDraft] = React.useState<DraftSettings>(() => toDraft(props));
+  const [lastSaved, setLastSaved] = React.useState<DraftSettings>(() => toDraft(props));
+  const [isPending, setIsPending] = React.useState(false);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage(null);
-    setIsError(false);
+  const isDirty = !sameSettings(draft, lastSaved);
 
-    startTransition(async () => {
-      const normalizedDefaultTaskId =
-        defaultTaskId.trim() !== "" ? defaultTaskId : null;
+  async function persistSettings(source: "auto" | "manual") {
+    setIsPending(true);
+    const normalizedDefaultTaskId = draft.defaultTaskId.trim() !== "" ? draft.defaultTaskId : null;
 
-      try {
-        const [, autoArchiveResult] = await Promise.all([
-          upsertUserSettings(
-            timezone,
-            normalizedDefaultTaskId,
-            pomodoroWorkMinutes,
-            pomodoroShortBreakMinutes,
-            pomodoroLongBreakMinutes,
-            pomodoroLongBreakEvery,
-          ),
-          updateAutoArchiveCompleted(autoArchiveCompleted),
-        ]);
+    try {
+      const [, autoArchiveResult] = await Promise.all([
+        upsertUserSettings(
+          draft.timezone,
+          normalizedDefaultTaskId,
+          draft.work,
+          draft.shortBreak,
+          draft.longBreak,
+          draft.longEvery,
+        ),
+        updateAutoArchiveCompleted(draft.autoArchive),
+      ]);
 
-        if (!autoArchiveResult.success) {
-          throw new Error(autoArchiveResult.error);
-        }
-
-        setIsError(false);
-        setMessage("Settings saved.");
-        router.refresh();
-      } catch (error) {
-        try {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          const result = await getUserSettings();
-
-          if (result.success) {
-            const saved = result.data;
-            const settingsMatch =
-              saved.timezone === timezone
-              && saved.default_task_id === normalizedDefaultTaskId
-              && saved.pomodoro_work_minutes === pomodoroWorkMinutes
-              && saved.pomodoro_short_break_minutes === pomodoroShortBreakMinutes
-              && saved.pomodoro_long_break_minutes === pomodoroLongBreakMinutes
-              && saved.pomodoro_long_break_every === pomodoroLongBreakEvery
-              && saved.auto_archive_completed === autoArchiveCompleted;
-
-            if (settingsMatch) {
-              setIsError(false);
-              setMessage("Settings saved.");
-              router.refresh();
-              return;
-            }
-          }
-        } catch {}
-
-        setIsError(true);
-        router.refresh();
-        const message = error instanceof Error ? error.message : "";
-        setMessage(message || "Unable to save settings. Please try again.");
+      if (!autoArchiveResult.success) {
+        throw new Error(autoArchiveResult.error);
       }
-    });
+
+      setLastSaved(draft);
+      pushToast({
+        title: source === "auto" ? "Settings auto-saved" : "Settings saved",
+        variant: "success",
+      });
+      router.refresh();
+    } catch (error) {
+      try {
+        const result = await getUserSettings();
+        if (result.success) {
+          const saved: DraftSettings = {
+            timezone: result.data.timezone,
+            defaultTaskId: result.data.default_task_id ?? "",
+            work: result.data.pomodoro_work_minutes,
+            shortBreak: result.data.pomodoro_short_break_minutes,
+            longBreak: result.data.pomodoro_long_break_minutes,
+            longEvery: result.data.pomodoro_long_break_every,
+            autoArchive: result.data.auto_archive_completed,
+          };
+
+          if (sameSettings(saved, draft)) {
+            setLastSaved(saved);
+            pushToast({ title: "Settings saved", variant: "success" });
+            router.refresh();
+            setIsPending(false);
+            return;
+          }
+        }
+      } catch {}
+
+      const message = error instanceof Error ? error.message : "Unable to save settings. Please try again.";
+      pushToast({ title: "Save failed", description: message, variant: "error" });
+    }
+
+    setIsPending(false);
   }
 
-  return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground" htmlFor="timezone">
-          Timezone
-        </label>
-        <Select
-          id="timezone"
-          name="timezone"
-          value={timezone}
-          onChange={(event) => setTimezone(event.target.value)}
-        >
-          {TIMEZONE_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </Select>
-      </div>
+  React.useEffect(() => {
+    if (!isDirty) return;
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground" htmlFor="default-task">
-          Default task
+    const handle = window.setTimeout(() => {
+      void persistSettings("auto");
+    }, 900);
+
+    return () => window.clearTimeout(handle);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+
+  return (
+    <form
+      className="space-y-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void persistSettings("manual");
+      }}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-foreground">Timezone</span>
+          <Select id="timezone" name="timezone" value={draft.timezone} onChange={(event) => setDraft((prev) => ({ ...prev, timezone: event.target.value }))}>
+            {TIMEZONE_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </Select>
         </label>
-        <Select
-          id="default-task"
-          name="default-task"
-          value={defaultTaskId}
-          onChange={(event) => setDefaultTaskId(event.target.value)}
-          disabled={tasks.length === 0}
-        >
-          <option value="">No default task</option>
-          {tasks.map((task) => (
-            <option key={task.id} value={task.id}>
-              {task.title}
-            </option>
-          ))}
-        </Select>
-        {tasks.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Create a task to set a default.</p>
-        ) : null}
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-foreground">Default task</span>
+          <Select
+            id="default-task"
+            name="default-task"
+            value={draft.defaultTaskId}
+            onChange={(event) => setDraft((prev) => ({ ...prev, defaultTaskId: event.target.value }))}
+            disabled={tasks.length === 0}
+          >
+            <option value="">No default task</option>
+            {tasks.map((task) => (
+              <option key={task.id} value={task.id}>{task.title}</option>
+            ))}
+          </Select>
+          {tasks.length === 0 ? <p className="text-xs text-muted-foreground">Create a task to set a default.</p> : null}
+        </label>
       </div>
 
       <div className="space-y-2">
         <p className="text-sm font-medium text-foreground">Pomodoro durations</p>
-        <p className="text-xs text-muted-foreground">
-          Examples: 25/5 for classic focus, 50/10 for deep work.
-        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-sm text-foreground">
-            <span className="text-sm font-medium text-foreground">Work minutes</span>
-            <Input
-              type="number"
-              min={WORK_MINUTES_RANGE.min}
-              max={WORK_MINUTES_RANGE.max}
-              step={1}
-              value={pomodoroWorkMinutes}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setPomodoroWorkMinutes(Number.isFinite(next) ? next : 0);
-              }}
-              disabled={isPending}
-              required
-            />
+            <span>Work minutes</span>
+            <Input type="number" min={WORK_MINUTES_RANGE.min} max={WORK_MINUTES_RANGE.max} step={1} value={draft.work} onChange={(event) => setDraft((prev) => ({ ...prev, work: Number(event.target.value) || 0 }))} disabled={isPending} required />
           </label>
           <label className="space-y-1 text-sm text-foreground">
-            <span className="text-sm font-medium text-foreground">Short break minutes</span>
-            <Input
-              type="number"
-              min={SHORT_BREAK_RANGE.min}
-              max={SHORT_BREAK_RANGE.max}
-              step={1}
-              value={pomodoroShortBreakMinutes}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setPomodoroShortBreakMinutes(Number.isFinite(next) ? next : 0);
-              }}
-              disabled={isPending}
-              required
-            />
+            <span>Short break minutes</span>
+            <Input type="number" min={SHORT_BREAK_RANGE.min} max={SHORT_BREAK_RANGE.max} step={1} value={draft.shortBreak} onChange={(event) => setDraft((prev) => ({ ...prev, shortBreak: Number(event.target.value) || 0 }))} disabled={isPending} required />
           </label>
           <label className="space-y-1 text-sm text-foreground">
-            <span className="text-sm font-medium text-foreground">Long break minutes</span>
-            <Input
-              type="number"
-              min={LONG_BREAK_RANGE.min}
-              max={LONG_BREAK_RANGE.max}
-              step={1}
-              value={pomodoroLongBreakMinutes}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setPomodoroLongBreakMinutes(Number.isFinite(next) ? next : 0);
-              }}
-              disabled={isPending}
-              required
-            />
+            <span>Long break minutes</span>
+            <Input type="number" min={LONG_BREAK_RANGE.min} max={LONG_BREAK_RANGE.max} step={1} value={draft.longBreak} onChange={(event) => setDraft((prev) => ({ ...prev, longBreak: Number(event.target.value) || 0 }))} disabled={isPending} required />
           </label>
           <label className="space-y-1 text-sm text-foreground">
-            <span className="text-sm font-medium text-foreground">
-              Long break every
-            </span>
-            <Input
-              type="number"
-              min={LONG_BREAK_EVERY_RANGE.min}
-              max={LONG_BREAK_EVERY_RANGE.max}
-              step={1}
-              value={pomodoroLongBreakEvery}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setPomodoroLongBreakEvery(Number.isFinite(next) ? next : 0);
-              }}
-              disabled={isPending}
-              required
-            />
+            <span>Long break every</span>
+            <Input type="number" min={LONG_BREAK_EVERY_RANGE.min} max={LONG_BREAK_EVERY_RANGE.max} step={1} value={draft.longEvery} onChange={(event) => setDraft((prev) => ({ ...prev, longEvery: Number(event.target.value) || 0 }))} disabled={isPending} required />
           </label>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Long break every = number of work sessions before a long break.
-        </p>
+        <p className="text-xs text-muted-foreground">Long break every = number of work sessions before a long break.</p>
       </div>
 
       <div className="space-y-2 rounded-xl border border-border/70 p-3">
@@ -262,36 +220,27 @@ export function SettingsForm({
         <label className="flex items-start gap-3 text-sm text-foreground">
           <input
             type="checkbox"
-            checked={autoArchiveCompleted}
-            onChange={(event) => setAutoArchiveCompleted(event.target.checked)}
+            checked={draft.autoArchive}
+            onChange={(event) => setDraft((prev) => ({ ...prev, autoArchive: event.target.checked }))}
             disabled={isPending}
-            className="mt-0.5 h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+            className="mt-0.5 h-4 w-4 rounded border-border text-emerald-600 focus-ring"
           />
           <span>
             <span className="block font-medium">Auto-archive completed tasks</span>
-            <span className="block text-xs text-muted-foreground">
-              When enabled, completing a task moves it to archive automatically.
-            </span>
+            <span className="block text-xs text-muted-foreground">When enabled, completing a task moves it to archive automatically.</span>
           </span>
         </label>
       </div>
 
-      {message ? (
-        <p
-          className={
-            isError
-              ? "rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-              : "rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
-          }
-          role="status"
-        >
-          {message}
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={isPending || !isDirty}>
+          Save now
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          {isPending ? "Saving..." : isDirty ? "Unsaved changes" : "All changes saved"}
         </p>
-      ) : null}
-
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Saving..." : "Save settings"}
-      </Button>
+      </div>
     </form>
   );
 }
+

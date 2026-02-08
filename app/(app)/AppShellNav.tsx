@@ -1,0 +1,186 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+import { Brand } from "@/components/layout/Brand";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { Badge } from "@/components/ui/badge";
+import { CommandPalette, type CommandAction } from "@/components/ui/command-palette";
+import { IconDashboard, IconFocus, IconSettings, IconTasks } from "@/components/ui/icons";
+
+const NAV_LINKS = [
+  { href: "/dashboard", label: "Dashboard", Icon: IconDashboard },
+  { href: "/tasks", label: "Tasks", Icon: IconTasks },
+  { href: "/focus", label: "Focus", Icon: IconFocus },
+  { href: "/settings", label: "Settings", Icon: IconSettings },
+] as const;
+
+type AppShellNavProps = {
+  children: React.ReactNode;
+  initialTheme: "light" | "dark";
+  userEmail: string | null;
+  queueCount: number;
+  hasActiveFocus: boolean;
+  activeFocusPhaseLabel: string | null;
+  activeFocusStartedAt: string | null;
+};
+
+function formatElapsed(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function parseDate(value: string | null) {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function AppShellNav({
+  children,
+  initialTheme,
+  userEmail,
+  queueCount,
+  hasActiveFocus,
+  activeFocusPhaseLabel,
+  activeFocusStartedAt,
+}: AppShellNavProps) {
+  const pathname = usePathname();
+  const startedAtMs = React.useMemo(() => parseDate(activeFocusStartedAt), [activeFocusStartedAt]);
+  const [elapsed, setElapsed] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!startedAtMs) {
+      setElapsed(0);
+      return;
+    }
+
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+      setElapsed(diff);
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAtMs]);
+
+  const commandActions: CommandAction[] = [
+    { id: "nav-dashboard", label: "Go to Dashboard", href: "/dashboard", hint: "G D" },
+    { id: "nav-tasks", label: "Go to Tasks", href: "/tasks", hint: "G T" },
+    { id: "nav-focus", label: "Go to Focus", href: "/focus", hint: "G F" },
+    { id: "nav-settings", label: "Go to Settings", href: "/settings", hint: "G S" },
+    { id: "quick-create-task", label: "Create task", href: "/tasks?compose=1", hint: "Quick action" },
+    { id: "quick-start-focus", label: "Start focus", href: "/focus", hint: "Quick action" },
+    { id: "quick-scheduled", label: "Scheduled today", href: "/tasks?range=day", hint: "Quick action" },
+  ];
+
+  return (
+    <div className="min-h-dvh bg-background text-foreground">
+      <CommandPalette actions={commandActions} />
+      <div className="mx-auto grid min-h-dvh max-w-[1200px] grid-cols-1 lg:grid-cols-[220px_1fr]">
+        <aside className="hidden border-r border-border/80 bg-muted/20 lg:block">
+          <div className="sticky top-0 flex h-dvh flex-col px-4 py-6">
+            <Brand />
+            <nav className="mt-8 space-y-1" aria-label="Main navigation">
+              {NAV_LINKS.map((link) => {
+                const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={[
+                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all duration-150",
+                      isActive
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "border-transparent text-muted-foreground hover:border-border hover:bg-card hover:text-foreground",
+                    ].join(" ")}
+                  >
+                    <link.Icon className="h-4 w-4" aria-hidden="true" />
+                    <span>{link.label}</span>
+                    {link.href === "/tasks" && queueCount > 0 ? (
+                      <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-700">
+                        {Math.min(queueCount, 99)}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="mt-auto space-y-3">
+              {hasActiveFocus ? (
+                <Link
+                  href="/focus"
+                  className="block rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"
+                >
+                  <div className="font-semibold">Focus now running</div>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span>{activeFocusPhaseLabel ?? "Session"}</span>
+                    <span className="numeric-tabular">{formatElapsed(elapsed)}</span>
+                  </div>
+                </Link>
+              ) : null}
+              <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
+                <p className="truncate text-xs text-muted-foreground">{userEmail ?? "Signed in"}</p>
+                <ThemeToggle initialTheme={initialTheme} />
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div className="flex min-h-dvh flex-col">
+          <header className="sticky top-0 z-30 border-b border-border/80 bg-background/88 backdrop-blur lg:hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <Brand />
+              <div className="flex items-center gap-2">
+                {hasActiveFocus ? (
+                  <Link href="/focus" className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                    {formatElapsed(elapsed)}
+                  </Link>
+                ) : null}
+                <ThemeToggle initialTheme={initialTheme} />
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8 lg:pb-8">{children}</main>
+
+          <nav className="fixed inset-x-3 bottom-3 z-40 rounded-2xl border border-border bg-card/95 p-1 shadow-[var(--shadow-lift)] backdrop-blur lg:hidden" aria-label="Bottom navigation">
+            <ul className="grid grid-cols-4 gap-1">
+              {NAV_LINKS.map((link) => {
+                const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={[
+                        "relative flex flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors",
+                        isActive
+                          ? "bg-emerald-50 text-emerald-800"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ].join(" ")}
+                    >
+                      <link.Icon className="h-4 w-4" aria-hidden="true" />
+                      {link.label}
+                      {link.href === "/tasks" && queueCount > 0 ? (
+                        <Badge className="absolute -right-1 -top-1 px-1.5 py-0 text-[10px]" variant="accent">
+                          {Math.min(queueCount, 9)}
+                        </Badge>
+                      ) : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  );
+}

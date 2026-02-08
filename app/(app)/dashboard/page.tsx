@@ -6,11 +6,13 @@ import {
   type QueueItemLite,
   type TaskLite,
 } from "@/app/actions/dashboard";
+import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { IconDashboard, IconFocus, IconTasks, IconTrophy } from "@/components/ui/icons";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Badge } from "@/components/ui/badge";
+import { ProgressRing } from "@/components/ui/progress-ring";
 import { DashboardRangeSelector } from "./DashboardRangeSelector";
 
 type SearchParams = Promise<{
@@ -58,6 +60,12 @@ function dateInTimezoneYYYYMMDD(date: Date, tz: string): string {
   return `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
 }
 
+function completionMicrocopy(rate: number) {
+  if (rate >= 0.8) return "Strong momentum today. Keep the cadence.";
+  if (rate >= 0.5) return "Solid progress. One focused block can tip this higher.";
+  return "Start with a single high-impact task to build momentum.";
+}
+
 function renderTaskItems(
   items: TaskLite[],
   emptyTitle: string,
@@ -80,16 +88,11 @@ function renderTaskItems(
   return (
     <ul className="space-y-2">
       {items.map((item) => (
-        <li
-          key={item.id}
-          className="rounded-xl border border-border bg-card px-3 py-2.5 transition-colors hover:border-emerald-200"
-        >
+        <li key={item.id} className="rounded-xl border border-border bg-card px-3 py-2.5 transition-colors hover:border-emerald-200">
           <p className="text-sm font-medium text-foreground">{item.title}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {item.scheduled_for ? <Badge variant="neutral">Due {item.scheduled_for}</Badge> : null}
-            <Badge variant={item.completed ? "success" : "neutral"}>
-              {item.completed ? "Completed" : "Open"}
-            </Badge>
+            <Badge variant={item.completed ? "success" : "neutral"}>{item.completed ? "Completed" : "Open"}</Badge>
           </div>
         </li>
       ))}
@@ -116,9 +119,7 @@ function renderQueueItems(items: QueueItemLite[], tz: string) {
         <li key={item.task_id} className="rounded-xl border border-border bg-card px-3 py-2.5">
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-medium text-foreground">{index + 1}. {item.title}</p>
-            <span className="text-xs text-muted-foreground">
-              {formatDateTime(item.created_at, tz)}
-            </span>
+            <span className="text-xs text-muted-foreground">{formatDateTime(item.created_at, tz)}</span>
           </div>
         </li>
       ))}
@@ -147,10 +148,11 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
+          <p className="text-overline">Overview</p>
           <h1 className="text-page-title text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
             {summary.range.label}
-            {" · "}
+            {" � "}
             timezone {summary.range.tz}
           </p>
         </div>
@@ -159,7 +161,7 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
         </Link>
       </div>
 
-      <Card className="space-y-3">
+      <Card variant="accent" className="space-y-3">
         <CardHeader>
           <CardTitle>Range</CardTitle>
           <CardDescription>Select a reporting window for KPIs and plan panels.</CardDescription>
@@ -174,6 +176,7 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
           value={summary.kpis.created}
           href="/tasks?status=all"
           helperText="Range metric"
+          icon={<IconTasks className="h-4 w-4" aria-hidden="true" />}
         />
         <KpiCard
           label="Completed"
@@ -181,6 +184,7 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
           value={summary.kpis.completed}
           href="/tasks?status=completed"
           helperText="Range metric"
+          icon={<IconTrophy className="h-4 w-4" aria-hidden="true" />}
         />
         <KpiCard
           label="Archived"
@@ -188,6 +192,7 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
           value={summary.kpis.archived}
           href="/tasks?status=archived"
           helperText="Range metric"
+          icon={<IconDashboard className="h-4 w-4" aria-hidden="true" />}
         />
         <KpiCard
           label="Queue items"
@@ -195,6 +200,7 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
           value={summary.kpis.queueCount}
           href="/tasks"
           helperText="Live value"
+          icon={<IconFocus className="h-4 w-4" aria-hidden="true" />}
         />
         <KpiCard
           label="Completion rate"
@@ -211,6 +217,18 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
           helperText={`Based on ${summary.range.tz}`}
         />
       </div>
+
+      <Card className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+        <div>
+          <p className="text-overline">Daily completion</p>
+          <h2 className="text-section-title">{completionMicrocopy(summary.kpis.completionRate)}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Completion based on tasks created in this range.</p>
+        </div>
+        <ProgressRing value={summary.kpis.completionRate} size={132} label="Daily completion rate">
+          <p className="numeric-tabular text-2xl font-semibold text-foreground">{formatPercent(summary.kpis.completionRate)}</p>
+          <p className="text-xs text-muted-foreground">done</p>
+        </ProgressRing>
+      </Card>
 
       {noActivityInPeriod ? (
         <Card variant="muted">

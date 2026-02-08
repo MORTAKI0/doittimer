@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -21,16 +22,35 @@ function toEnglishError(message: string) {
   return ERROR_MAP[message] ?? message;
 }
 
+function strength(password: string) {
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  return score;
+}
+
+const LEVELS = [
+  { label: "Weak", className: "bg-red-400", min: 0 },
+  { label: "Fair", className: "bg-amber-400", min: 2 },
+  { label: "Good", className: "bg-emerald-400", min: 3 },
+  { label: "Strong", className: "bg-emerald-600", min: 4 },
+] as const;
+
 export function SignupForm() {
   const [state, formAction, pending] = useActionState(signUpAction, null);
+  const [password, setPassword] = React.useState("");
   const errorMessage = state?.ok === false ? toEnglishError(state.message) : null;
+  const score = strength(password);
+  const level = LEVELS.slice().reverse().find((item) => score >= item.min) ?? LEVELS[0];
 
   return (
     <Card className="w-full p-6">
       <h1 className="text-section-title text-foreground">Create account</h1>
       <p className="mt-1 text-sm text-muted-foreground">Start tracking focused work in minutes.</p>
       {errorMessage ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
           {errorMessage}
         </p>
       ) : null}
@@ -42,13 +62,18 @@ export function SignupForm() {
           placeholder="Password (min 8)"
           autoComplete="new-password"
           required
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
         />
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? "Creating..." : "Create account"}
+        <div>
+          <div className="h-2 rounded-full bg-muted">
+            <div className={["h-2 rounded-full transition-all", level.className].join(" ")} style={{ width: `${Math.max(10, (score / 4) * 100)}%` }} />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Password strength: {level.label}</p>
+        </div>
+        <Button type="submit" className="w-full" isLoading={pending} loadingLabel="Creating...">
+          Create account
         </Button>
-        <p className="text-center text-xs text-muted-foreground">
-          You can update your timezone and defaults anytime in settings.
-        </p>
       </form>
     </Card>
   );

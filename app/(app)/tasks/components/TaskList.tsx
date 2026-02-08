@@ -1,4 +1,3 @@
-//file: app/(app)/tasks/components/TaskList.tsx
 "use client";
 
 import * as React from "react";
@@ -17,18 +16,19 @@ import {
   restoreTask,
   setTaskCompleted,
   setTaskScheduledFor,
-  updateTaskTitle,
-  updateTaskProject,
   updateTaskPomodoroOverrides,
+  updateTaskProject,
+  updateTaskTitle,
   TaskPomodoroOverrides,
   TaskRow,
 } from "@/app/actions/tasks";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { IconPencil, IconTrash } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
-import { selectStyles } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   pomodoroPresets,
   presetToOverrides,
@@ -38,13 +38,11 @@ import {
 type TaskListProps = {
   tasks: TaskRow[];
   projects?: { id: string; name: string }[];
-  pomodoroStatsByTaskId?: Record<
-    string,
-    { pomodoros_today: number; pomodoros_total: number }
-  >;
+  pomodoroStatsByTaskId?: Record<string, { pomodoros_today: number; pomodoros_total: number }>;
   queueItems?: TaskQueueRow[];
   currentRange?: "all" | "day" | "week";
   currentDate?: string;
+  query?: string;
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -83,10 +81,11 @@ function todayYYYYMMDD(): string {
 export function TaskList({
   tasks,
   projects = [],
-  pomodoroStatsByTaskId: _pomodoroStatsByTaskId = {},
+  pomodoroStatsByTaskId = {},
   queueItems = [],
   currentRange = "all",
   currentDate = "",
+  query = "",
 }: TaskListProps) {
   const router = useRouter();
   const [queue, setQueue] = React.useState<TaskQueueRow[]>(queueItems);
@@ -100,16 +99,12 @@ export function TaskList({
   const [draftPomodoroLong, setDraftPomodoroLong] = React.useState("");
   const [draftPomodoroEvery, setDraftPomodoroEvery] = React.useState("");
   const [pendingIds, setPendingIds] = React.useState<Record<string, boolean>>({});
-  const [queuePendingIds, setQueuePendingIds] = React.useState<Record<string, boolean>>(
-    {},
-  );
-  const [errorsById, setErrorsById] = React.useState<Record<string, string | null>>(
-    {},
-  );
+  const [queuePendingIds, setQueuePendingIds] = React.useState<Record<string, boolean>>({});
+  const [errorsById, setErrorsById] = React.useState<Record<string, string | null>>({});
   const [queueError, setQueueError] = React.useState<string | null>(null);
+  const [queueOpen, setQueueOpen] = React.useState(true);
   const MAX_QUEUE_ITEMS = 7;
   const canSetToFilterDate = currentRange === "day" && currentDate.trim() !== "";
-  void _pomodoroStatsByTaskId;
 
   React.useEffect(() => {
     setItems(tasks);
@@ -142,24 +137,10 @@ export function TaskList({
     setDraftTitle(task.title);
     setDraftProjectId(task.project_id ?? "");
     setUseCustomPomodoro(hasOverrides);
-    setDraftPomodoroWork(
-      typeof task.pomodoro_work_minutes === "number" ? String(task.pomodoro_work_minutes) : "",
-    );
-    setDraftPomodoroShort(
-      typeof task.pomodoro_short_break_minutes === "number"
-        ? String(task.pomodoro_short_break_minutes)
-        : "",
-    );
-    setDraftPomodoroLong(
-      typeof task.pomodoro_long_break_minutes === "number"
-        ? String(task.pomodoro_long_break_minutes)
-        : "",
-    );
-    setDraftPomodoroEvery(
-      typeof task.pomodoro_long_break_every === "number"
-        ? String(task.pomodoro_long_break_every)
-        : "",
-    );
+    setDraftPomodoroWork(typeof task.pomodoro_work_minutes === "number" ? String(task.pomodoro_work_minutes) : "");
+    setDraftPomodoroShort(typeof task.pomodoro_short_break_minutes === "number" ? String(task.pomodoro_short_break_minutes) : "");
+    setDraftPomodoroLong(typeof task.pomodoro_long_break_minutes === "number" ? String(task.pomodoro_long_break_minutes) : "");
+    setDraftPomodoroEvery(typeof task.pomodoro_long_break_every === "number" ? String(task.pomodoro_long_break_every) : "");
     setError(task.id, null);
   }
 
@@ -195,20 +176,12 @@ export function TaskList({
 
     setPending(task.id, true);
     setError(task.id, null);
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === task.id ? { ...item, completed: nextCompleted } : item,
-      ),
-    );
+    setItems((prev) => prev.map((item) => (item.id === task.id ? { ...item, completed: nextCompleted } : item)));
 
     const result = await setTaskCompleted(task.id, nextCompleted);
 
     if (!result.success) {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === task.id ? { ...item, completed: previousCompleted } : item,
-        ),
-      );
+      setItems((prev) => prev.map((item) => (item.id === task.id ? { ...item, completed: previousCompleted } : item)));
       setError(task.id, toEnglishError(result.error));
     } else {
       router.refresh();
@@ -224,28 +197,18 @@ export function TaskList({
 
     setPending(task.id, true);
     setError(task.id, null);
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === task.id ? { ...item, scheduled_for: scheduledFor } : item,
-      ),
-    );
+    setItems((prev) => prev.map((item) => (item.id === task.id ? { ...item, scheduled_for: scheduledFor } : item)));
 
     const result = await setTaskScheduledFor(task.id, scheduledFor);
 
     if (!result.success) {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === task.id ? { ...item, scheduled_for: previousScheduledFor } : item,
-        ),
-      );
+      setItems((prev) => prev.map((item) => (item.id === task.id ? { ...item, scheduled_for: previousScheduledFor } : item)));
       setError(task.id, toEnglishError(result.error));
       setPending(task.id, false);
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) => (item.id === task.id ? result.data : item)),
-    );
+    setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
     setPending(task.id, false);
   }
 
@@ -263,9 +226,7 @@ export function TaskList({
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) => (item.id === task.id ? result.data : item)),
-    );
+    setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
     setUseCustomPomodoro(false);
     setDraftPomodoroWork("");
     setDraftPomodoroShort("");
@@ -288,9 +249,7 @@ export function TaskList({
 
     const trimmedTitle = draftTitle.trim();
     const normalizedProjectId = draftProjectId.trim() !== "" ? draftProjectId : null;
-    const isDirtyNonPomodoro =
-      trimmedTitle !== task.title
-      || normalizedProjectId !== (task.project_id ?? null);
+    const isDirtyNonPomodoro = trimmedTitle !== task.title || normalizedProjectId !== (task.project_id ?? null);
 
     if (isDirtyNonPomodoro) return;
 
@@ -309,9 +268,7 @@ export function TaskList({
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) => (item.id === task.id ? result.data : item)),
-    );
+    setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
     setPending(task.id, false);
     router.refresh();
   }
@@ -345,12 +302,8 @@ export function TaskList({
         longBreakMinutes: parseDraftNumber(draftPomodoroLong),
         longBreakEvery: parseDraftNumber(draftPomodoroEvery),
       }
-      : {
-        workMinutes: null,
-        shortBreakMinutes: null,
-        longBreakMinutes: null,
-        longBreakEvery: null,
-      };
+      : { workMinutes: null, shortBreakMinutes: null, longBreakMinutes: null, longBreakEvery: null };
+
     const overridesChanged =
       currentOverrides.workMinutes !== nextOverrides.workMinutes
       || currentOverrides.shortBreakMinutes !== nextOverrides.shortBreakMinutes
@@ -359,46 +312,35 @@ export function TaskList({
 
     if (titleChanged) {
       const result = await updateTaskTitle(task.id, trimmedTitle);
-
       if (!result.success) {
         setError(task.id, toEnglishError(result.error));
         setPending(task.id, false);
         return;
       }
-
       updated = result.data;
     }
 
     if (projectChanged) {
       const result = await updateTaskProject(task.id, normalizedProjectId);
-
       if (!result.success) {
         setError(task.id, toEnglishError(result.error));
         setPending(task.id, false);
         return;
       }
-
       updated = result.data;
     }
 
     if (overridesChanged) {
-      const result = await updateTaskPomodoroOverrides(
-        task.id,
-        useCustomPomodoro ? nextOverrides : null,
-      );
-
+      const result = await updateTaskPomodoroOverrides(task.id, useCustomPomodoro ? nextOverrides : null);
       if (!result.success) {
         setError(task.id, toEnglishError(result.error));
         setPending(task.id, false);
         return;
       }
-
       updated = result.data;
     }
 
-    setItems((prev) =>
-      prev.map((item) => (item.id === task.id ? updated : item)),
-    );
+    setItems((prev) => prev.map((item) => (item.id === task.id ? updated : item)));
     cancelEditing();
     setPending(task.id, false);
     router.refresh();
@@ -417,9 +359,7 @@ export function TaskList({
     if (!result.success) {
       setError(task.id, toEnglishError(result.error));
     } else {
-      setItems((prev) =>
-        prev.map((item) => (item.id === task.id ? result.data : item)),
-      );
+      setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
       if (editingId === task.id) cancelEditing();
       router.refresh();
     }
@@ -437,9 +377,7 @@ export function TaskList({
     if (!result.success) {
       setError(task.id, toEnglishError(result.error));
     } else {
-      setItems((prev) =>
-        prev.map((item) => (item.id === task.id ? result.data : item)),
-      );
+      setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
       router.refresh();
     }
 
@@ -524,119 +462,75 @@ export function TaskList({
     return new Map(entries);
   }, [projects]);
 
-  const visibleItems = items;
+  const loweredQuery = query.trim().toLowerCase();
+  const visibleItems = loweredQuery.length > 0
+    ? items.filter((task) => task.title.toLowerCase().includes(loweredQuery))
+    : items;
   const queueIds = new Set(queue.map((item) => item.task_id));
   const queueIsFull = queue.length >= MAX_QUEUE_ITEMS;
 
   return (
     <div className="space-y-6">
-      {/* Today Queue Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
+      <section className="rounded-xl border border-border bg-muted/20 p-4" data-testid="today-queue">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-              Today Queue
-            </h2>
-            {queue.length > 0 && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                {queue.length}/{MAX_QUEUE_ITEMS}
-              </span>
-            )}
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Today Queue</h2>
+            <Badge variant="warning">{queue.length}/{MAX_QUEUE_ITEMS}</Badge>
           </div>
-          <Button
-            size="sm"
-            type="button"
-            variant="secondary"
-            onClick={handleQueueRefresh}
-            className="gap-1"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" type="button" variant="secondary" onClick={() => setQueueOpen((v) => !v)}>
+              {queueOpen ? "Collapse" : "Expand"}
+            </Button>
+            <Button size="sm" type="button" variant="secondary" onClick={handleQueueRefresh}>Refresh</Button>
+          </div>
         </div>
-        {queueError ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {queueError}
-          </p>
-        ) : null}
-        <div data-testid="today-queue">
-          {queue.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 p-6 text-center">
-              <div className="rounded-full bg-amber-100 p-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium text-foreground">No tasks in queue</p>
-              <p className="text-xs text-muted-foreground">Add tasks from the list below to prioritize your day</p>
-            </div>
+        {queueError ? <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{queueError}</p> : null}
+
+        {queueOpen ? (
+          queue.length === 0 ? (
+            <p className="mt-3 rounded-xl border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
+              Queue is empty. Add tasks below to prioritize your day.
+            </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="mt-3 space-y-2">
               {queue.map((item, index) => {
-                const isFirst = index === 0;
-                const isLast = index === queue.length - 1;
                 const isPending = Boolean(queuePendingIds[item.task_id]);
-                const positionNumber = index + 1;
                 return (
-                  <li
-                    key={item.task_id}
-                    className="group flex flex-wrap items-center gap-3 rounded-xl border border-border bg-gradient-to-r from-amber-50/30 to-transparent px-4 py-3 transition-all duration-200 hover:border-amber-200 hover:shadow-sm"
-                  >
-                    {/* Position Badge */}
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-xs font-bold text-white shadow-sm">
-                      {positionNumber}
+                  <li key={item.task_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {index + 1}. {item.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Task queue order</p>
                     </div>
-                    <div className="flex flex-1 items-center gap-2 text-sm font-medium text-foreground">
-                      <span>{item.title}</span>
-                      {item.archived_at ? (
-                        <Badge variant="neutral">Archived</Badge>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-1.5 opacity-70 transition-opacity group-hover:opacity-100">
+                    <div className="flex items-center gap-1">
                       <Button
                         size="sm"
-                        type="button"
                         variant="secondary"
+                        type="button"
+                        disabled={index === 0 || isPending}
                         onClick={() => handleQueueMoveUp(item.task_id)}
-                        disabled={isFirst || isPending}
-                        aria-label="Move up"
                         data-testid={`queue-move-up-${item.task_id}`}
-                        className="h-8 w-8 p-0"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                        </svg>
+                        Up
                       </Button>
                       <Button
                         size="sm"
-                        type="button"
                         variant="secondary"
+                        type="button"
+                        disabled={index === queue.length - 1 || isPending}
                         onClick={() => handleQueueMoveDown(item.task_id)}
-                        disabled={isLast || isPending}
-                        aria-label="Move down"
                         data-testid={`queue-move-down-${item.task_id}`}
-                        className="h-8 w-8 p-0"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
+                        Down
                       </Button>
                       <Button
                         size="sm"
+                        variant="danger"
                         type="button"
-                        variant="secondary"
-                        onClick={() => handleQueueRemove(item.task_id)}
                         disabled={isPending}
-                        aria-label="Remove from queue"
+                        onClick={() => handleQueueRemove(item.task_id)}
                         data-testid={`queue-remove-${item.task_id}`}
-                        className="text-red-500 hover:bg-red-50 hover:text-red-600"
                       >
                         Remove
                       </Button>
@@ -645,395 +539,163 @@ export function TaskList({
                 );
               })}
             </ul>
-          )}
-        </div>
-      </div>
+          )
+        ) : null}
+      </section>
 
-      {/* Divider */}
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
-        </div>
-      </div>
-      {/* Your Tasks Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          </div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-            Your Tasks
-          </h2>
-          {visibleItems.length > 0 && (
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-              {visibleItems.filter(t => t.completed).length}/{visibleItems.length} done
-            </span>
-          )}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Your Tasks</h2>
+          <p className="text-xs text-muted-foreground">{visibleItems.filter((t) => t.completed).length}/{visibleItems.length} completed</p>
         </div>
 
-      </div>
+        <ul className="space-y-2">
+          {visibleItems.map((task) => {
+            const isEditing = editingId === task.id;
+            const isPending = Boolean(pendingIds[task.id]);
+            const errorMessage = errorsById[task.id];
+            const projectLabel = task.project_id ? projectLabelById.get(task.project_id) ?? "Project archived" : null;
+            const stats = pomodoroStatsByTaskId[task.id];
+            const isArchived = task.archived_at != null;
 
-      <ul className="space-y-2">
-        {visibleItems.map((task) => {
-          const isEditing = editingId === task.id;
-          const isPending = Boolean(pendingIds[task.id]);
-          const errorMessage = errorsById[task.id];
-          const projectLabel = task.project_id
-            ? projectLabelById.get(task.project_id) ?? "Project archived"
-            : null;
-          const isArchived = task.archived_at != null;
-
-          return (
-            <li
-              key={task.id}
-              className={[
-                "group rounded-xl border border-border bg-card px-4 py-3 transition-all duration-200",
-                isArchived
-                  ? "border-dashed bg-muted/20 opacity-75"
-                  : "hover:border-emerald-200 hover:shadow-sm",
-              ].filter(Boolean).join(" ")}
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-1 items-start gap-3">
-                  {/* Custom styled checkbox */}
-                  <div className="relative mt-0.5">
-                    <input
-                      type="checkbox"
-                      className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-border bg-background transition-all checked:border-emerald-500 checked:bg-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                      checked={task.completed}
-                      onChange={() => handleToggle(task)}
-                      disabled={isPending || isEditing || isArchived}
-                      aria-label={`Mark ${task.title} as completed`}
-                    />
-                    <svg
-                      className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 text-white opacity-0 peer-checked:opacity-100"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  {isEditing ? (
-                    <div className="w-full space-y-2">
-                      <Input
-                        value={draftTitle}
-                        onChange={(event) => setDraftTitle(event.target.value)}
-                        maxLength={500}
-                        disabled={isPending}
-                        aria-label="Edit task title"
+            return (
+              <li
+                key={task.id}
+                className={[
+                  "rounded-xl border border-border bg-card px-4 py-3 transition-all",
+                  isArchived ? "border-dashed opacity-80" : "hover:border-emerald-200 hover:shadow-sm",
+                ].join(" ")}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={() => handleToggle(task)}
+                        disabled={isPending || isEditing || isArchived}
+                        aria-label={`Mark ${task.title} as completed`}
+                        className="mt-1 h-4 w-4 rounded border-border text-emerald-600 focus-ring"
                       />
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Project
-                        </label>
-                        <select
-                          value={draftProjectId}
-                          onChange={(event) => setDraftProjectId(event.target.value)}
-                          disabled={isPending}
-                          className={[selectStyles, "h-9"].join(" ")}
-                        >
-                          <option value="">No project</option>
-                          {projects.map((project) => (
-                            <option key={project.id} value={project.id}>
-                              {project.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Pomodoro
-                          </p>
-                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <input
-                              type="checkbox"
-                              checked={useCustomPomodoro}
-                              onChange={(event) => setUseCustomPomodoro(event.target.checked)}
-                              disabled={isPending}
-                              className="h-4 w-4 rounded border-border text-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
-                              data-testid="task-pomodoro-toggle"
-                            />
-                            Use custom Pomodoro
-                          </label>
+                      <div className="min-w-0">
+                        <p className={[
+                          "truncate text-sm font-semibold",
+                          task.completed ? "text-muted-foreground line-through" : "text-foreground",
+                        ].join(" ")}>{task.title}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          {projectLabel ? <Badge variant="neutral">{projectLabel}</Badge> : null}
+                          {task.scheduled_for ? <Badge variant="neutral">Due {task.scheduled_for}</Badge> : null}
+                          {isArchived ? <Badge variant="neutral">Archived</Badge> : null}
+                          {stats ? <Badge variant="neutral">Pomodoro {stats.pomodoros_today}/{stats.pomodoros_total}</Badge> : null}
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Presets
-                          </p>
-                          <div
-                            role="group"
-                            aria-label="Pomodoro presets"
-                            className="flex flex-wrap gap-2"
-                          >
-                            {pomodoroPresets.map((preset) => (
-                              <Button
-                                key={preset.id}
-                                size="sm"
-                                type="button"
-                                variant="secondary"
-                                onClick={() => handleApplyPomodoroPreset(task, preset)}
-                                disabled={isPending}
-                                aria-label={`Apply ${preset.label} preset`}
-                              >
-                                {preset.label}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                        {useCustomPomodoro ? (
-                          <div className="space-y-2">
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              <label className="space-y-1 text-xs text-muted-foreground">
-                                <span className="text-xs font-semibold uppercase tracking-wide">
-                                  Work minutes
-                                </span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={240}
-                                  step={1}
-                                  value={draftPomodoroWork}
-                                  onChange={(event) => setDraftPomodoroWork(event.target.value)}
-                                  disabled={isPending}
-                                  className={[selectStyles, "h-9"].join(" ")}
-                                  data-testid="task-pomodoro-work"
-                                />
-                              </label>
-                              <label className="space-y-1 text-xs text-muted-foreground">
-                                <span className="text-xs font-semibold uppercase tracking-wide">
-                                  Short break
-                                </span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={60}
-                                  step={1}
-                                  value={draftPomodoroShort}
-                                  onChange={(event) => setDraftPomodoroShort(event.target.value)}
-                                  disabled={isPending}
-                                  className={[selectStyles, "h-9"].join(" ")}
-                                  data-testid="task-pomodoro-short"
-                                />
-                              </label>
-                              <label className="space-y-1 text-xs text-muted-foreground">
-                                <span className="text-xs font-semibold uppercase tracking-wide">
-                                  Long break
-                                </span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={120}
-                                  step={1}
-                                  value={draftPomodoroLong}
-                                  onChange={(event) => setDraftPomodoroLong(event.target.value)}
-                                  disabled={isPending}
-                                  className={[selectStyles, "h-9"].join(" ")}
-                                  data-testid="task-pomodoro-long"
-                                />
-                              </label>
-                              <label className="space-y-1 text-xs text-muted-foreground">
-                                <span className="text-xs font-semibold uppercase tracking-wide">
-                                  Long break every
-                                </span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={12}
-                                  step={1}
-                                  value={draftPomodoroEvery}
-                                  onChange={(event) => setDraftPomodoroEvery(event.target.value)}
-                                  disabled={isPending}
-                                  className={[selectStyles, "h-9"].join(" ")}
-                                  data-testid="task-pomodoro-every"
-                                />
-                              </label>
-                            </div>
-                            <Button
-                              size="sm"
-                              type="button"
-                              variant="secondary"
-                              onClick={() => handleResetPomodoro(task)}
-                              disabled={isPending}
-                              data-testid="task-pomodoro-reset"
-                            >
-                              Reset to defaults
-                            </Button>
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          type="button"
-                          onClick={() => handleSave(task)}
-                          disabled={isPending}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          type="button"
-                          variant="secondary"
-                          onClick={cancelEditing}
-                          disabled={isPending}
-                        >
-                          Cancel
-                        </Button>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={[
-                            "text-sm font-medium transition-all duration-200",
-                            task.completed
-                              ? "text-muted-foreground line-through decoration-emerald-400"
-                              : "text-foreground",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                        >
-                          {task.title}
-                        </span>
-                        {isArchived ? (
-                          <Badge variant="neutral">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                            </svg>
-                            Archived
-                          </Badge>
+
+                    {!isArchived ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <label className="sr-only" htmlFor={`task-scheduled-for-${task.id}`}>Scheduled date for {task.title}</label>
+                        <input
+                          id={`task-scheduled-for-${task.id}`}
+                          type="date"
+                          value={task.scheduled_for ?? ""}
+                          disabled={isPending || isEditing}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            void handleSetScheduledFor(task, value === "" ? null : value);
+                          }}
+                          className="h-9 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-ring"
+                          data-testid={`task-scheduled-for-${task.id}`}
+                        />
+                        {canSetToFilterDate ? (
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="secondary"
+                            disabled={isPending || isEditing || task.scheduled_for === currentDate}
+                            onClick={() => void handleSetScheduledFor(task, currentDate)}
+                            data-testid={`task-scheduled-filter-date-${task.id}`}
+                          >
+                            Set to filter date
+                          </Button>
                         ) : null}
-                        {projectLabel ? (
-                          <Badge variant="neutral">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                            </svg>
-                            {projectLabel}
-                          </Badge>
-                        ) : null}
-                        {task.scheduled_for ? (
-                          <Badge variant="neutral">
-                            Scheduled: {task.scheduled_for}
-                          </Badge>
-                        ) : null}
+                        <Button size="sm" type="button" variant="secondary" disabled={isPending || isEditing} onClick={() => void handleSetScheduledFor(task, todayYYYYMMDD())} data-testid={`task-scheduled-today-${task.id}`}>Today</Button>
+                        <Button size="sm" type="button" variant="secondary" disabled={isPending || isEditing || !task.scheduled_for} onClick={() => void handleSetScheduledFor(task, null)} data-testid={`task-scheduled-clear-${task.id}`}>Clear</Button>
                       </div>
-                      {!isArchived ? (
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <label className="sr-only" htmlFor={`task-scheduled-for-${task.id}`}>
-                            Scheduled date for {task.title}
-                          </label>
-                          <input
-                            id={`task-scheduled-for-${task.id}`}
-                            type="date"
-                            value={task.scheduled_for ?? ""}
-                            disabled={isPending || isEditing}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              void handleSetScheduledFor(task, value === "" ? null : value);
-                            }}
-                            className="h-9 rounded-xl border border-border bg-background px-3 text-sm text-foreground transition-colors hover:border-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                            data-testid={`task-scheduled-for-${task.id}`}
-                          />
-                          {canSetToFilterDate ? (
-                            <Button
-                              size="sm"
-                              type="button"
-                              variant="secondary"
-                              disabled={isPending || isEditing || task.scheduled_for === currentDate}
-                              onClick={() => void handleSetScheduledFor(task, currentDate)}
-                              data-testid={`task-scheduled-filter-date-${task.id}`}
-                            >
-                              Set to filter date
-                            </Button>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            type="button"
-                            variant="secondary"
-                            disabled={isPending || isEditing}
-                            onClick={() => void handleSetScheduledFor(task, todayYYYYMMDD())}
-                            data-testid={`task-scheduled-today-${task.id}`}
-                          >
-                            Today
+                    ) : null}
+                  </div>
+
+                  {!isEditing ? (
+                    <div className="flex shrink-0 items-center gap-2">
+                      {isArchived ? (
+                        <Button size="sm" type="button" variant="secondary" onClick={() => handleRestore(task)} disabled={isPending} data-testid="task-restore">Restore</Button>
+                      ) : (
+                        <>
+                          <Button size="sm" type="button" variant="secondary" onClick={() => handleQueueAdd(task)} disabled={queueIds.has(task.id) || queueIsFull || isPending} data-testid={`queue-add-${task.id}`}>
+                            Add queue
                           </Button>
-                          <Button
-                            size="sm"
-                            type="button"
-                            variant="secondary"
-                            disabled={isPending || isEditing || !task.scheduled_for}
-                            onClick={() => void handleSetScheduledFor(task, null)}
-                            data-testid={`task-scheduled-clear-${task.id}`}
-                          >
-                            Clear
+                          <Tooltip label="Edit task details">
+                            <IconButton type="button" onClick={() => startEditing(task)} disabled={isPending} aria-label="Edit task">
+                              <IconPencil className="h-4 w-4" aria-hidden="true" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip label="Archive this task">
+                            <IconButton type="button" variant="danger" onClick={() => handleDelete(task)} disabled={isPending} aria-label="Delete task">
+                              <IconTrash className="h-4 w-4" aria-hidden="true" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                {isEditing ? (
+                  <div className="mt-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} maxLength={500} disabled={isPending} aria-label="Edit task title" />
+                      <Select value={draftProjectId} onChange={(event) => setDraftProjectId(event.target.value)} disabled={isPending}>
+                        <option value="">No project</option>
+                        {projects.map((project) => (
+                          <option key={project.id} value={project.id}>{project.name}</option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <input type="checkbox" checked={useCustomPomodoro} onChange={(event) => setUseCustomPomodoro(event.target.checked)} disabled={isPending} className="h-4 w-4 rounded border-border text-emerald-600" data-testid="task-pomodoro-toggle" />
+                        Use custom Pomodoro
+                      </label>
+                      <div role="group" aria-label="Pomodoro presets" className="flex flex-wrap gap-2">
+                        {pomodoroPresets.map((preset) => (
+                          <Button key={preset.id} size="sm" type="button" variant="secondary" onClick={() => handleApplyPomodoroPreset(task, preset)} disabled={isPending} aria-label={`Apply ${preset.label} preset`}>
+                            {preset.label}
                           </Button>
+                        ))}
+                      </div>
+                      {useCustomPomodoro ? (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <Input type="number" min={1} max={240} step={1} value={draftPomodoroWork} onChange={(event) => setDraftPomodoroWork(event.target.value)} disabled={isPending} placeholder="Work minutes" data-testid="task-pomodoro-work" />
+                          <Input type="number" min={1} max={60} step={1} value={draftPomodoroShort} onChange={(event) => setDraftPomodoroShort(event.target.value)} disabled={isPending} placeholder="Short break" data-testid="task-pomodoro-short" />
+                          <Input type="number" min={1} max={120} step={1} value={draftPomodoroLong} onChange={(event) => setDraftPomodoroLong(event.target.value)} disabled={isPending} placeholder="Long break" data-testid="task-pomodoro-long" />
+                          <Input type="number" min={1} max={12} step={1} value={draftPomodoroEvery} onChange={(event) => setDraftPomodoroEvery(event.target.value)} disabled={isPending} placeholder="Long break every" data-testid="task-pomodoro-every" />
                         </div>
                       ) : null}
+                      <div className="flex flex-wrap gap-2">
+                        {useCustomPomodoro ? <Button size="sm" type="button" variant="secondary" onClick={() => handleResetPomodoro(task)} disabled={isPending} data-testid="task-pomodoro-reset">Reset defaults</Button> : null}
+                        <Button size="sm" type="button" onClick={() => handleSave(task)} disabled={isPending}>Save</Button>
+                        <Button size="sm" type="button" variant="secondary" onClick={cancelEditing} disabled={isPending}>Cancel</Button>
+                      </div>
                     </div>
-                  )}
-                </div>
-                {!isEditing ? (
-                  <div className="flex items-center gap-2">
-                    {isArchived ? (
-                      <Button
-                        size="sm"
-                        type="button"
-                        variant="secondary"
-                        onClick={() => handleRestore(task)}
-                        disabled={isPending}
-                        data-testid="task-restore"
-                      >
-                        Restore
-                      </Button>
-                    ) : (
-                      <>
-                        <Button
-                          size="sm"
-                          type="button"
-                          variant="secondary"
-                          onClick={() => handleQueueAdd(task)}
-                          disabled={queueIds.has(task.id) || queueIsFull || isPending}
-                          aria-label="Add to Today queue"
-                          data-testid={`queue-add-${task.id}`}
-                        >
-                          Add to queue
-                        </Button>
-                        <IconButton
-                          type="button"
-                          onClick={() => startEditing(task)}
-                          disabled={isPending}
-                          aria-label="Edit task"
-                        >
-                          <IconPencil className="h-4 w-4" aria-hidden="true" />
-                        </IconButton>
-                        <IconButton
-                          type="button"
-                          variant="danger"
-                          onClick={() => handleDelete(task)}
-                          disabled={isPending}
-                          aria-label="Delete task"
-                        >
-                          <IconTrash className="h-4 w-4" aria-hidden="true" />
-                        </IconButton>
-                      </>
-                    )}
                   </div>
                 ) : null}
-              </div>
-              {errorMessage ? (
-                <p className="mt-2 text-sm text-red-600" role="alert">
-                  {toEnglishError(errorMessage)}
-                </p>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+
+                {errorMessage ? <p className="mt-2 text-sm text-red-600" role="alert">{toEnglishError(errorMessage)}</p> : null}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </div>
   );
 }
+

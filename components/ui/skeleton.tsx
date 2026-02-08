@@ -6,9 +6,10 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
       className={[
-        "animate-pulse rounded-xl bg-muted",
+        "shimmer rounded-xl",
         className,
       ].filter(Boolean).join(" ")}
+      aria-hidden="true"
       {...props}
     />
   );

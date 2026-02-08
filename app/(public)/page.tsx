@@ -1,8 +1,9 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 import { Brand } from "@/components/layout/Brand";
 import { buttonStyles } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ProgressRing } from "@/components/ui/progress-ring";
 
 const features = [
   {
@@ -27,7 +28,7 @@ const steps = [
 
 export default function HomePage() {
   return (
-    <main className="min-h-dvh bg-background text-foreground">
+    <main className="min-h-dvh bg-[var(--gradient-surface)] text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Brand />
@@ -47,19 +48,11 @@ export default function HomePage() {
           <p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
             Pomodoro, tasks, and focus in one place
           </p>
-          <h1 className="mt-5 text-page-title text-foreground">
-            Focus deeply without noisy productivity tooling.
-          </h1>
-          <p className="mt-4 max-w-xl text-base text-muted-foreground">
-            DoItTimer gives you a reliable focus loop with clean task management and practical daily insights.
-          </p>
+          <h1 className="mt-5 text-page-title text-foreground">Focus deeply without noisy productivity tooling.</h1>
+          <p className="mt-4 max-w-xl text-base text-muted-foreground">DoItTimer gives you a reliable focus loop with clean task management and practical daily insights.</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/signup" className={buttonStyles({ size: "lg" })}>
-              Create free account
-            </Link>
-            <Link href="/login" className={buttonStyles({ variant: "secondary", size: "lg" })}>
-              I already have an account
-            </Link>
+            <Link href="/signup" className={buttonStyles({ size: "lg" })}>Create free account</Link>
+            <Link href="/login" className={buttonStyles({ variant: "secondary", size: "lg" })}>I already have an account</Link>
           </div>
         </div>
 
@@ -69,21 +62,16 @@ export default function HomePage() {
               <p className="text-sm font-semibold text-foreground">Current focus</p>
               <p className="text-xs text-muted-foreground">Task: Product review prep</p>
             </div>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-              Running
-            </span>
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">Running</span>
           </div>
-          <div className="numeric-tabular text-center text-5xl font-semibold tracking-tight text-foreground">
-            00:25:00
+          <div className="flex items-center justify-center">
+            <ProgressRing value={0.33} size={200}>
+              <p className="numeric-tabular text-center text-4xl font-semibold tracking-tight text-foreground">00:25:00</p>
+            </ProgressRing>
           </div>
-          <div className="space-y-2">
-            <div className="h-2 rounded-full bg-muted">
-              <div className="h-2 w-1/3 rounded-full bg-emerald-500" />
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>8 min elapsed</span>
-              <span>17 min remaining</span>
-            </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>8 min elapsed</span>
+            <span>17 min remaining</span>
           </div>
         </Card>
       </section>
@@ -118,14 +106,9 @@ export default function HomePage() {
       <section className="border-t border-border/80 bg-emerald-600">
         <div className="mx-auto max-w-4xl px-6 py-16 text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-white">Ready to focus better?</h2>
-          <p className="mt-3 text-sm text-emerald-100">
-            Start with a free account and build a steady focus rhythm.
-          </p>
+          <p className="mt-3 text-sm text-emerald-100">Start with a free account and build a steady focus rhythm.</p>
           <div className="mt-6">
-            <Link
-              href="/signup"
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-white bg-white px-5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
-            >
+            <Link href="/signup" className="inline-flex h-11 items-center justify-center rounded-xl border border-white bg-white px-5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50">
               Get started
             </Link>
           </div>

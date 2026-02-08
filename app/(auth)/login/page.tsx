@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const errorMessage = error ? decodeURIComponent(error) : null;
 
   return (
-    <main className="min-h-dvh bg-background text-foreground">
+    <main className="min-h-dvh bg-[var(--gradient-surface)] text-foreground">
       <header className="border-b border-border/80 bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Brand />
@@ -26,23 +26,28 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
       </header>
 
-      <section className="bg-muted/20">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-12">
-          <div className="w-full max-w-md space-y-3">
-            {showSignup ? (
-              <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                Account created. Check your email if needed, then sign in.
-              </p>
-            ) : null}
-            {errorMessage ? (
-              <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                {errorMessage}
-              </p>
-            ) : null}
+      <section className="mx-auto grid max-w-6xl gap-8 px-6 py-12 lg:grid-cols-[1fr_420px] lg:items-center">
+        <div className="space-y-4">
+          <p className="text-overline">Welcome back</p>
+          <h1 className="text-page-title">Get back into deep work.</h1>
+          <p className="max-w-lg text-sm text-muted-foreground">Reopen your task queue, continue active sessions, and keep your focus rhythm consistent.</p>
+          <div className="rounded-xl border border-border bg-card/70 p-4 text-sm text-muted-foreground">
+            Tip: use <span className="font-medium text-foreground">Ctrl/Cmd + K</span> after sign in for quick navigation.
           </div>
-          <div className="w-full max-w-md">
-            <LoginForm />
-          </div>
+        </div>
+
+        <div className="space-y-3">
+          {showSignup ? (
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+              Account created. Check your email if needed, then sign in.
+            </p>
+          ) : null}
+          {errorMessage ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {errorMessage}
+            </p>
+          ) : null}
+          <LoginForm />
           <p className="text-sm text-muted-foreground">
             Need an account?{" "}
             <Link href="/signup" className="font-medium text-foreground hover:underline">

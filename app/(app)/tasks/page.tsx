@@ -35,6 +35,7 @@ type SearchParams = Promise<{
   range?: string;
   date?: string;
   scheduled?: string;
+  q?: string;
 }>;
 
 function formatDate(date: Date): string {
@@ -91,6 +92,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
   const projectId = searchParams.project && searchParams.project.trim() !== ""
     ? searchParams.project
     : null;
+  const query = typeof searchParams.q === "string" ? searchParams.q.trim() : "";
 
   const [tasksResult, projectsResult, queueResult] = await Promise.all([
     getTasks({
@@ -132,7 +134,8 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     Boolean(projectId)
     || status !== "all"
     || scheduledRange !== "all"
-    || scheduledOnly !== "all";
+    || scheduledOnly !== "all"
+    || query.length > 0;
   const pomodoroStatsByTaskId: Record<
     string,
     { pomodoros_today: number; pomodoros_total: number }
@@ -197,6 +200,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                     currentDate={scheduledDate}
                     currentProjectId={projectId}
                     currentScheduledOnly={scheduledOnly}
+                    currentQuery={query}
                   />
                   {tasks.length === 0 ? (
                     <div className="flex flex-col gap-4">
@@ -220,6 +224,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                         queueItems={queueItems}
                         currentRange={scheduledRange}
                         currentDate={scheduledDate}
+                        query={query}
                       />
 
                       <div className="border-t border-border pt-4">

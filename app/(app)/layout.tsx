@@ -1,13 +1,19 @@
 import { redirect } from "next/navigation";
 
-import { Brand } from "@/components/layout/Brand";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { getTheme } from "@/app/actions/theme";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth/get-user";
-import { NavLinks } from "./NavLinks";
+import { AppShellNav } from "./AppShellNav";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+function formatPhaseLabel(phase: string | null) {
+  if (!phase) return null;
+  if (phase === "short_break") return "Short break";
+  if (phase === "long_break") return "Long break";
+  return "Work";
+}
 
 export default async function AppLayout({
   children,
@@ -23,23 +29,29 @@ export default async function AppLayout({
   const theme = await getTheme();
   const initialTheme = theme === "dark" ? "dark" : "light";
 
+  const supabase = await createSupabaseServerClient();
+  const [{ data: queueData }, { data: activeData }] = await Promise.all([
+    supabase.rpc("task_queue_list"),
+    supabase.rpc("get_active_session_v2"),
+  ]);
+
+  const queueCount = Array.isArray(queueData) ? queueData.length : queueData ? 1 : 0;
+  const activeSession = Array.isArray(activeData) ? (activeData[0] ?? null) : activeData;
+  const activeFocusStartedAt = typeof activeSession?.started_at === "string" ? activeSession.started_at : null;
+  const activeFocusPhaseLabel = formatPhaseLabel(
+    typeof activeSession?.pomodoro_phase === "string" ? activeSession.pomodoro_phase : null,
+  );
+
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <header className="sticky top-0 z-30 border-b border-border/80 bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
-          <Brand />
-          <div className="flex min-w-0 items-center gap-4 text-sm">
-            <NavLinks />
-            <ThemeToggle initialTheme={initialTheme} />
-            {user.email ? (
-              <span className="hidden text-xs text-muted-foreground sm:inline">
-                {user.email}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl px-6 py-10">{children}</main>
-    </div>
+    <AppShellNav
+      initialTheme={initialTheme}
+      userEmail={user.email ?? null}
+      queueCount={queueCount}
+      hasActiveFocus={Boolean(activeSession)}
+      activeFocusPhaseLabel={activeFocusPhaseLabel}
+      activeFocusStartedAt={activeFocusStartedAt}
+    >
+      {children}
+    </AppShellNav>
   );
 }
