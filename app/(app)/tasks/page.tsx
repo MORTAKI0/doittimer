@@ -33,6 +33,7 @@ type SearchParams = Promise<{
   status?: string;
   range?: string;
   date?: string;
+  scheduled?: string;
 }>;
 
 function formatDate(date: Date): string {
@@ -61,6 +62,13 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     || statusParam === "all"
       ? statusParam
       : "all";
+  const scheduledParam = searchParams.scheduled;
+  const scheduledOnly =
+    scheduledParam === "all"
+    || scheduledParam === "scheduled"
+    || scheduledParam === "unscheduled"
+      ? scheduledParam
+      : "all";
   const rangeParam = searchParams.range;
   const scheduledRange =
     rangeParam === "day" || rangeParam === "week" || rangeParam === "all"
@@ -71,6 +79,14 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     : null;
   const today = formatDate(new Date());
   const scheduledDate = parsedDate?.success ? parsedDate.data : today;
+  const defaultScheduledFor =
+    scheduledRange === "day" && parsedDate?.success ? parsedDate.data : null;
+  const createTaskSchedulingHint =
+    scheduledRange === "day"
+      ? `New tasks will be scheduled for ${scheduledDate}`
+      : scheduledRange === "all"
+        ? "New tasks will be unscheduled"
+        : null;
   const projectId = searchParams.project && searchParams.project.trim() !== ""
     ? searchParams.project
     : null;
@@ -85,6 +101,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
       scheduledRange,
       scheduledDate,
       includeUnscheduled: true,
+      scheduledOnly,
     }),
     getProjects({ includeArchived: true }),
     getTaskQueue(),
@@ -102,6 +119,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     if (status !== "all") params.set("status", status);
     if (scheduledRange !== "all") params.set("range", scheduledRange);
     if (scheduledRange !== "all") params.set("date", scheduledDate);
+    if (scheduledOnly !== "all") params.set("scheduled", scheduledOnly);
     redirect(`/tasks?${params.toString()}`);
   }
 
@@ -112,7 +130,8 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
   const hasActiveFilters =
     Boolean(projectId)
     || status !== "all"
-    || scheduledRange !== "all";
+    || scheduledRange !== "all"
+    || scheduledOnly !== "all";
   const pomodoroStatsByTaskId: Record<
     string,
     { pomodoros_today: number; pomodoros_total: number }
@@ -165,7 +184,11 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
         <div className="space-y-6 animate-fade-in-up opacity-0 delay-100 lg:sticky lg:top-8 lg:h-fit">
           {/* Create Task Form - Moved to Sidebar/Top for easy access */}
           <Card className="glass-card card-hover-lift p-4">
-            <CreateTaskForm projects={activeProjects} />
+            <CreateTaskForm
+              projects={activeProjects}
+              defaultScheduledFor={defaultScheduledFor}
+              schedulingHint={createTaskSchedulingHint}
+            />
           </Card>
 
           {/* Projects Panel */}
@@ -190,6 +213,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                     currentRange={scheduledRange}
                     currentDate={scheduledDate}
                     currentProjectId={projectId}
+                    currentScheduledOnly={scheduledOnly}
                   />
                   {tasks.length === 0 ? (
                     <div className="flex flex-col gap-4">
@@ -216,6 +240,8 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                         projects={activeProjects}
                         pomodoroStatsByTaskId={pomodoroStatsByTaskId}
                         queueItems={queueItems}
+                        currentRange={scheduledRange}
+                        currentDate={scheduledDate}
                       />
 
                       <div className="border-t border-border pt-4">

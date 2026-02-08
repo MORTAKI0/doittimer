@@ -63,12 +63,31 @@ function toNumber(value: unknown) {
   return 0;
 }
 
+async function removeTaskFromQueueByOwner(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  taskId: string,
+) {
+  const { error } = await supabase
+    .from("task_queue_items")
+    .delete()
+    .eq("user_id", userId)
+    .eq("task_id", taskId);
+
+  return error;
+}
+
 export async function createTask(
   title: string,
   projectId?: string | null,
+  scheduledFor?: string | null,
 ): Promise<ActionResult<TaskRow>> {
   const parsed = taskTitleSchema.safeParse(title);
   const parsedProjectId = taskProjectIdSchema.safeParse(projectId ?? null);
+  const parsedScheduledFor =
+    scheduledFor == null
+      ? { success: true as const, data: null as string | null }
+      : taskScheduledForSchema.safeParse(scheduledFor);
 
   if (!parsed.success) {
     return {
@@ -81,6 +100,15 @@ export async function createTask(
     return {
       success: false,
       error: parsedProjectId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  if (!parsedScheduledFor.success) {
+    return {
+      success: false,
+      error:
+        parsedScheduledFor.error.issues[0]?.message
+        ?? "Date invalide. Format attendu: YYYY-MM-DD.",
     };
   }
 
@@ -114,6 +142,7 @@ export async function createTask(
         user_id: userData.user.id,
         title: parsed.data,
         project_id: parsedProjectId.data ?? null,
+        scheduled_for: parsedScheduledFor.data,
       })
       .select(TASK_SELECT)
       .single();
@@ -132,6 +161,7 @@ export async function createTask(
     }
 
     revalidatePath("/tasks");
+    revalidatePath("/dashboard");
 
     return { success: true, data };
   } catch (error) {
@@ -155,6 +185,7 @@ type GetTasksOptions = {
   scheduledRange?: "all" | "day" | "week";
   scheduledDate?: string | null;
   includeUnscheduled?: boolean;
+  scheduledOnly?: "all" | "scheduled" | "unscheduled";
 };
 
 export type PaginatedTasks = {
@@ -209,6 +240,7 @@ function applyTaskFilters<T extends {
     scheduledRange: "all" | "day" | "week";
     scheduledDate: string;
     includeUnscheduled: boolean;
+    scheduledOnly: "all" | "scheduled" | "unscheduled";
   },
 ) {
   let next = query.eq("user_id", options.userId);
@@ -225,6 +257,10 @@ function applyTaskFilters<T extends {
     next = next.not("archived_at", "is", null);
   } else if (!options.includeArchived) {
     next = next.is("archived_at", null);
+  }
+
+  if (options.scheduledOnly === "unscheduled") {
+    return next.is("scheduled_for", null);
   }
 
   if (options.scheduledRange === "day") {
@@ -245,6 +281,10 @@ function applyTaskFilters<T extends {
     } else {
       next = next.gte("scheduled_for", weekStart).lte("scheduled_for", weekEnd);
     }
+  }
+
+  if (options.scheduledOnly === "scheduled" && options.scheduledRange === "all") {
+    next = next.not("scheduled_for", "is", null);
   }
 
   return next;
@@ -270,7 +310,9 @@ export async function getTasks(
     const projectId = options.projectId ?? null;
     const status = options.status ?? "all";
     const scheduledRange = options.scheduledRange ?? "all";
-    const includeUnscheduled = options.includeUnscheduled ?? true;
+    const scheduledOnly = options.scheduledOnly ?? "all";
+    const includeUnscheduled =
+      scheduledOnly === "all" ? (options.includeUnscheduled ?? true) : false;
     const today = formatDateUTC(new Date());
     const scheduledDate = options.scheduledDate ? toDateOnly(options.scheduledDate) : null;
     const effectiveDate = scheduledDate ?? today;
@@ -288,6 +330,7 @@ export async function getTasks(
       scheduledRange,
       scheduledDate: effectiveDate,
       includeUnscheduled,
+      scheduledOnly,
     });
 
     const { error: countError, count } = await countQuery;
@@ -317,6 +360,7 @@ export async function getTasks(
       scheduledRange,
       scheduledDate: effectiveDate,
       includeUnscheduled,
+      scheduledOnly,
     });
 
     const { data, error } = await dataQuery;
@@ -482,6 +526,7 @@ export async function setTaskScheduledFor(
     }
 
     revalidatePath("/tasks");
+    revalidatePath("/dashboard");
 
     return { success: true, data };
   } catch (error) {
@@ -519,11 +564,47 @@ export async function setTaskCompleted(
     }
 
     userId = userData.user.id;
+    let autoArchiveCompleted = false;
+    if (completed) {
+      const { data: settingsRow, error: settingsError } = await supabase
+        .from("user_settings")
+        .select("auto_archive_completed")
+        .eq("user_id", userData.user.id)
+        .maybeSingle();
 
-    const completedAt = completed ? new Date().toISOString() : null;
+      if (settingsError) {
+        logServerError({
+          scope: "actions.tasks.setTaskCompleted",
+          userId,
+          error: settingsError,
+          context: { action: "load-auto-archive-setting" },
+        });
+        return {
+          success: false,
+          error: "Impossible de mettre a jour la tache.",
+        };
+      }
+
+      autoArchiveCompleted = settingsRow?.auto_archive_completed === true;
+    }
+
+    const now = completed ? new Date().toISOString() : null;
+    const payload: {
+      completed: boolean;
+      completed_at: string | null;
+      archived_at?: string;
+    } = {
+      completed,
+      completed_at: now,
+    };
+
+    if (completed && autoArchiveCompleted && now) {
+      payload.archived_at = now;
+    }
+
     const { data, error } = await supabase
       .from("tasks")
-      .update({ completed, completed_at: completedAt })
+      .update(payload)
       .eq("id", parsedId.data)
       .eq("user_id", userData.user.id)
       .select(TASK_SELECT)
@@ -546,7 +627,30 @@ export async function setTaskCompleted(
       return { success: false, error: "Task not found" };
     }
 
+    if (completed && autoArchiveCompleted) {
+      const queueError = await removeTaskFromQueueByOwner(
+        supabase,
+        userData.user.id,
+        parsedId.data,
+      );
+      if (queueError) {
+        logServerError({
+          scope: "actions.tasks.setTaskCompleted",
+          userId,
+          error: queueError,
+          context: { action: "queue-cleanup-after-auto-archive" },
+        });
+        return {
+          success: false,
+          error: "Impossible de mettre a jour la tache.",
+        };
+      }
+    }
+
     revalidatePath("/tasks");
+    revalidatePath("/dashboard");
+    revalidatePath("/focus");
+    revalidatePath("/settings");
 
     return { success: true, data };
   } catch (error) {
@@ -629,6 +733,7 @@ export async function updateTaskTitle(
     }
 
     revalidatePath("/tasks");
+    revalidatePath("/dashboard");
 
     return { success: true, data };
   } catch (error) {
@@ -691,6 +796,7 @@ export async function deleteTask(taskId: string): Promise<ActionResult<TaskRow>>
     }
 
     revalidatePath("/tasks");
+    revalidatePath("/dashboard");
 
     return { success: true, data };
   } catch (error) {
@@ -766,6 +872,7 @@ export async function updateTaskProject(
     }
 
     revalidatePath("/tasks");
+    revalidatePath("/dashboard");
     revalidatePath("/focus");
     revalidatePath("/settings");
 
@@ -829,6 +936,7 @@ export async function restoreTask(taskId: string): Promise<ActionResult<TaskRow>
     }
 
     revalidatePath("/tasks");
+    revalidatePath("/dashboard");
     revalidatePath("/focus");
     revalidatePath("/settings");
 
@@ -944,6 +1052,7 @@ export async function updateTaskPomodoroOverrides(
     }
 
     revalidatePath("/tasks");
+    revalidatePath("/dashboard");
 
     return { success: true, data };
   } catch (error) {

@@ -112,6 +112,7 @@ async function mutateQueue(
 
     revalidatePath("/tasks");
     revalidatePath("/focus");
+    revalidatePath("/dashboard");
 
     return { success: true, data: normalizeRpcList<TaskQueueRow>(data) };
   } catch (error) {

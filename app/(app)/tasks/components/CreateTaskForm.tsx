@@ -13,6 +13,8 @@ const ERROR_MAP: Record<string, string> = {
   "Le titre est trop long.": "Title is too long.",
   "Titre invalide.": "Invalid title.",
   "Identifiant invalide.": "Invalid identifier.",
+  "Date invalide. Format attendu: YYYY-MM-DD.": "Invalid date. Expected format: YYYY-MM-DD.",
+  "Date invalide.": "Invalid date.",
   "Tu dois etre connecte.": "You must be signed in.",
   "Impossible de creer la tache. Reessaie.": "Unable to create task. Try again.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
@@ -27,19 +29,62 @@ type ProjectOption = {
   name: string;
 };
 
+type ScheduledForMode = "default" | "unscheduled" | "today" | "tomorrow";
+
+function toYYYYMMDD(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function todayYYYYMMDD(): string {
+  return toYYYYMMDD(new Date());
+}
+
+function tomorrowYYYYMMDD(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return toYYYYMMDD(d);
+}
+
 type CreateTaskFormProps = {
   projects?: ProjectOption[];
+  defaultScheduledFor?: string | null;
+  schedulingHint?: string | null;
 };
 
-export function CreateTaskForm({ projects = [] }: CreateTaskFormProps) {
+export function CreateTaskForm({
+  projects = [],
+  defaultScheduledFor = null,
+  schedulingHint = null,
+}: CreateTaskFormProps) {
   const router = useRouter();
   const [title, setTitle] = React.useState("");
   const [projectId, setProjectId] = React.useState("");
+  const [scheduledForMode, setScheduledForMode] = React.useState<ScheduledForMode>("default");
   const [error, setError] = React.useState<string | null>(null);
   const [isPending, startTransition] = React.useTransition();
+  const today = React.useMemo(() => todayYYYYMMDD(), []);
+  const tomorrow = React.useMemo(() => tomorrowYYYYMMDD(), []);
 
   const trimmedTitle = title.trim();
   const isDisabled = isPending || trimmedTitle.length === 0;
+  const scheduledForToSend = React.useMemo(() => {
+    if (scheduledForMode === "default") return defaultScheduledFor ?? null;
+    if (scheduledForMode === "unscheduled") return null;
+    if (scheduledForMode === "today") return today;
+    return tomorrow;
+  }, [defaultScheduledFor, scheduledForMode, today, tomorrow]);
+  const effectiveSchedulingHint = React.useMemo(() => {
+    if (scheduledForMode === "default") return schedulingHint;
+    if (scheduledForMode === "unscheduled") return "New tasks will be unscheduled";
+    return `Will be scheduled for: ${scheduledForToSend}`;
+  }, [scheduledForMode, schedulingHint, scheduledForToSend]);
+  const showCreatedForDifferentDateNote =
+    Boolean(defaultScheduledFor)
+    && Boolean(scheduledForToSend)
+    && scheduledForToSend !== defaultScheduledFor;
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,7 +94,7 @@ export function CreateTaskForm({ projects = [] }: CreateTaskFormProps) {
 
     startTransition(async () => {
       const normalizedProjectId = projectId.trim() !== "" ? projectId : null;
-      const result = await createTask(trimmedTitle, normalizedProjectId);
+      const result = await createTask(trimmedTitle, normalizedProjectId, scheduledForToSend);
 
       if (!result.success) {
         setError(toEnglishError(result.error));
@@ -115,6 +160,64 @@ export function CreateTaskForm({ projects = [] }: CreateTaskFormProps) {
         </select>
         {projects.length === 0 ? (
           <p className="text-xs text-muted-foreground">Create a project to assign tasks.</p>
+        ) : null}
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground">
+          Schedule
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {defaultScheduledFor ? (
+            <Button
+              type="button"
+              size="sm"
+              variant={scheduledForMode === "default" ? "primary" : "secondary"}
+              onClick={() => setScheduledForMode("default")}
+              disabled={isPending}
+            >
+              Filter date
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant={scheduledForMode === "unscheduled" ? "primary" : "secondary"}
+            onClick={() => setScheduledForMode("unscheduled")}
+            disabled={isPending}
+          >
+            Unscheduled
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={scheduledForMode === "today" ? "primary" : "secondary"}
+            onClick={() => setScheduledForMode("today")}
+            disabled={isPending}
+          >
+            Today
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={scheduledForMode === "tomorrow" ? "primary" : "secondary"}
+            onClick={() => setScheduledForMode("tomorrow")}
+            disabled={isPending}
+          >
+            Tomorrow
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Scheduled: {scheduledForToSend ?? "Unscheduled"}
+        </p>
+        {effectiveSchedulingHint ? (
+          <p className="text-xs text-muted-foreground">
+            {effectiveSchedulingHint}
+          </p>
+        ) : null}
+        {showCreatedForDifferentDateNote ? (
+          <p className="text-xs text-amber-700">
+            This task may not appear in the current filter after create.
+          </p>
         ) : null}
       </div>
 

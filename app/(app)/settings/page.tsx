@@ -27,6 +27,7 @@ export default async function SettingsPage() {
       pomodoro_long_break_minutes: 15,
       pomodoro_long_break_every: 4,
       pomodoro_v2_enabled: false,
+      auto_archive_completed: false,
     };
   const settingsError = settingsResult.success ? null : settingsResult.error;
   const tasks = tasksResult.success
@@ -87,6 +88,7 @@ export default async function SettingsPage() {
             initialPomodoroShortBreakMinutes={settings.pomodoro_short_break_minutes}
             initialPomodoroLongBreakMinutes={settings.pomodoro_long_break_minutes}
             initialPomodoroLongBreakEvery={settings.pomodoro_long_break_every}
+            initialAutoArchiveCompleted={settings.auto_archive_completed}
             tasks={tasks}
           />
         </div>

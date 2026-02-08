@@ -11,6 +11,7 @@ type TasksFiltersBarProps = {
   currentRange: "all" | "day" | "week";
   currentDate: string;
   currentProjectId: string | null;
+  currentScheduledOnly: "all" | "scheduled" | "unscheduled";
 };
 
 function formatDate(date: Date): string {
@@ -32,6 +33,7 @@ export function TasksFiltersBar({
   currentRange,
   currentDate,
   currentProjectId,
+  currentScheduledOnly,
 }: TasksFiltersBarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -182,6 +184,27 @@ export function TasksFiltersBar({
               </option>
             ))}
           </select>
+          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Schedule
+          </label>
+          <select
+            value={currentScheduledOnly}
+            onChange={(event) => {
+              const value = event.target.value as "all" | "scheduled" | "unscheduled";
+              pushParams((params) => {
+                if (value === "all") {
+                  params.delete("scheduled");
+                } else {
+                  params.set("scheduled", value);
+                }
+              });
+            }}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400"
+          >
+            <option value="all">All</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="unscheduled">Unscheduled</option>
+          </select>
           <Button
             size="sm"
             type="button"
@@ -192,6 +215,7 @@ export function TasksFiltersBar({
                 params.delete("status");
                 params.delete("range");
                 params.delete("date");
+                params.delete("scheduled");
               });
             }}
           >
