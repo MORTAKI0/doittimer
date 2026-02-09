@@ -26,24 +26,18 @@ export function LoginForm() {
 
   return (
     <Card className="w-full p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">Sign in</h1>
-      <p className="mt-2 text-sm text-zinc-600">Welcome back. Keep your focus on track.</p>
+      <h1 className="text-section-title text-foreground">Sign in</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Welcome back. Keep your focus on track.</p>
       {errorMessage ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
           {errorMessage}
         </p>
       ) : null}
       <form action={formAction} className="mt-6 space-y-3">
         <Input name="email" type="email" placeholder="Email" autoComplete="email" required />
-        <Input
-          name="password"
-          type="password"
-          placeholder="Password (min 8)"
-          autoComplete="current-password"
-          required
-        />
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? "Signing in..." : "Sign in"}
+        <Input name="password" type="password" placeholder="Password (min 8)" autoComplete="current-password" required />
+        <Button type="submit" className="w-full" isLoading={pending} loadingLabel="Signing in...">
+          Sign in
         </Button>
       </form>
     </Card>

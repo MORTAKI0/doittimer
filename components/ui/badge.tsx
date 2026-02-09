@@ -1,15 +1,16 @@
 import * as React from "react";
 
-type BadgeVariant = "neutral" | "accent" | "success";
+type BadgeVariant = "neutral" | "accent" | "success" | "warning";
 
 type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
   variant?: BadgeVariant;
 };
 
 const variantClasses: Record<BadgeVariant, string> = {
-  neutral: "border-border bg-muted text-muted-foreground",
-  accent: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  neutral: "border-border bg-muted/80 text-muted-foreground",
+  accent: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
 };
 
 export function Badge({ variant = "neutral", className, ...props }: BadgeProps) {

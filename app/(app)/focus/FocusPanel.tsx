@@ -23,6 +23,10 @@ import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconFocus } from "@/components/ui/icons";
+import { Input } from "@/components/ui/input";
+import { ProgressRing } from "@/components/ui/progress-ring";
+import { Select } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
 
 type FocusPanelProps = {
   activeSession: SessionRow | null;
@@ -76,6 +80,14 @@ function formatElapsed(seconds: number) {
 function formatStartTime(value: string) {
   const date = new Date(value);
   return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatClock(seconds: number) {
+  const clamped = Math.max(0, seconds);
+  const hours = Math.floor(clamped / 3600);
+  const minutes = Math.floor((clamped % 3600) / 60);
+  const secs = clamped % 60;
+  return [hours, minutes, secs].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
 function formatPomodoroPhase(phase: string | null | undefined) {
@@ -134,6 +146,7 @@ export function FocusPanel({
   queueItems,
 }: FocusPanelProps) {
   const router = useRouter();
+  const { pushToast } = useToast();
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -144,6 +157,7 @@ export function FocusPanel({
   const [musicUrl, setMusicUrl] = React.useState("");
   const [isPomodoroUpdating, setIsPomodoroUpdating] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [isFullscreenMode, setIsFullscreenMode] = React.useState(false);
   const toastTimeoutRef = React.useRef<number | null>(null);
   const autoTransitionRef = React.useRef(false);
   const previousPhaseRef = React.useRef<string | null>(null);
@@ -193,6 +207,13 @@ export function FocusPanel({
       && !nextUp.archived_at
       && tasks.some((task) => task.id === nextUp.task_id),
   );
+  const phaseProgress = hasPomodoroPhase
+    ? 1 - Math.max(0, Math.min(1, (phaseRemainingSeconds ?? 0) / Math.max(1, phaseDurationSeconds ?? 1)))
+    : 1 - Math.max(0, Math.min(1, legacyRemainingSeconds / Math.max(1, effectivePomodoro.workMinutes * 60)));
+  const totalFocusedSecondsToday = todaySessions.reduce(
+    (sum, session) => sum + (session.duration_seconds ?? 0),
+    0,
+  );
 
   const handlePomodoroSkip = React.useCallback(async () => {
     if (!activeSession || !hasValidId || isPomodoroUpdating) return;
@@ -212,6 +233,38 @@ export function FocusPanel({
     if (!exists) return;
     setSelectedTaskId(defaultTaskId);
   }, [defaultTaskId, hasActiveSession, hasManualSelection, tasks]);
+
+  React.useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("focus.fullscreen");
+      setIsFullscreenMode(stored === "1");
+    } catch {
+      setIsFullscreenMode(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem("focus.fullscreen", isFullscreenMode ? "1" : "0");
+    } catch {}
+  }, [isFullscreenMode]);
+
+  React.useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.code === "Space" && !["INPUT", "TEXTAREA", "SELECT"].includes((event.target as HTMLElement)?.tagName ?? "")) {
+        event.preventDefault();
+        if (hasActiveSession) {
+          void handleStop();
+        } else {
+          void handleStart();
+        }
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasActiveSession, isStarting, isStopping, selectedTaskId, musicUrl]);
 
   React.useEffect(() => {
     if (!activeSession || !isActiveSessionValid) {
@@ -287,9 +340,10 @@ export function FocusPanel({
             ? "Long break started"
             : "Short break started";
       setToastMessage(message);
+      pushToast({ title: message, variant: "info" });
     }
     previousPhaseRef.current = currentPhase;
-  }, [hasPomodoroPhase, pomodoroPhase]);
+  }, [hasPomodoroPhase, pomodoroPhase, pushToast]);
 
   React.useEffect(() => {
     if (!toastMessage) return;
@@ -342,6 +396,7 @@ export function FocusPanel({
 
     setIsStarting(false);
     setMusicUrl("");
+    pushToast({ title: "Focus session started", variant: "success" });
     router.refresh();
   }
 
@@ -359,6 +414,7 @@ export function FocusPanel({
     }
 
     setIsStopping(false);
+    pushToast({ title: "Focus session stopped", variant: "info" });
     router.refresh();
   }
 
@@ -405,25 +461,47 @@ export function FocusPanel({
   }
 
   return (
-    <div className="space-y-6">
+    <div className={["space-y-6", isFullscreenMode ? "mx-auto max-w-2xl" : ""].join(" ")}>
       <div
         className={[
-          "space-y-3 rounded-2xl border bg-muted p-4",
+          "space-y-3 rounded-2xl border bg-muted/25 p-4",
           isRunning ? "border-emerald-200 ring-1 ring-emerald-100 shadow-sm" : "border-border",
         ]
           .filter(Boolean)
           .join(" ")}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <IconFocus className="h-4 w-4 text-emerald-600" aria-hidden="true" />
             Active session
           </div>
-          {isRunning ? <Badge variant="accent">Running</Badge> : null}
+          <div className="flex items-center gap-2">
+            {isRunning ? <Badge variant="accent">Running</Badge> : null}
+            <Button size="sm" variant="secondary" onClick={() => setIsFullscreenMode((v) => !v)}>
+              {isFullscreenMode ? "Exit fullscreen" : "Fullscreen mode"}
+            </Button>
+          </div>
         </div>
-        <p className="text-4xl font-semibold text-foreground">
-          {isActiveSessionValid ? formatElapsed(elapsedSeconds) : "00m"}
-        </p>
+        <div className="flex flex-col items-center gap-3">
+          <ProgressRing
+            value={phaseProgress}
+            size={220}
+            strokeWidth={12}
+            trackClassName="stroke-border"
+            indicatorClassName={hasPomodoroPhase
+              ? pomodoroPhase === "work"
+                ? "stroke-emerald-500"
+                : pomodoroPhase === "long_break"
+                  ? "stroke-amber-500"
+                  : "stroke-teal-500"
+              : "stroke-emerald-500"}
+          >
+            <p className="numeric-tabular text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+              {isActiveSessionValid ? formatClock(elapsedSeconds) : "00:00:00"}
+            </p>
+          </ProgressRing>
+          <p className="text-xs text-muted-foreground">Shortcut: press Space to start/stop</p>
+        </div>
         <p className="text-sm text-muted-foreground">
           {hasPomodoroPhase
             ? `${pomodoroPhaseLabel} remaining: ${formatElapsed(phaseRemainingSeconds ?? 0)}`
@@ -484,6 +562,7 @@ export function FocusPanel({
               disabled={hasActiveSession || !canSwitchToNextUp}
               aria-label="Switch to next up"
               data-testid="next-up-switch"
+              variant="secondary"
             >
               Switch
             </Button>
@@ -500,7 +579,7 @@ export function FocusPanel({
           <label htmlFor="task-select" className="text-sm font-medium text-foreground">
             Link a task
           </label>
-          <select
+          <Select
             id="task-select"
             value={selectedTaskId ?? ""}
             onChange={(event) => {
@@ -509,7 +588,6 @@ export function FocusPanel({
               setSelectedTaskId(value.length > 0 ? value : null);
             }}
             disabled={hasActiveSession || isStarting || isStopping}
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="">No task</option>
             {tasks.map((task) => (
@@ -517,7 +595,7 @@ export function FocusPanel({
                 {task.title}
               </option>
             ))}
-          </select>
+          </Select>
           {tasks.length === 0 ? (
             <p className="text-xs text-muted-foreground">No tasks available.</p>
           ) : null}
@@ -526,7 +604,7 @@ export function FocusPanel({
           <label htmlFor="music-url" className="text-sm font-medium text-foreground">
             Music link (optional)
           </label>
-          <input
+          <Input
             id="music-url"
             type="url"
             inputMode="url"
@@ -538,7 +616,6 @@ export function FocusPanel({
             }}
             disabled={hasActiveSession || isStarting || isStopping}
             data-testid="focus-music-url"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 
@@ -547,17 +624,22 @@ export function FocusPanel({
             <Button
               type="button"
               onClick={handleStop}
-              disabled={isStopping || isStarting || !hasValidId}
+              isLoading={isStopping}
+              loadingLabel="Stopping..."
+              disabled={isStarting || !hasValidId}
+              variant="danger"
             >
-              {isStopping ? "Stopping..." : "Stop session"}
+              Stop session
             </Button>
           ) : (
             <Button
               type="button"
               onClick={handleStart}
-              disabled={isStarting || isStopping}
+              isLoading={isStarting}
+              loadingLabel="Starting..."
+              disabled={isStopping}
             >
-              {isStarting ? "Starting..." : "Start session"}
+              Start session
             </Button>
           )}
         </div>
@@ -571,32 +653,40 @@ export function FocusPanel({
               <Button
                 type="button"
                 onClick={handlePomodoroPause}
+                isLoading={isPomodoroUpdating}
+                loadingLabel="Updating..."
                 disabled={
-                  !hasActiveSession || !hasValidId || isPomodoroPaused || isPomodoroUpdating
+                  !hasActiveSession || !hasValidId || isPomodoroPaused
                 }
               >
-                {isPomodoroUpdating ? "Updating..." : "Pause"}
+                Pause
               </Button>
               <Button
                 type="button"
                 onClick={handlePomodoroResume}
+                isLoading={isPomodoroUpdating}
+                loadingLabel="Updating..."
                 disabled={
-                  !hasActiveSession || !hasValidId || !isPomodoroPaused || isPomodoroUpdating
+                  !hasActiveSession || !hasValidId || !isPomodoroPaused
                 }
               >
-                {isPomodoroUpdating ? "Updating..." : "Resume"}
+                Resume
               </Button>
               <Button
                 type="button"
                 onClick={handlePomodoroSkip}
-                disabled={!hasActiveSession || !hasValidId || isPomodoroUpdating}
+                isLoading={isPomodoroUpdating}
+                loadingLabel="Updating..."
+                disabled={!hasActiveSession || !hasValidId}
               >
                 Skip phase
               </Button>
               <Button
                 type="button"
                 onClick={handlePomodoroRestart}
-                disabled={!hasActiveSession || !hasValidId || isPomodoroUpdating}
+                isLoading={isPomodoroUpdating}
+                loadingLabel="Updating..."
+                disabled={!hasActiveSession || !hasValidId}
               >
                 Restart phase
               </Button>
@@ -606,9 +696,12 @@ export function FocusPanel({
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Today&apos;s sessions
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Today&apos;s sessions
+          </h2>
+          <Badge variant="neutral">Total {formatElapsed(totalFocusedSecondsToday)}</Badge>
+        </div>
         {todaySessions.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
             No sessions yet today. Start one to begin.

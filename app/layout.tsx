@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import "./globals.css";
+
 import { ServiceWorkerRegister } from "@/components/layout/ServiceWorkerRegister";
+import { ToastProvider } from "@/components/ui/toast";
+import { sansFont } from "./font-sans.generated";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "DoItTimer",
@@ -24,8 +27,13 @@ export default async function RootLayout({
 
   return (
     <html lang="en" data-theme={theme} suppressHydrationWarning>
-      <body className="bg-background font-sans antialiased text-foreground">
-        {children}
+      <body
+        className={[
+          "bg-background font-sans antialiased text-foreground",
+          sansFont.variable,
+        ].join(" ")}
+      >
+        <ToastProvider>{children}</ToastProvider>
         <ServiceWorkerRegister />
       </body>
     </html>
