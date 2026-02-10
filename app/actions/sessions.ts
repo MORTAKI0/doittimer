@@ -30,6 +30,12 @@ export type SessionRow = {
   created_at: string;
 };
 
+export type ActiveSessionSnapshot = {
+  id: string;
+  started_at: string;
+  ended_at: null;
+};
+
 type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
@@ -264,7 +270,52 @@ export async function stopSession(
   }
 }
 
-export async function getActiveSession(): Promise<
+export async function getActiveSession(): Promise<ActiveSessionSnapshot | null> {
+  try {
+    let userId: string | undefined;
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return null;
+    }
+
+    userId = userData.user.id;
+
+    const { data, error } = await supabase.rpc("get_active_session_v2");
+
+    if (error) {
+      logServerError({
+        scope: "actions.sessions.getActiveSession",
+        userId,
+        error,
+        context: { rpc: "get_active_session_v2" },
+      });
+      return null;
+    }
+
+    logRpcDataShape("get_active_session_v2", data);
+    const session = normalizeActiveSession(data);
+
+    if (!session || session.ended_at !== null) {
+      return null;
+    }
+
+    return {
+      id: session.id,
+      started_at: session.started_at,
+      ended_at: null,
+    };
+  } catch (error) {
+    logServerError({
+      scope: "actions.sessions.getActiveSession",
+      error,
+    });
+    return null;
+  }
+}
+
+export async function getActiveSessionDetails(): Promise<
   ActionResult<SessionRow | null>
 > {
   try {
@@ -282,7 +333,7 @@ export async function getActiveSession(): Promise<
 
     if (error) {
       logServerError({
-        scope: "actions.sessions.getActiveSession",
+        scope: "actions.sessions.getActiveSessionDetails",
         userId,
         error,
         context: { rpc: "get_active_session_v2" },
@@ -299,7 +350,7 @@ export async function getActiveSession(): Promise<
     return { success: true, data: session ?? null };
   } catch (error) {
     logServerError({
-      scope: "actions.sessions.getActiveSession",
+      scope: "actions.sessions.getActiveSessionDetails",
       error,
     });
     return {

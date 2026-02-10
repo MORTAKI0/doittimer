@@ -39,8 +39,8 @@ import { Input } from "@/components/ui/input";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { FocusCircleTimer } from "./FocusCircleTimer";
 import { ManualAddSessionModal } from "./ManualAddSessionModal";
-import { RunningSessionTimer } from "./RunningSessionTimer";
 import { SessionEditModal } from "./SessionEditModal";
 import { datetimeLocalToIso } from "./sessionDateTime";
 
@@ -797,11 +797,10 @@ export function FocusPanel({
                 : "stroke-emerald-500"
             }
           >
-            {isRunning &&
-            !isStopping &&
-            typeof activeSession?.started_at === "string" ? (
-              <RunningSessionTimer startedAt={activeSession.started_at} />
-            ) : null}
+            <FocusCircleTimer
+              isRunning={isRunning && !isStopping}
+              startedAt={activeSession?.started_at ?? null}
+            />
           </ProgressRing>
           <p className="text-muted-foreground text-xs">
             Shortcut: press Space to start/stop

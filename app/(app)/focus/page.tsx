@@ -1,5 +1,8 @@
 import { getTaskQueue } from "@/app/actions/queue";
-import { getActiveSession, getTodaySessions } from "@/app/actions/sessions";
+import {
+  getActiveSessionDetails,
+  getTodaySessions,
+} from "@/app/actions/sessions";
 import { getUserSettings } from "@/app/actions/settings";
 import { getTasks } from "@/app/actions/tasks";
 import {
@@ -29,7 +32,7 @@ function toEnglishError(message: string | null) {
 export default async function FocusPage() {
   const [activeResult, todayResult, tasksResult, settingsResult, queueResult] =
     await Promise.all([
-      getActiveSession(),
+      getActiveSessionDetails(),
       getTodaySessions(),
       getTasks({ limit: 200 }),
       getUserSettings(),
