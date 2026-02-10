@@ -40,6 +40,7 @@ import { ProgressRing } from "@/components/ui/progress-ring";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { ManualAddSessionModal } from "./ManualAddSessionModal";
+import { RunningSessionTimer } from "./RunningSessionTimer";
 import { SessionEditModal } from "./SessionEditModal";
 import { datetimeLocalToIso } from "./sessionDateTime";
 
@@ -114,16 +115,6 @@ function formatStartTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function formatClock(seconds: number) {
-  const clamped = Math.max(0, seconds);
-  const hours = Math.floor(clamped / 3600);
-  const minutes = Math.floor((clamped % 3600) / 60);
-  const secs = clamped % 60;
-  return [hours, minutes, secs]
-    .map((part) => String(part).padStart(2, "0"))
-    .join(":");
 }
 
 function formatPomodoroPhase(phase: string | null | undefined) {
@@ -233,6 +224,7 @@ export function FocusPanel({
   const wasRunningRef = React.useRef(false);
   const hasInitializedRunningRef = React.useRef(false);
   const hasActiveSession = Boolean(activeSession);
+  const hasRunningSession = Boolean(activeSession && !activeSession.ended_at);
   const hasValidId =
     typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
@@ -241,12 +233,12 @@ export function FocusPanel({
       : null;
   const hasValidStartedAt = Number.isFinite(parsedStartedAtMs ?? Number.NaN);
   const isActiveSessionValid =
-    Boolean(activeSession) && hasValidId && hasValidStartedAt;
+    hasRunningSession && hasValidId && hasValidStartedAt;
   const timeError =
     hasActiveSession && !hasValidStartedAt
       ? "Invalid start time. Refresh the page."
       : null;
-  const isRunning = isActiveSessionValid;
+  const isRunning = hasRunningSession;
   const pomodoroPhase = pomodoroEnabled
     ? (activeSession?.pomodoro_phase ?? null)
     : null;
@@ -391,7 +383,7 @@ export function FocusPanel({
   }, [isFullscreenMode]);
 
   React.useEffect(() => {
-    if (!activeSession || !isActiveSessionValid) {
+    if (!activeSession || !hasRunningSession || !isActiveSessionValid) {
       setElapsedSeconds(0);
       return;
     }
@@ -404,7 +396,12 @@ export function FocusPanel({
     tick();
     const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
-  }, [activeSession, isActiveSessionValid, parsedStartedAtMs]);
+  }, [
+    activeSession,
+    hasRunningSession,
+    isActiveSessionValid,
+    parsedStartedAtMs,
+  ]);
 
   React.useEffect(() => {
     if (!hasPomodoroPhase || !activeSession) {
@@ -800,9 +797,11 @@ export function FocusPanel({
                 : "stroke-emerald-500"
             }
           >
-            <p className="numeric-tabular text-foreground text-5xl font-semibold tracking-tight sm:text-6xl">
-              {isActiveSessionValid ? formatClock(elapsedSeconds) : "00:00:00"}
-            </p>
+            {isRunning &&
+            !isStopping &&
+            typeof activeSession?.started_at === "string" ? (
+              <RunningSessionTimer startedAt={activeSession.started_at} />
+            ) : null}
           </ProgressRing>
           <p className="text-muted-foreground text-xs">
             Shortcut: press Space to start/stop
