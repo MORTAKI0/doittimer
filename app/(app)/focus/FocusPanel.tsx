@@ -25,6 +25,12 @@ import {
 } from "@/lib/pomodoro/phaseEngine";
 import { getNextUpTask } from "@/lib/queue/nextUp";
 import { normalizeMusicUrl } from "@/lib/validation/session.schema";
+import {
+  DEFAULT_FOCUS_INTERVAL_MINUTES,
+  FOCUS_INTERVAL_STORAGE_KEY,
+  normalizeFocusIntervalMinutes,
+} from "@/lib/focusInterval";
+import { useIntervalBell } from "@/lib/useIntervalBell";
 import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -216,11 +222,16 @@ export function FocusPanel({
   );
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [isFullscreenMode, setIsFullscreenMode] = React.useState(false);
+  const [intervalBellMinutes, setIntervalBellMinutes] = React.useState(
+    DEFAULT_FOCUS_INTERVAL_MINUTES,
+  );
   const startHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const stopHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const toastTimeoutRef = React.useRef<number | null>(null);
   const autoTransitionRef = React.useRef(false);
   const previousPhaseRef = React.useRef<string | null>(null);
+  const wasRunningRef = React.useRef(false);
+  const hasInitializedRunningRef = React.useRef(false);
   const hasActiveSession = Boolean(activeSession);
   const hasValidId =
     typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
@@ -298,6 +309,28 @@ export function FocusPanel({
     (sum, session) => sum + (session.duration_seconds ?? 0),
     0,
   );
+  const {
+    requestNotificationPermission,
+    isPermissionGranted,
+    permissionState,
+    playTestSound,
+  } = useIntervalBell({
+    enabled: isRunning,
+    intervalMinutes: intervalBellMinutes,
+    title: "Focus interval",
+  });
+
+  React.useEffect(() => {
+    if (!hasInitializedRunningRef.current) {
+      hasInitializedRunningRef.current = true;
+      wasRunningRef.current = isRunning;
+      return;
+    }
+    if (isRunning && !wasRunningRef.current) {
+      void playTestSound();
+    }
+    wasRunningRef.current = isRunning;
+  }, [isRunning, playTestSound]);
 
   const handlePomodoroSkip = React.useCallback(async () => {
     if (!activeSession || !hasValidId || isPomodoroUpdating) return;
@@ -325,6 +358,27 @@ export function FocusPanel({
     } catch {
       setIsFullscreenMode(false);
     }
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(FOCUS_INTERVAL_STORAGE_KEY);
+      if (!stored) {
+        setIntervalBellMinutes(DEFAULT_FOCUS_INTERVAL_MINUTES);
+        return;
+      }
+      setIntervalBellMinutes(normalizeFocusIntervalMinutes(stored));
+    } catch {
+      setIntervalBellMinutes(DEFAULT_FOCUS_INTERVAL_MINUTES);
+    }
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== FOCUS_INTERVAL_STORAGE_KEY) return;
+      setIntervalBellMinutes(normalizeFocusIntervalMinutes(event.newValue));
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   React.useEffect(() => {
@@ -639,6 +693,25 @@ export function FocusPanel({
     router.refresh();
   }
 
+  async function handleEnableNotifications() {
+    const permission = await requestNotificationPermission();
+    if (permission === "granted") {
+      pushToast({ title: "Notifications enabled", variant: "success" });
+      return;
+    }
+    if (permission === "denied") {
+      pushToast({
+        title: "Notifications blocked",
+        description: "You can still use interval sound reminders.",
+        variant: "info",
+      });
+    }
+  }
+
+  async function handleTestSound() {
+    await playTestSound();
+  }
+
   return (
     <div
       className={[
@@ -675,6 +748,42 @@ export function FocusPanel({
             </Button>
           </div>
         </div>
+        {isRunning ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-800">
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full bg-emerald-500"
+                aria-hidden="true"
+              />
+              Session running
+            </span>
+            <span>Bell every {intervalBellMinutes}m</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={handleTestSound}
+            >
+              Test sound
+            </Button>
+            {isPermissionGranted ? (
+              <Badge variant="accent">Notifications on</Badge>
+            ) : null}
+          </div>
+        ) : null}
+        {permissionState === "default" ? (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+            <span>Browser notifications are off.</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={handleEnableNotifications}
+            >
+              Enable notifications
+            </Button>
+          </div>
+        ) : null}
         <div className="flex flex-col items-center gap-3">
           <ProgressRing
             value={phaseProgress}
