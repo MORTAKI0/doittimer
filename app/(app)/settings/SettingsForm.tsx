@@ -77,6 +77,26 @@ function sameSettings(a: DraftSettings, b: DraftSettings) {
   );
 }
 
+function validateDraft(draft: DraftSettings): { ok: true } | { ok: false; message: string } {
+  if (draft.timezone.trim().length === 0) {
+    return { ok: false, message: "Timezone is required." };
+  }
+  if (draft.work < WORK_MINUTES_RANGE.min || draft.work > WORK_MINUTES_RANGE.max) {
+    return { ok: false, message: `Work minutes must be between ${WORK_MINUTES_RANGE.min} and ${WORK_MINUTES_RANGE.max}.` };
+  }
+  if (draft.shortBreak < SHORT_BREAK_RANGE.min || draft.shortBreak > SHORT_BREAK_RANGE.max) {
+    return { ok: false, message: `Short break must be between ${SHORT_BREAK_RANGE.min} and ${SHORT_BREAK_RANGE.max}.` };
+  }
+  if (draft.longBreak < LONG_BREAK_RANGE.min || draft.longBreak > LONG_BREAK_RANGE.max) {
+    return { ok: false, message: `Long break must be between ${LONG_BREAK_RANGE.min} and ${LONG_BREAK_RANGE.max}.` };
+  }
+  if (draft.longEvery < LONG_BREAK_EVERY_RANGE.min || draft.longEvery > LONG_BREAK_EVERY_RANGE.max) {
+    return { ok: false, message: `Long break every must be between ${LONG_BREAK_EVERY_RANGE.min} and ${LONG_BREAK_EVERY_RANGE.max}.` };
+  }
+  return { ok: true };
+}
+
+/** User settings form with debounced autosave and range-safe validation. */
 export function SettingsForm(props: SettingsFormProps) {
   const { tasks } = props;
   const router = useRouter();
@@ -88,6 +108,14 @@ export function SettingsForm(props: SettingsFormProps) {
   const isDirty = !sameSettings(draft, lastSaved);
 
   async function persistSettings(source: "auto" | "manual") {
+    const validation = validateDraft(draft);
+    if (!validation.ok) {
+      if (source === "manual") {
+        pushToast({ title: "Save failed", description: validation.message, variant: "error" });
+      }
+      return;
+    }
+
     setIsPending(true);
     const normalizedDefaultTaskId = draft.defaultTaskId.trim() !== "" ? draft.defaultTaskId : null;
 

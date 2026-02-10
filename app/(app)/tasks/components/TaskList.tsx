@@ -42,7 +42,6 @@ type TaskListProps = {
   queueItems?: TaskQueueRow[];
   currentRange?: "all" | "day" | "week";
   currentDate?: string;
-  query?: string;
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -85,7 +84,6 @@ export function TaskList({
   queueItems = [],
   currentRange = "all",
   currentDate = "",
-  query = "",
 }: TaskListProps) {
   const router = useRouter();
   const [queue, setQueue] = React.useState<TaskQueueRow[]>(queueItems);
@@ -462,10 +460,7 @@ export function TaskList({
     return new Map(entries);
   }, [projects]);
 
-  const loweredQuery = query.trim().toLowerCase();
-  const visibleItems = loweredQuery.length > 0
-    ? items.filter((task) => task.title.toLowerCase().includes(loweredQuery))
-    : items;
+  const visibleItems = items;
   const queueIds = new Set(queue.map((item) => item.task_id));
   const queueIsFull = queue.length >= MAX_QUEUE_ITEMS;
 

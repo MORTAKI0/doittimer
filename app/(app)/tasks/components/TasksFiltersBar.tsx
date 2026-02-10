@@ -188,7 +188,6 @@ export function TasksFiltersBar({
         <div className="inline-flex flex-wrap gap-1 rounded-xl border border-border bg-background p-1">
           <Button size="sm" type="button" variant={currentStatus === "active" ? "primary" : "ghost"} onClick={() => pushParams((params) => params.set("status", "active"))}>Active</Button>
           <Button size="sm" type="button" variant={currentStatus === "completed" ? "primary" : "ghost"} onClick={() => pushParams((params) => params.set("status", "completed"))}>Completed</Button>
-          <Button size="sm" type="button" variant={isToday ? "primary" : "ghost"} onClick={() => setQuickRange("today")}>Today</Button>
           <Button size="sm" type="button" variant={currentStatus === "archived" ? "primary" : "ghost"} onClick={() => pushParams((params) => params.set("status", "archived"))}>Archived</Button>
         </div>
         <Button
@@ -203,6 +202,8 @@ export function TasksFiltersBar({
               params.delete("date");
               params.delete("scheduled");
               params.delete("q");
+              params.delete("from");
+              params.delete("to");
             });
           }}
         >

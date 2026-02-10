@@ -53,12 +53,14 @@ type CreateTaskFormProps = {
   projects?: ProjectOption[];
   defaultScheduledFor?: string | null;
   schedulingHint?: string | null;
+  autoFocusTitle?: boolean;
 };
 
 export function CreateTaskForm({
   projects = [],
   defaultScheduledFor = null,
   schedulingHint = null,
+  autoFocusTitle = false,
 }: CreateTaskFormProps) {
   const router = useRouter();
   const [title, setTitle] = React.useState("");
@@ -124,6 +126,7 @@ export function CreateTaskForm({
           name="title"
           placeholder="e.g. Plan the product review"
           autoComplete="off"
+          autoFocus={autoFocusTitle}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           disabled={isPending}

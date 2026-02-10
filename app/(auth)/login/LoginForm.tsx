@@ -35,7 +35,7 @@ export function LoginForm() {
       ) : null}
       <form action={formAction} className="mt-6 space-y-3">
         <Input name="email" type="email" placeholder="Email" autoComplete="email" required />
-        <Input name="password" type="password" placeholder="Password (min 8)" autoComplete="current-password" required />
+        <Input name="password" type="password" placeholder="Password (min 8)" autoComplete="current-password" minLength={8} required />
         <Button type="submit" className="w-full" isLoading={pending} loadingLabel="Signing in...">
           Sign in
         </Button>

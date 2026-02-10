@@ -13,6 +13,7 @@ type KpiCardProps = {
   trendLabel?: string | null;
 };
 
+/** Compact KPI card with tooltip context and full-card navigation affordance. */
 export function KpiCard({ label, tooltip, value, href, helperText, icon, trendLabel }: KpiCardProps) {
   return (
     <Link
@@ -24,7 +25,16 @@ export function KpiCard({ label, tooltip, value, href, helperText, icon, trendLa
           <div className="flex items-center gap-2">
             {icon ? <span className="text-emerald-600">{icon}</span> : null}
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-            <Tooltip label={tooltip} triggerLabel={`${label} help`} />
+            <Tooltip label={tooltip}>
+              <span
+                aria-label={`${label} help`}
+                role="button"
+                tabIndex={0}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-muted-foreground transition-colors duration-150 hover:text-foreground focus-ring"
+              >
+                i
+              </span>
+            </Tooltip>
           </div>
           {trendLabel ? <span className="text-[11px] text-muted-foreground">{trendLabel}</span> : null}
         </div>

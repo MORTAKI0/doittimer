@@ -43,6 +43,7 @@
     "eslint-config-next": "16.1.1",
     "prettier": "3.7.4",
     "prettier-plugin-tailwindcss": "0.7.2",
+    "supabase": "^2.76.7",
     "tailwindcss": "4.1.18",
     "typescript": "5.9.3"
   }

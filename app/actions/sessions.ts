@@ -1,9 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { normalizeMusicUrl, sessionIdSchema } from "@/lib/validation/session.schema";
+import {
+  normalizeMusicUrl,
+  sessionIdSchema,
+} from "@/lib/validation/session.schema";
 import { taskIdSchema } from "@/lib/validation/task.schema";
 import { logServerError } from "@/lib/logging/logServerError";
 
@@ -13,6 +17,8 @@ export type SessionRow = {
   task_id: string | null;
   task_title?: string | null;
   music_url?: string | null;
+  edited_at?: string | null;
+  edit_reason?: string | null;
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
@@ -24,10 +30,24 @@ export type SessionRow = {
   created_at: string;
 };
 
-type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
+type ActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
 
-const ACTIVE_SESSION_ERROR = "Une session est deja active. Arrete-la avant d'en demarrer une autre.";
+const ACTIVE_SESSION_ERROR =
+  "Une session est deja active. Arrete-la avant d'en demarrer une autre.";
 const sessionTaskIdSchema = taskIdSchema.nullable().optional();
+const sessionEditInputSchema = z.object({
+  sessionId: sessionIdSchema,
+  startedAt: z.string().trim().datetime({ offset: true }).optional(),
+  endedAt: z.string().trim().datetime({ offset: true }).optional(),
+  taskId: taskIdSchema.nullable().optional(),
+  editReason: z
+    .string()
+    .trim()
+    .max(500, "Raison d'edition trop longue.")
+    .optional(),
+});
 
 function normalizeRpcRow<T>(data: unknown): T | null {
   if (data == null) return null;
@@ -89,7 +109,9 @@ export async function startSession(
 
     userId = userData.user.id;
 
-    const { data: activeData, error: activeError } = await supabase.rpc("get_active_session_v2");
+    const { data: activeData, error: activeError } = await supabase.rpc(
+      "get_active_session_v2",
+    );
 
     if (activeError) {
       logServerError({
@@ -176,7 +198,9 @@ export async function startSession(
   }
 }
 
-export async function stopSession(sessionId: string): Promise<ActionResult<SessionRow>> {
+export async function stopSession(
+  sessionId: string,
+): Promise<ActionResult<SessionRow>> {
   const parsedId = sessionIdSchema.safeParse(sessionId);
 
   if (!parsedId.success) {
@@ -235,7 +259,9 @@ export async function stopSession(sessionId: string): Promise<ActionResult<Sessi
   }
 }
 
-export async function getActiveSession(): Promise<ActionResult<SessionRow | null>> {
+export async function getActiveSession(): Promise<
+  ActionResult<SessionRow | null>
+> {
   try {
     let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
@@ -256,7 +282,10 @@ export async function getActiveSession(): Promise<ActionResult<SessionRow | null
         error,
         context: { rpc: "get_active_session_v2" },
       });
-      return { success: false, error: "Impossible de charger la session active." };
+      return {
+        success: false,
+        error: "Impossible de charger la session active.",
+      };
     }
 
     logRpcDataShape("get_active_session_v2", data);
@@ -296,15 +325,140 @@ export async function getTodaySessions(): Promise<ActionResult<SessionRow[]>> {
         error,
         context: { rpc: "get_today_sessions" },
       });
-      return { success: false, error: "Impossible de charger les sessions du jour." };
+      return {
+        success: false,
+        error: "Impossible de charger les sessions du jour.",
+      };
     }
 
     const sessions = normalizeRpcList<SessionRow>(data);
+
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[sessions.getTodaySessions] first row", {
+        count: sessions.length,
+        first: sessions[0]
+          ? {
+              id: sessions[0].id,
+              started_at: sessions[0].started_at,
+              ended_at: sessions[0].ended_at,
+              duration_seconds: sessions[0].duration_seconds,
+              edited_at: sessions[0].edited_at,
+              edit_reason: sessions[0].edit_reason,
+            }
+          : null,
+      });
+    }
 
     return { success: true, data: sessions };
   } catch (error) {
     logServerError({
       scope: "actions.sessions.getTodaySessions",
+      error,
+    });
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function editSession(input: {
+  sessionId: string;
+  startedAt?: string;
+  endedAt?: string;
+  taskId?: string | null;
+  editReason?: string;
+}): Promise<ActionResult<SessionRow>> {
+  const parsed = sessionEditInputSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Parametres invalides.",
+    };
+  }
+
+  try {
+    let userId: string | undefined;
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    userId = userData.user.id;
+    const payload = parsed.data;
+    const { data, error } = await supabase.rpc("session_edit", {
+      p_session_id: payload.sessionId,
+      p_started_at: payload.startedAt ?? null,
+      p_ended_at: payload.endedAt ?? null,
+      p_task_id: payload.taskId ?? null,
+      p_edit_reason:
+        payload.editReason == null
+          ? null
+          : payload.editReason.length > 0
+            ? payload.editReason
+            : "",
+    });
+
+    if (error) {
+      if (typeof error.message === "string") {
+        if (error.message.includes("cannot edit active session")) {
+          return {
+            success: false,
+            error: "Impossible de modifier une session active.",
+          };
+        }
+        if (
+          error.message.includes(
+            "ended_at must be greater than or equal to started_at",
+          )
+        ) {
+          return {
+            success: false,
+            error:
+              "L'heure de fin doit etre superieure ou egale a l'heure de debut.",
+          };
+        }
+        if (error.message.includes("duration exceeds 12 hours")) {
+          return {
+            success: false,
+            error: "La duree maximale est de 12 heures.",
+          };
+        }
+        if (error.message.includes("unauthorized")) {
+          return {
+            success: false,
+            error: "Tu ne peux modifier que tes sessions.",
+          };
+        }
+      }
+
+      logServerError({
+        scope: "actions.sessions.editSession",
+        userId,
+        error,
+        context: { rpc: "session_edit" },
+      });
+      return {
+        success: false,
+        error: "Impossible de modifier la session.",
+      };
+    }
+
+    const session = normalizeRpcRow<SessionRow>(data);
+
+    if (!session) {
+      return { success: false, error: "Session introuvable." };
+    }
+
+    revalidatePath("/focus");
+
+    return { success: true, data: session };
+  } catch (error) {
+    logServerError({
+      scope: "actions.sessions.editSession",
       error,
     });
     return {

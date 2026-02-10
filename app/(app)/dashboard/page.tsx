@@ -60,6 +60,26 @@ function dateInTimezoneYYYYMMDD(date: Date, tz: string): string {
   return `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
 }
 
+function onTimeTasksHrefForRange(
+  range: DashboardRange,
+  tz: string,
+  fromISO: string,
+  toISO: string,
+): string {
+  const fromDate = dateInTimezoneYYYYMMDD(new Date(fromISO), tz);
+  const toDateExclusive = dateInTimezoneYYYYMMDD(new Date(toISO), tz);
+
+  if (range === "today" || range === "yesterday") {
+    return `/tasks?status=completed&range=day&date=${fromDate}`;
+  }
+
+  if (range === "this_week" || range === "last_week") {
+    return `/tasks?status=completed&range=week&date=${fromDate}&from=${fromDate}&to=${toDateExclusive}`;
+  }
+
+  return `/tasks?status=completed&from=${fromDate}&to=${toDateExclusive}`;
+}
+
 function completionMicrocopy(rate: number) {
   if (rate >= 0.8) return "Strong momentum today. Keep the cadence.";
   if (rate >= 0.5) return "Solid progress. One focused block can tip this higher.";
@@ -137,7 +157,12 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
   });
 
   const todayInTz = dateInTimezoneYYYYMMDD(new Date(), summary.range.tz);
-  const onTimeTasksHref = `/tasks?status=completed&range=day&date=${todayInTz}`;
+  const onTimeTasksHref = onTimeTasksHrefForRange(
+    range,
+    summary.range.tz,
+    summary.range.fromISO,
+    summary.range.toISO,
+  );
   const scheduledTodayHref = `/tasks?range=day&date=${todayInTz}`;
   const unscheduledHref = "/tasks?scheduled=unscheduled";
   const manageTasksHref = range === "today" ? scheduledTodayHref : "/tasks";
@@ -150,11 +175,7 @@ export default async function DashboardPage(props: { searchParams: SearchParams 
         <div className="space-y-1">
           <p className="text-overline">Overview</p>
           <h1 className="text-page-title text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            {summary.range.label}
-            {" � "}
-            timezone {summary.range.tz}
-          </p>
+          <p className="text-sm text-muted-foreground">{summary.range.label} · timezone {summary.range.tz}</p>
         </div>
         <Link href="/focus" className={buttonStyles({ size: "sm" })}>
           Quick start focus

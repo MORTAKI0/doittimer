@@ -20,6 +20,7 @@ const RANGE_OPTIONS: { value: Exclude<DashboardRange, "custom">; label: string }
   { value: "last_week", label: "Last week" },
 ];
 
+/** Dashboard range switcher supporting presets plus custom date boundaries. */
 export function DashboardRangeSelector({
   currentRange,
   from = "",
@@ -78,7 +79,7 @@ export function DashboardRangeSelector({
             type="button"
             onClick={() => navigateWith({ range: option.value })}
             className={[
-              "rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+              "rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35",
               currentRange === option.value
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",

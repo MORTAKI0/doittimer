@@ -6,7 +6,7 @@ export function EmptyState() {
       title="No tasks yet"
       description="Add your first task to start your day with clarity."
       actionLabel="Create task"
-      actionHref="/tasks"
+      actionHref="/tasks?compose=1"
       className="min-h-[220px]"
     />
   );
