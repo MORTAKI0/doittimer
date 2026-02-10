@@ -13,7 +13,7 @@ const variantStyles: Record<CardVariant, string> = {
   interactive:
     "rounded-[var(--radius-md)] border border-border bg-card p-5 shadow-[var(--shadow-soft)] transition-all duration-200 transition-standard hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[var(--shadow-lift)]",
   accent:
-    "rounded-[var(--radius-md)] border border-border bg-[var(--gradient-surface)] p-5 shadow-[var(--shadow-soft)] before:pointer-events-none before:absolute before:inset-x-4 before:top-0 before:h-px before:bg-[var(--gradient-primary)]",
+    "rounded-[var(--radius-md)] border border-border [background-image:var(--gradient-surface)] p-5 shadow-[var(--shadow-soft)] before:pointer-events-none before:absolute before:inset-x-4 before:top-0 before:h-px before:bg-[var(--gradient-primary)]",
 };
 
 export function Card({ className, variant = "default", ...props }: CardProps) {

@@ -17,6 +17,7 @@ playwright/.auth/
 # next.js
 /.next/
 /out/
+/app/font-sans.generated.ts
 
 # production
 /build

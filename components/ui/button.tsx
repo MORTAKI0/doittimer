@@ -74,6 +74,7 @@ export function Button({
     isLoading && typeof loadingLabel === "string" && loadingLabel.trim().length > 0
       ? loadingLabel
       : children;
+  const showIconChildren = size === "icon" && !isLoading;
 
   return (
     <button
@@ -84,7 +85,7 @@ export function Button({
       {...props}
     >
       {isLoading ? <Spinner /> : null}
-      {size !== "icon" ? text : children}
+      {size !== "icon" ? text : showIconChildren ? children : null}
       {size === "icon" && isLoading ? <span className="sr-only">Loading</span> : null}
     </button>
   );

@@ -3,7 +3,12 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
-import { startSession, stopSession, SessionRow } from "@/app/actions/sessions";
+import {
+  editSession,
+  startSession,
+  stopSession,
+  SessionRow,
+} from "@/app/actions/sessions";
 import {
   pomodoroInit,
   pomodoroPause,
@@ -27,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { SessionEditModal } from "./SessionEditModal";
 
 type FocusPanelProps = {
   activeSession: SessionRow | null;
@@ -46,14 +52,28 @@ type FocusPanelProps = {
 const ERROR_MAP: Record<string, string> = {
   "Tu dois etre connecte.": "You must be signed in.",
   "Identifiant invalide.": "Invalid identifier.",
-  "Une session est deja active. Arrete-la avant d'en demarrer une autre.": "A session is already active. Stop it before starting a new one.",
-  "Impossible de verifier la session active.": "Unable to verify the active session.",
+  "Une session est deja active. Arrete-la avant d'en demarrer une autre.":
+    "A session is already active. Stop it before starting a new one.",
+  "Impossible de verifier la session active.":
+    "Unable to verify the active session.",
   "Impossible de demarrer la session.": "Unable to start the session.",
   "Impossible d'arreter la session.": "Unable to stop the session.",
-  "Impossible de charger la session active.": "Unable to load the active session.",
-  "Impossible de charger les sessions du jour.": "Unable to load today's sessions.",
+  "Impossible de charger la session active.":
+    "Unable to load the active session.",
+  "Impossible de charger les sessions du jour.":
+    "Unable to load today's sessions.",
+  "Impossible de modifier la session.": "Unable to edit the session.",
+  "Impossible de modifier une session active.":
+    "Cannot edit an active session.",
+  "L'heure de fin doit etre superieure ou egale a l'heure de debut.":
+    "End time must be after start time.",
+  "La duree maximale est de 12 heures.":
+    "Session duration cannot exceed 12 hours.",
+  "Tu ne peux modifier que tes sessions.":
+    "You can only edit your own sessions.",
   "Lien musical invalide.": "Invalid music link.",
-  "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
+  "Erreur reseau. Verifie ta connexion et reessaie.":
+    "Network error. Check your connection and try again.",
 };
 
 function toEnglishError(message: string) {
@@ -79,7 +99,10 @@ function formatElapsed(seconds: number) {
 
 function formatStartTime(value: string) {
   const date = new Date(value);
-  return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatClock(seconds: number) {
@@ -87,7 +110,9 @@ function formatClock(seconds: number) {
   const hours = Math.floor(clamped / 3600);
   const minutes = Math.floor((clamped % 3600) / 60);
   const secs = clamped % 60;
-  return [hours, minutes, secs].map((part) => String(part).padStart(2, "0")).join(":");
+  return [hours, minutes, secs]
+    .map((part) => String(part).padStart(2, "0"))
+    .join(":");
 }
 
 function formatPomodoroPhase(phase: string | null | undefined) {
@@ -109,8 +134,10 @@ function resolveEffectivePomodoro(
 ) {
   return {
     workMinutes: task?.pomodoro_work_minutes ?? defaults.workMinutes,
-    shortBreakMinutes: task?.pomodoro_short_break_minutes ?? defaults.shortBreakMinutes,
-    longBreakMinutes: task?.pomodoro_long_break_minutes ?? defaults.longBreakMinutes,
+    shortBreakMinutes:
+      task?.pomodoro_short_break_minutes ?? defaults.shortBreakMinutes,
+    longBreakMinutes:
+      task?.pomodoro_long_break_minutes ?? defaults.longBreakMinutes,
     longBreakEvery: task?.pomodoro_long_break_every ?? defaults.longBreakEvery,
   };
 }
@@ -136,6 +163,23 @@ function looksLikeUuid(value: string) {
   );
 }
 
+function datetimeLocalToIso(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  const interactive = target.closest("button, a, input, textarea, select");
+  if (interactive) return true;
+
+  return Boolean(target.closest('[role="button"], [role="link"]'));
+}
+
+/** Focus session control panel with task linking, pomodoro controls, and queue handoff. */
 export function FocusPanel({
   activeSession,
   todaySessions,
@@ -151,29 +195,45 @@ export function FocusPanel({
   const [isStopping, setIsStopping] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
-  const [phaseRemainingSeconds, setPhaseRemainingSeconds] = React.useState<number | null>(null);
-  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
+  const [phaseRemainingSeconds, setPhaseRemainingSeconds] = React.useState<
+    number | null
+  >(null);
+  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(
+    null,
+  );
   const [hasManualSelection, setHasManualSelection] = React.useState(false);
   const [musicUrl, setMusicUrl] = React.useState("");
   const [isPomodoroUpdating, setIsPomodoroUpdating] = React.useState(false);
+  const [isEditingSession, setIsEditingSession] = React.useState(false);
+  const [editingSession, setEditingSession] = React.useState<SessionRow | null>(
+    null,
+  );
+  const [editError, setEditError] = React.useState<string | null>(null);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [isFullscreenMode, setIsFullscreenMode] = React.useState(false);
+  const startHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
+  const stopHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const toastTimeoutRef = React.useRef<number | null>(null);
   const autoTransitionRef = React.useRef(false);
   const previousPhaseRef = React.useRef<string | null>(null);
   const hasActiveSession = Boolean(activeSession);
-  const hasValidId = typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
+  const hasValidId =
+    typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
     typeof activeSession?.started_at === "string"
       ? parseTimestamptz(activeSession.started_at)
       : null;
   const hasValidStartedAt = Number.isFinite(parsedStartedAtMs ?? Number.NaN);
-  const isActiveSessionValid = Boolean(activeSession) && hasValidId && hasValidStartedAt;
-  const timeError = hasActiveSession && !hasValidStartedAt
-    ? "Invalid start time. Refresh the page."
-    : null;
+  const isActiveSessionValid =
+    Boolean(activeSession) && hasValidId && hasValidStartedAt;
+  const timeError =
+    hasActiveSession && !hasValidStartedAt
+      ? "Invalid start time. Refresh the page."
+      : null;
   const isRunning = isActiveSessionValid;
-  const pomodoroPhase = pomodoroEnabled ? activeSession?.pomodoro_phase ?? null : null;
+  const pomodoroPhase = pomodoroEnabled
+    ? (activeSession?.pomodoro_phase ?? null)
+    : null;
   const hasPomodoroPhase = pomodoroEnabled && typeof pomodoroPhase === "string";
   const pomodoroPhaseLabel = hasPomodoroPhase
     ? formatPomodoroPhase(pomodoroPhase)
@@ -183,15 +243,19 @@ export function FocusPanel({
     : false;
   const effectiveTaskId = activeSession?.task_id ?? selectedTaskId;
   const effectiveTask = effectiveTaskId
-    ? tasks.find((task) => task.id === effectiveTaskId) ?? null
+    ? (tasks.find((task) => task.id === effectiveTaskId) ?? null)
     : null;
-  const effectivePomodoro = resolveEffectivePomodoro(effectiveTask, pomodoroDefaults);
+  const effectivePomodoro = resolveEffectivePomodoro(
+    effectiveTask,
+    pomodoroDefaults,
+  );
   const legacyRemainingSeconds = Math.max(
     0,
     effectivePomodoro.workMinutes * 60 - elapsedSeconds,
   );
   const parsedPhaseStartedAtMs =
-    hasPomodoroPhase && typeof activeSession?.pomodoro_phase_started_at === "string"
+    hasPomodoroPhase &&
+    typeof activeSession?.pomodoro_phase_started_at === "string"
       ? parseTimestamptz(activeSession.pomodoro_phase_started_at)
       : null;
   const parsedPausedAtMs =
@@ -203,13 +267,28 @@ export function FocusPanel({
     : null;
   const nextUp = getNextUpTask(queueItems, activeSession?.task_id ?? null);
   const canSwitchToNextUp = Boolean(
-    nextUp
-      && !nextUp.archived_at
-      && tasks.some((task) => task.id === nextUp.task_id),
+    nextUp &&
+    !nextUp.archived_at &&
+    tasks.some((task) => task.id === nextUp.task_id),
   );
   const phaseProgress = hasPomodoroPhase
-    ? 1 - Math.max(0, Math.min(1, (phaseRemainingSeconds ?? 0) / Math.max(1, phaseDurationSeconds ?? 1)))
-    : 1 - Math.max(0, Math.min(1, legacyRemainingSeconds / Math.max(1, effectivePomodoro.workMinutes * 60)));
+    ? 1 -
+      Math.max(
+        0,
+        Math.min(
+          1,
+          (phaseRemainingSeconds ?? 0) / Math.max(1, phaseDurationSeconds ?? 1),
+        ),
+      )
+    : 1 -
+      Math.max(
+        0,
+        Math.min(
+          1,
+          legacyRemainingSeconds /
+            Math.max(1, effectivePomodoro.workMinutes * 60),
+        ),
+      );
   const totalFocusedSecondsToday = todaySessions.reduce(
     (sum, session) => sum + (session.duration_seconds ?? 0),
     0,
@@ -245,26 +324,12 @@ export function FocusPanel({
 
   React.useEffect(() => {
     try {
-      window.localStorage.setItem("focus.fullscreen", isFullscreenMode ? "1" : "0");
+      window.localStorage.setItem(
+        "focus.fullscreen",
+        isFullscreenMode ? "1" : "0",
+      );
     } catch {}
   }, [isFullscreenMode]);
-
-  React.useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.code === "Space" && !["INPUT", "TEXTAREA", "SELECT"].includes((event.target as HTMLElement)?.tagName ?? "")) {
-        event.preventDefault();
-        if (hasActiveSession) {
-          void handleStop();
-        } else {
-          void handleStart();
-        }
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasActiveSession, isStarting, isStopping, selectedTaskId, musicUrl]);
 
   React.useEffect(() => {
     if (!activeSession || !isActiveSessionValid) {
@@ -287,7 +352,10 @@ export function FocusPanel({
       setPhaseRemainingSeconds(null);
       return;
     }
-    if (!parsedPhaseStartedAtMs || !Number.isFinite(phaseDurationSeconds ?? NaN)) {
+    if (
+      !parsedPhaseStartedAtMs ||
+      !Number.isFinite(phaseDurationSeconds ?? NaN)
+    ) {
       setPhaseRemainingSeconds(null);
       return;
     }
@@ -296,12 +364,17 @@ export function FocusPanel({
       const elapsed = computeElapsedSeconds(
         parsedPhaseStartedAtMs,
         Date.now(),
-        isPomodoroPaused ? parsedPausedAtMs ?? null : null,
+        isPomodoroPaused ? (parsedPausedAtMs ?? null) : null,
       );
       const remaining = Math.max(0, (phaseDurationSeconds ?? 0) - elapsed);
       setPhaseRemainingSeconds(remaining);
 
-      if (remaining <= 0 && !isPomodoroPaused && !isPomodoroUpdating && !autoTransitionRef.current) {
+      if (
+        remaining <= 0 &&
+        !isPomodoroPaused &&
+        !isPomodoroUpdating &&
+        !autoTransitionRef.current
+      ) {
         autoTransitionRef.current = true;
         void handlePomodoroSkip();
       }
@@ -374,10 +447,7 @@ export function FocusPanel({
       setError(toEnglishError(normalizedMusicUrl.error));
     }
 
-    const result = await startSession(
-      selectedTaskId,
-      normalizedMusicUrl.value,
-    );
+    const result = await startSession(selectedTaskId, normalizedMusicUrl.value);
 
     if (!result.success) {
       setError(toEnglishError(result.error));
@@ -417,6 +487,33 @@ export function FocusPanel({
     pushToast({ title: "Focus session stopped", variant: "info" });
     router.refresh();
   }
+
+  React.useEffect(() => {
+    startHandlerRef.current = handleStart;
+    stopHandlerRef.current = handleStop;
+  });
+
+  React.useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (
+        event.code !== "Space" ||
+        event.defaultPrevented ||
+        isInteractiveTarget(event.target)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (hasActiveSession) {
+        void stopHandlerRef.current?.();
+      } else {
+        void startHandlerRef.current?.();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [hasActiveSession]);
 
   async function handlePomodoroPause() {
     if (!activeSession || !hasValidId || isPomodoroUpdating) return;
@@ -460,24 +557,77 @@ export function FocusPanel({
     setSelectedTaskId(nextUp.task_id);
   }
 
+  async function handleEditSubmit(values: {
+    startedAt: string;
+    endedAt: string;
+    taskId: string | null;
+    editReason: string;
+  }) {
+    if (!editingSession) return;
+
+    const startedAtIso = datetimeLocalToIso(values.startedAt);
+    const endedAtIso = datetimeLocalToIso(values.endedAt);
+
+    if (!startedAtIso || !endedAtIso) {
+      setEditError("Invalid date value.");
+      return;
+    }
+
+    setEditError(null);
+    setIsEditingSession(true);
+    const result = await editSession({
+      sessionId: editingSession.id,
+      startedAt: startedAtIso,
+      endedAt: endedAtIso,
+      taskId: values.taskId,
+      editReason: values.editReason,
+    });
+
+    if (!result.success) {
+      setEditError(toEnglishError(result.error));
+      setIsEditingSession(false);
+      return;
+    }
+
+    setIsEditingSession(false);
+    setEditingSession(null);
+    setEditError(null);
+    pushToast({ title: "Session updated", variant: "success" });
+    router.refresh();
+  }
+
   return (
-    <div className={["space-y-6", isFullscreenMode ? "mx-auto max-w-2xl" : ""].join(" ")}>
+    <div
+      className={[
+        "space-y-6",
+        isFullscreenMode ? "mx-auto max-w-2xl" : "",
+      ].join(" ")}
+    >
       <div
         className={[
-          "space-y-3 rounded-2xl border bg-muted/25 p-4",
-          isRunning ? "border-emerald-200 ring-1 ring-emerald-100 shadow-sm" : "border-border",
+          "bg-muted/25 space-y-3 rounded-2xl border p-4",
+          isRunning
+            ? "border-emerald-200 shadow-sm ring-1 ring-emerald-100"
+            : "border-border",
         ]
           .filter(Boolean)
           .join(" ")}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <IconFocus className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+          <div className="text-foreground flex items-center gap-2 text-sm font-medium">
+            <IconFocus
+              className="h-4 w-4 text-emerald-600"
+              aria-hidden="true"
+            />
             Active session
           </div>
           <div className="flex items-center gap-2">
             {isRunning ? <Badge variant="accent">Running</Badge> : null}
-            <Button size="sm" variant="secondary" onClick={() => setIsFullscreenMode((v) => !v)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsFullscreenMode((v) => !v)}
+            >
               {isFullscreenMode ? "Exit fullscreen" : "Fullscreen mode"}
             </Button>
           </div>
@@ -488,21 +638,25 @@ export function FocusPanel({
             size={220}
             strokeWidth={12}
             trackClassName="stroke-border"
-            indicatorClassName={hasPomodoroPhase
-              ? pomodoroPhase === "work"
-                ? "stroke-emerald-500"
-                : pomodoroPhase === "long_break"
-                  ? "stroke-amber-500"
-                  : "stroke-teal-500"
-              : "stroke-emerald-500"}
+            indicatorClassName={
+              hasPomodoroPhase
+                ? pomodoroPhase === "work"
+                  ? "stroke-emerald-500"
+                  : pomodoroPhase === "long_break"
+                    ? "stroke-amber-500"
+                    : "stroke-teal-500"
+                : "stroke-emerald-500"
+            }
           >
-            <p className="numeric-tabular text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+            <p className="numeric-tabular text-foreground text-5xl font-semibold tracking-tight sm:text-6xl">
               {isActiveSessionValid ? formatClock(elapsedSeconds) : "00:00:00"}
             </p>
           </ProgressRing>
-          <p className="text-xs text-muted-foreground">Shortcut: press Space to start/stop</p>
+          <p className="text-muted-foreground text-xs">
+            Shortcut: press Space to start/stop
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           {hasPomodoroPhase
             ? `${pomodoroPhaseLabel} remaining: ${formatElapsed(phaseRemainingSeconds ?? 0)}`
             : isRunning
@@ -510,14 +664,16 @@ export function FocusPanel({
               : `Work duration: ${effectivePomodoro.workMinutes}m`}
         </p>
         {hasPomodoroPhase && pomodoroPhaseLabel ? (
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
             <span>Phase:</span>
             <Badge variant="neutral">{pomodoroPhaseLabel}</Badge>
             {isPomodoroPaused ? <Badge variant="neutral">Paused</Badge> : null}
           </div>
         ) : null}
         {activeTaskLabel ? (
-          <p className="text-sm text-muted-foreground">Task: {activeTaskLabel}</p>
+          <p className="text-muted-foreground text-sm">
+            Task: {activeTaskLabel}
+          </p>
         ) : null}
       </div>
 
@@ -543,17 +699,19 @@ export function FocusPanel({
       ) : null}
 
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
           Next up
         </h2>
         {nextUp ? (
           <div
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3"
+            className="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
             data-testid="next-up"
           >
-            <div className="flex items-center gap-2 text-sm text-foreground">
+            <div className="text-foreground flex items-center gap-2 text-sm">
               <span>{nextUp.title}</span>
-              {nextUp.archived_at ? <Badge variant="neutral">Archived</Badge> : null}
+              {nextUp.archived_at ? (
+                <Badge variant="neutral">Archived</Badge>
+              ) : null}
             </div>
             <Button
               type="button"
@@ -568,15 +726,22 @@ export function FocusPanel({
             </Button>
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
-            No tasks in Today queue. <a href="/tasks" className="text-emerald-600">Add tasks</a>.
+          <p className="border-border bg-card text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
+            No tasks in Today queue.{" "}
+            <a href="/tasks" className="text-emerald-600">
+              Add tasks
+            </a>
+            .
           </p>
         )}
       </div>
 
       <div className="space-y-3">
         <div className="space-y-2">
-          <label htmlFor="task-select" className="text-sm font-medium text-foreground">
+          <label
+            htmlFor="task-select"
+            className="text-foreground text-sm font-medium"
+          >
             Link a task
           </label>
           <Select
@@ -597,11 +762,14 @@ export function FocusPanel({
             ))}
           </Select>
           {tasks.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No tasks available.</p>
+            <p className="text-muted-foreground text-xs">No tasks available.</p>
           ) : null}
         </div>
         <div className="space-y-2">
-          <label htmlFor="music-url" className="text-sm font-medium text-foreground">
+          <label
+            htmlFor="music-url"
+            className="text-foreground text-sm font-medium"
+          >
             Music link (optional)
           </label>
           <Input
@@ -646,7 +814,7 @@ export function FocusPanel({
 
         {hasPomodoroPhase ? (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
               Pomodoro controls
             </p>
             <div className="flex flex-wrap gap-2">
@@ -655,9 +823,7 @@ export function FocusPanel({
                 onClick={handlePomodoroPause}
                 isLoading={isPomodoroUpdating}
                 loadingLabel="Updating..."
-                disabled={
-                  !hasActiveSession || !hasValidId || isPomodoroPaused
-                }
+                disabled={!hasActiveSession || !hasValidId || isPomodoroPaused}
               >
                 Pause
               </Button>
@@ -666,9 +832,7 @@ export function FocusPanel({
                 onClick={handlePomodoroResume}
                 isLoading={isPomodoroUpdating}
                 loadingLabel="Updating..."
-                disabled={
-                  !hasActiveSession || !hasValidId || !isPomodoroPaused
-                }
+                disabled={!hasActiveSession || !hasValidId || !isPomodoroPaused}
               >
                 Resume
               </Button>
@@ -697,28 +861,36 @@ export function FocusPanel({
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
             Today&apos;s sessions
           </h2>
-          <Badge variant="neutral">Total {formatElapsed(totalFocusedSecondsToday)}</Badge>
+          <Badge variant="neutral">
+            Total {formatElapsed(totalFocusedSecondsToday)}
+          </Badge>
         </div>
         {todaySessions.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
+          <p className="border-border bg-card text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
             No sessions yet today. Start one to begin.
           </p>
         ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          <ul className="divide-border border-border divide-y rounded-lg border">
             {todaySessions.map((session) => {
               const taskLabel = resolveTaskLabel(session, tasks);
+              const isFinishedSession = Boolean(session.ended_at);
               return (
-                <li key={session.id} className="flex items-center justify-between px-4 py-3">
-                  <div className="text-sm text-foreground">
+                <li
+                  key={session.id}
+                  className="flex items-center justify-between px-4 py-3"
+                >
+                  <div className="text-foreground text-sm">
                     {formatStartTime(session.started_at)}
                     {taskLabel ? (
-                      <div className="mt-1 text-xs text-muted-foreground">{taskLabel}</div>
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        {taskLabel}
+                      </div>
                     ) : null}
                     {session.music_url ? (
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
                         <svg
                           viewBox="0 0 24 24"
                           fill="none"
@@ -744,10 +916,25 @@ export function FocusPanel({
                       </div>
                     ) : null}
                   </div>
-                  <div className="flex items-center justify-end text-sm text-muted-foreground">
-                    {session.ended_at
-                      ? formatElapsed(session.duration_seconds ?? 0)
-                      : <Badge variant="accent">Active</Badge>}
+                  <div className="text-muted-foreground flex items-center justify-end gap-2 text-sm">
+                    {isFinishedSession ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setEditingSession(session);
+                          setEditError(null);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    ) : null}
+                    {isFinishedSession ? (
+                      formatElapsed(session.duration_seconds ?? 0)
+                    ) : (
+                      <Badge variant="accent">Active</Badge>
+                    )}
                   </div>
                 </li>
               );
@@ -755,6 +942,19 @@ export function FocusPanel({
           </ul>
         )}
       </div>
+      <SessionEditModal
+        open={Boolean(editingSession)}
+        session={editingSession}
+        tasks={tasks}
+        isSubmitting={isEditingSession}
+        error={editError}
+        onClose={() => {
+          if (isEditingSession) return;
+          setEditingSession(null);
+          setEditError(null);
+        }}
+        onSubmit={handleEditSubmit}
+      />
     </div>
   );
 }

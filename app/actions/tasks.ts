@@ -186,6 +186,9 @@ type GetTasksOptions = {
   scheduledDate?: string | null;
   includeUnscheduled?: boolean;
   scheduledOnly?: "all" | "scheduled" | "unscheduled";
+  query?: string;
+  completedFrom?: string | null;
+  completedTo?: string | null;
 };
 
 export type PaginatedTasks = {
@@ -229,6 +232,8 @@ function applyTaskFilters<T extends {
   not: (column: string, operator: string, value: unknown) => T;
   gte: (column: string, value: string) => T;
   lte: (column: string, value: string) => T;
+  lt: (column: string, value: string) => T;
+  ilike: (column: string, pattern: string) => T;
   or: (filters: string) => T;
 }>(
   query: T,
@@ -241,6 +246,9 @@ function applyTaskFilters<T extends {
     scheduledDate: string;
     includeUnscheduled: boolean;
     scheduledOnly: "all" | "scheduled" | "unscheduled";
+    query: string;
+    completedFrom: string | null;
+    completedTo: string | null;
   },
 ) {
   let next = query.eq("user_id", options.userId);
@@ -287,9 +295,23 @@ function applyTaskFilters<T extends {
     next = next.not("scheduled_for", "is", null);
   }
 
+  if (options.query.length > 0) {
+    const escaped = options.query.replaceAll("%", "\\%").replaceAll("_", "\\_");
+    next = next.ilike("title", `%${escaped}%`);
+  }
+
+  if (options.completedFrom) {
+    next = next.gte("completed_at", `${options.completedFrom}T00:00:00.000Z`);
+  }
+
+  if (options.completedTo) {
+    next = next.lt("completed_at", `${options.completedTo}T00:00:00.000Z`);
+  }
+
   return next;
 }
 
+/** Returns filtered task pages with server-side count/query parity for pagination. */
 export async function getTasks(
   options: GetTasksOptions = {},
 ): Promise<ActionResult<PaginatedTasks>> {
@@ -316,6 +338,9 @@ export async function getTasks(
     const today = formatDateUTC(new Date());
     const scheduledDate = options.scheduledDate ? toDateOnly(options.scheduledDate) : null;
     const effectiveDate = scheduledDate ?? today;
+    const query = typeof options.query === "string" ? options.query.trim() : "";
+    const completedFrom = options.completedFrom ? toDateOnly(options.completedFrom) : null;
+    const completedTo = options.completedTo ? toDateOnly(options.completedTo) : null;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
@@ -331,6 +356,9 @@ export async function getTasks(
       scheduledDate: effectiveDate,
       includeUnscheduled,
       scheduledOnly,
+      query,
+      completedFrom,
+      completedTo,
     });
 
     const { error: countError, count } = await countQuery;
@@ -361,6 +389,9 @@ export async function getTasks(
       scheduledDate: effectiveDate,
       includeUnscheduled,
       scheduledOnly,
+      query,
+      completedFrom,
+      completedTo,
     });
 
     const { data, error } = await dataQuery;

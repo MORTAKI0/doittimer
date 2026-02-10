@@ -36,6 +36,9 @@ type SearchParams = Promise<{
   date?: string;
   scheduled?: string;
   q?: string;
+  from?: string;
+  to?: string;
+  compose?: string;
 }>;
 
 function formatDate(date: Date): string {
@@ -93,6 +96,9 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     ? searchParams.project
     : null;
   const query = typeof searchParams.q === "string" ? searchParams.q.trim() : "";
+  const completedFrom = typeof searchParams.from === "string" ? searchParams.from : null;
+  const completedTo = typeof searchParams.to === "string" ? searchParams.to : null;
+  const composeMode = searchParams.compose === "1";
 
   const [tasksResult, projectsResult, queueResult] = await Promise.all([
     getTasks({
@@ -105,6 +111,9 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
       scheduledDate,
       includeUnscheduled: true,
       scheduledOnly,
+      query,
+      completedFrom,
+      completedTo,
     }),
     getProjects({ includeArchived: true }),
     getTaskQueue(),
@@ -123,6 +132,10 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     if (scheduledRange !== "all") params.set("range", scheduledRange);
     if (scheduledRange !== "all") params.set("date", scheduledDate);
     if (scheduledOnly !== "all") params.set("scheduled", scheduledOnly);
+    if (query.length > 0) params.set("q", query);
+    if (completedFrom) params.set("from", completedFrom);
+    if (completedTo) params.set("to", completedTo);
+    if (composeMode) params.set("compose", "1");
     redirect(`/tasks?${params.toString()}`);
   }
 
@@ -135,7 +148,9 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     || status !== "all"
     || scheduledRange !== "all"
     || scheduledOnly !== "all"
-    || query.length > 0;
+    || query.length > 0
+    || Boolean(completedFrom)
+    || Boolean(completedTo);
   const pomodoroStatsByTaskId: Record<
     string,
     { pomodoros_today: number; pomodoros_total: number }
@@ -176,6 +191,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
               projects={activeProjects}
               defaultScheduledFor={defaultScheduledFor}
               schedulingHint={createTaskSchedulingHint}
+              autoFocusTitle={composeMode}
             />
           </Card>
 
@@ -217,15 +233,14 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      <TaskList
-                        tasks={tasks}
-                        projects={activeProjects}
-                        pomodoroStatsByTaskId={pomodoroStatsByTaskId}
-                        queueItems={queueItems}
-                        currentRange={scheduledRange}
-                        currentDate={scheduledDate}
-                        query={query}
-                      />
+                        <TaskList
+                          tasks={tasks}
+                          projects={activeProjects}
+                          pomodoroStatsByTaskId={pomodoroStatsByTaskId}
+                          queueItems={queueItems}
+                          currentRange={scheduledRange}
+                          currentDate={scheduledDate}
+                        />
 
                       <div className="border-t border-border pt-4">
                         <Pagination

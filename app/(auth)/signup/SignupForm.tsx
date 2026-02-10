@@ -47,7 +47,7 @@ export function SignupForm() {
 
   return (
     <Card className="w-full p-6">
-      <h1 className="text-section-title text-foreground">Create account</h1>
+      <h2 className="text-section-title text-foreground">Create account</h2>
       <p className="mt-1 text-sm text-muted-foreground">Start tracking focused work in minutes.</p>
       {errorMessage ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
@@ -61,6 +61,7 @@ export function SignupForm() {
           type="password"
           placeholder="Password (min 8)"
           autoComplete="new-password"
+          minLength={8}
           required
           value={password}
           onChange={(event) => setPassword(event.target.value)}

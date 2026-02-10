@@ -69,10 +69,10 @@ export function AppShellNav({
   }, [startedAtMs]);
 
   const commandActions: CommandAction[] = [
-    { id: "nav-dashboard", label: "Go to Dashboard", href: "/dashboard", hint: "G D" },
-    { id: "nav-tasks", label: "Go to Tasks", href: "/tasks", hint: "G T" },
-    { id: "nav-focus", label: "Go to Focus", href: "/focus", hint: "G F" },
-    { id: "nav-settings", label: "Go to Settings", href: "/settings", hint: "G S" },
+    { id: "nav-dashboard", label: "Go to Dashboard", href: "/dashboard", hint: "Navigation" },
+    { id: "nav-tasks", label: "Go to Tasks", href: "/tasks", hint: "Navigation" },
+    { id: "nav-focus", label: "Go to Focus", href: "/focus", hint: "Navigation" },
+    { id: "nav-settings", label: "Go to Settings", href: "/settings", hint: "Navigation" },
     { id: "quick-create-task", label: "Create task", href: "/tasks?compose=1", hint: "Quick action" },
     { id: "quick-start-focus", label: "Start focus", href: "/focus", hint: "Quick action" },
     { id: "quick-scheduled", label: "Scheduled today", href: "/tasks?range=day", hint: "Quick action" },
