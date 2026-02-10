@@ -48,6 +48,11 @@ const sessionEditInputSchema = z.object({
     .max(500, "Raison d'edition trop longue.")
     .optional(),
 });
+const sessionManualAddInputSchema = z.object({
+  startedAt: z.string().trim().datetime({ offset: true }),
+  endedAt: z.string().trim().datetime({ offset: true }),
+  taskId: taskIdSchema.nullable().optional(),
+});
 
 function normalizeRpcRow<T>(data: unknown): T | null {
   if (data == null) return null;
@@ -459,6 +464,98 @@ export async function editSession(input: {
   } catch (error) {
     logServerError({
       scope: "actions.sessions.editSession",
+      error,
+    });
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function addManualSession(input: {
+  startedAt: string;
+  endedAt: string;
+  taskId?: string | null;
+}): Promise<ActionResult<SessionRow>> {
+  const parsed = sessionManualAddInputSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Parametres invalides.",
+    };
+  }
+
+  try {
+    let userId: string | undefined;
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    userId = userData.user.id;
+
+    const payload = parsed.data;
+    const { data, error } = await supabase.rpc("session_add_manual", {
+      p_started_at: payload.startedAt,
+      p_ended_at: payload.endedAt,
+      p_task_id: payload.taskId ?? null,
+    });
+
+    if (error) {
+      if (typeof error.message === "string") {
+        if (
+          error.message.includes(
+            "ended_at must be greater than or equal to started_at",
+          )
+        ) {
+          return {
+            success: false,
+            error:
+              "L'heure de fin doit etre superieure ou egale a l'heure de debut.",
+          };
+        }
+        if (error.message.includes("duration exceeds 12 hours")) {
+          return {
+            success: false,
+            error: "La duree maximale est de 12 heures.",
+          };
+        }
+        if (error.message.includes("unauthorized")) {
+          return {
+            success: false,
+            error: "Tu dois etre connecte.",
+          };
+        }
+      }
+
+      logServerError({
+        scope: "actions.sessions.addManualSession",
+        userId,
+        error,
+        context: { rpc: "session_add_manual" },
+      });
+      return {
+        success: false,
+        error: "Impossible d'ajouter la session.",
+      };
+    }
+
+    const session = normalizeRpcRow<SessionRow>(data);
+
+    if (!session) {
+      return { success: false, error: "Session introuvable." };
+    }
+
+    revalidatePath("/focus");
+
+    return { success: true, data: session };
+  } catch (error) {
+    logServerError({
+      scope: "actions.sessions.addManualSession",
       error,
     });
     return {

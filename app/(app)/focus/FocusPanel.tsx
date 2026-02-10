@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  addManualSession,
   editSession,
   startSession,
   stopSession,
@@ -32,7 +33,9 @@ import { Input } from "@/components/ui/input";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { ManualAddSessionModal } from "./ManualAddSessionModal";
 import { SessionEditModal } from "./SessionEditModal";
+import { datetimeLocalToIso } from "./sessionDateTime";
 
 type FocusPanelProps = {
   activeSession: SessionRow | null;
@@ -63,6 +66,7 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible de charger les sessions du jour.":
     "Unable to load today's sessions.",
   "Impossible de modifier la session.": "Unable to edit the session.",
+  "Impossible d'ajouter la session.": "Unable to add the session.",
   "Impossible de modifier une session active.":
     "Cannot edit an active session.",
   "L'heure de fin doit etre superieure ou egale a l'heure de debut.":
@@ -71,6 +75,7 @@ const ERROR_MAP: Record<string, string> = {
     "Session duration cannot exceed 12 hours.",
   "Tu ne peux modifier que tes sessions.":
     "You can only edit your own sessions.",
+  "Parametres invalides.": "Invalid parameters.",
   "Lien musical invalide.": "Invalid music link.",
   "Erreur reseau. Verifie ta connexion et reessaie.":
     "Network error. Check your connection and try again.",
@@ -163,12 +168,6 @@ function looksLikeUuid(value: string) {
   );
 }
 
-function datetimeLocalToIso(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toISOString();
-}
-
 function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
@@ -205,10 +204,16 @@ export function FocusPanel({
   const [musicUrl, setMusicUrl] = React.useState("");
   const [isPomodoroUpdating, setIsPomodoroUpdating] = React.useState(false);
   const [isEditingSession, setIsEditingSession] = React.useState(false);
+  const [isAddingManualSession, setIsAddingManualSession] =
+    React.useState(false);
+  const [isManualModalOpen, setIsManualModalOpen] = React.useState(false);
   const [editingSession, setEditingSession] = React.useState<SessionRow | null>(
     null,
   );
   const [editError, setEditError] = React.useState<string | null>(null);
+  const [manualAddError, setManualAddError] = React.useState<string | null>(
+    null,
+  );
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [isFullscreenMode, setIsFullscreenMode] = React.useState(false);
   const startHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
@@ -596,6 +601,44 @@ export function FocusPanel({
     router.refresh();
   }
 
+  async function handleManualAddSubmit(values: {
+    startedAt: string;
+    endedAt: string;
+    taskId: string | null;
+  }) {
+    const startedAtIso = datetimeLocalToIso(values.startedAt);
+    const endedAtIso = datetimeLocalToIso(values.endedAt);
+
+    if (!startedAtIso || !endedAtIso) {
+      const message = "Invalid date value.";
+      setManualAddError(message);
+      pushToast({ title: message, variant: "error" });
+      return;
+    }
+
+    setManualAddError(null);
+    setIsAddingManualSession(true);
+    const result = await addManualSession({
+      startedAt: startedAtIso,
+      endedAt: endedAtIso,
+      taskId: values.taskId,
+    });
+
+    if (!result.success) {
+      const message = toEnglishError(result.error);
+      setManualAddError(message);
+      pushToast({ title: message, variant: "error" });
+      setIsAddingManualSession(false);
+      return;
+    }
+
+    setIsAddingManualSession(false);
+    setManualAddError(null);
+    setIsManualModalOpen(false);
+    pushToast({ title: "Session added", variant: "success" });
+    router.refresh();
+  }
+
   return (
     <div
       className={[
@@ -864,9 +907,22 @@ export function FocusPanel({
           <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
             Today&apos;s sessions
           </h2>
-          <Badge variant="neutral">
-            Total {formatElapsed(totalFocusedSecondsToday)}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="neutral">
+              Total {formatElapsed(totalFocusedSecondsToday)}
+            </Badge>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setManualAddError(null);
+                setIsManualModalOpen(true);
+              }}
+            >
+              Add session
+            </Button>
+          </div>
         </div>
         {todaySessions.length === 0 ? (
           <p className="border-border bg-card text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
@@ -954,6 +1010,22 @@ export function FocusPanel({
           setEditError(null);
         }}
         onSubmit={handleEditSubmit}
+      />
+      <ManualAddSessionModal
+        open={isManualModalOpen}
+        tasks={tasks}
+        isSubmitting={isAddingManualSession}
+        error={manualAddError}
+        onClose={() => {
+          if (isAddingManualSession) return;
+          setIsManualModalOpen(false);
+          setManualAddError(null);
+        }}
+        onSubmit={handleManualAddSubmit}
+        onValidationError={(message) => {
+          setManualAddError(message);
+          pushToast({ title: message, variant: "error" });
+        }}
       />
     </div>
   );
