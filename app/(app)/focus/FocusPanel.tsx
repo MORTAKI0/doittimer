@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  addManualSession,
   editSession,
   startSession,
   stopSession,
@@ -24,6 +25,12 @@ import {
 } from "@/lib/pomodoro/phaseEngine";
 import { getNextUpTask } from "@/lib/queue/nextUp";
 import { normalizeMusicUrl } from "@/lib/validation/session.schema";
+import {
+  DEFAULT_FOCUS_INTERVAL_MINUTES,
+  FOCUS_INTERVAL_STORAGE_KEY,
+  normalizeFocusIntervalMinutes,
+} from "@/lib/focusInterval";
+import { useIntervalBell } from "@/lib/useIntervalBell";
 import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +39,10 @@ import { Input } from "@/components/ui/input";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { FocusCircleTimer } from "./FocusCircleTimer";
+import { ManualAddSessionModal } from "./ManualAddSessionModal";
 import { SessionEditModal } from "./SessionEditModal";
+import { datetimeLocalToIso } from "./sessionDateTime";
 
 type FocusPanelProps = {
   activeSession: SessionRow | null;
@@ -63,6 +73,7 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible de charger les sessions du jour.":
     "Unable to load today's sessions.",
   "Impossible de modifier la session.": "Unable to edit the session.",
+  "Impossible d'ajouter la session.": "Unable to add the session.",
   "Impossible de modifier une session active.":
     "Cannot edit an active session.",
   "L'heure de fin doit etre superieure ou egale a l'heure de debut.":
@@ -71,6 +82,7 @@ const ERROR_MAP: Record<string, string> = {
     "Session duration cannot exceed 12 hours.",
   "Tu ne peux modifier que tes sessions.":
     "You can only edit your own sessions.",
+  "Parametres invalides.": "Invalid parameters.",
   "Lien musical invalide.": "Invalid music link.",
   "Erreur reseau. Verifie ta connexion et reessaie.":
     "Network error. Check your connection and try again.",
@@ -103,16 +115,6 @@ function formatStartTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function formatClock(seconds: number) {
-  const clamped = Math.max(0, seconds);
-  const hours = Math.floor(clamped / 3600);
-  const minutes = Math.floor((clamped % 3600) / 60);
-  const secs = clamped % 60;
-  return [hours, minutes, secs]
-    .map((part) => String(part).padStart(2, "0"))
-    .join(":");
 }
 
 function formatPomodoroPhase(phase: string | null | undefined) {
@@ -163,12 +165,6 @@ function looksLikeUuid(value: string) {
   );
 }
 
-function datetimeLocalToIso(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toISOString();
-}
-
 function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
@@ -205,18 +201,30 @@ export function FocusPanel({
   const [musicUrl, setMusicUrl] = React.useState("");
   const [isPomodoroUpdating, setIsPomodoroUpdating] = React.useState(false);
   const [isEditingSession, setIsEditingSession] = React.useState(false);
+  const [isAddingManualSession, setIsAddingManualSession] =
+    React.useState(false);
+  const [isManualModalOpen, setIsManualModalOpen] = React.useState(false);
   const [editingSession, setEditingSession] = React.useState<SessionRow | null>(
     null,
   );
   const [editError, setEditError] = React.useState<string | null>(null);
+  const [manualAddError, setManualAddError] = React.useState<string | null>(
+    null,
+  );
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [isFullscreenMode, setIsFullscreenMode] = React.useState(false);
+  const [intervalBellMinutes, setIntervalBellMinutes] = React.useState(
+    DEFAULT_FOCUS_INTERVAL_MINUTES,
+  );
   const startHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const stopHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const toastTimeoutRef = React.useRef<number | null>(null);
   const autoTransitionRef = React.useRef(false);
   const previousPhaseRef = React.useRef<string | null>(null);
+  const wasRunningRef = React.useRef(false);
+  const hasInitializedRunningRef = React.useRef(false);
   const hasActiveSession = Boolean(activeSession);
+  const hasRunningSession = Boolean(activeSession && !activeSession.ended_at);
   const hasValidId =
     typeof activeSession?.id === "string" && looksLikeUuid(activeSession.id);
   const parsedStartedAtMs =
@@ -225,12 +233,12 @@ export function FocusPanel({
       : null;
   const hasValidStartedAt = Number.isFinite(parsedStartedAtMs ?? Number.NaN);
   const isActiveSessionValid =
-    Boolean(activeSession) && hasValidId && hasValidStartedAt;
+    hasRunningSession && hasValidId && hasValidStartedAt;
   const timeError =
     hasActiveSession && !hasValidStartedAt
       ? "Invalid start time. Refresh the page."
       : null;
-  const isRunning = isActiveSessionValid;
+  const isRunning = hasRunningSession;
   const pomodoroPhase = pomodoroEnabled
     ? (activeSession?.pomodoro_phase ?? null)
     : null;
@@ -293,6 +301,28 @@ export function FocusPanel({
     (sum, session) => sum + (session.duration_seconds ?? 0),
     0,
   );
+  const {
+    requestNotificationPermission,
+    isPermissionGranted,
+    permissionState,
+    playTestSound,
+  } = useIntervalBell({
+    enabled: isRunning,
+    intervalMinutes: intervalBellMinutes,
+    title: "Focus interval",
+  });
+
+  React.useEffect(() => {
+    if (!hasInitializedRunningRef.current) {
+      hasInitializedRunningRef.current = true;
+      wasRunningRef.current = isRunning;
+      return;
+    }
+    if (isRunning && !wasRunningRef.current) {
+      void playTestSound();
+    }
+    wasRunningRef.current = isRunning;
+  }, [isRunning, playTestSound]);
 
   const handlePomodoroSkip = React.useCallback(async () => {
     if (!activeSession || !hasValidId || isPomodoroUpdating) return;
@@ -324,6 +354,27 @@ export function FocusPanel({
 
   React.useEffect(() => {
     try {
+      const stored = window.localStorage.getItem(FOCUS_INTERVAL_STORAGE_KEY);
+      if (!stored) {
+        setIntervalBellMinutes(DEFAULT_FOCUS_INTERVAL_MINUTES);
+        return;
+      }
+      setIntervalBellMinutes(normalizeFocusIntervalMinutes(stored));
+    } catch {
+      setIntervalBellMinutes(DEFAULT_FOCUS_INTERVAL_MINUTES);
+    }
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== FOCUS_INTERVAL_STORAGE_KEY) return;
+      setIntervalBellMinutes(normalizeFocusIntervalMinutes(event.newValue));
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  React.useEffect(() => {
+    try {
       window.localStorage.setItem(
         "focus.fullscreen",
         isFullscreenMode ? "1" : "0",
@@ -332,7 +383,7 @@ export function FocusPanel({
   }, [isFullscreenMode]);
 
   React.useEffect(() => {
-    if (!activeSession || !isActiveSessionValid) {
+    if (!activeSession || !hasRunningSession || !isActiveSessionValid) {
       setElapsedSeconds(0);
       return;
     }
@@ -345,7 +396,12 @@ export function FocusPanel({
     tick();
     const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
-  }, [activeSession, isActiveSessionValid, parsedStartedAtMs]);
+  }, [
+    activeSession,
+    hasRunningSession,
+    isActiveSessionValid,
+    parsedStartedAtMs,
+  ]);
 
   React.useEffect(() => {
     if (!hasPomodoroPhase || !activeSession) {
@@ -596,6 +652,63 @@ export function FocusPanel({
     router.refresh();
   }
 
+  async function handleManualAddSubmit(values: {
+    startedAt: string;
+    endedAt: string;
+    taskId: string | null;
+  }) {
+    const startedAtIso = datetimeLocalToIso(values.startedAt);
+    const endedAtIso = datetimeLocalToIso(values.endedAt);
+
+    if (!startedAtIso || !endedAtIso) {
+      const message = "Invalid date value.";
+      setManualAddError(message);
+      pushToast({ title: message, variant: "error" });
+      return;
+    }
+
+    setManualAddError(null);
+    setIsAddingManualSession(true);
+    const result = await addManualSession({
+      startedAt: startedAtIso,
+      endedAt: endedAtIso,
+      taskId: values.taskId,
+    });
+
+    if (!result.success) {
+      const message = toEnglishError(result.error);
+      setManualAddError(message);
+      pushToast({ title: message, variant: "error" });
+      setIsAddingManualSession(false);
+      return;
+    }
+
+    setIsAddingManualSession(false);
+    setManualAddError(null);
+    setIsManualModalOpen(false);
+    pushToast({ title: "Session added", variant: "success" });
+    router.refresh();
+  }
+
+  async function handleEnableNotifications() {
+    const permission = await requestNotificationPermission();
+    if (permission === "granted") {
+      pushToast({ title: "Notifications enabled", variant: "success" });
+      return;
+    }
+    if (permission === "denied") {
+      pushToast({
+        title: "Notifications blocked",
+        description: "You can still use interval sound reminders.",
+        variant: "info",
+      });
+    }
+  }
+
+  async function handleTestSound() {
+    await playTestSound();
+  }
+
   return (
     <div
       className={[
@@ -632,6 +745,42 @@ export function FocusPanel({
             </Button>
           </div>
         </div>
+        {isRunning ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-800">
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full bg-emerald-500"
+                aria-hidden="true"
+              />
+              Session running
+            </span>
+            <span>Bell every {intervalBellMinutes}m</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={handleTestSound}
+            >
+              Test sound
+            </Button>
+            {isPermissionGranted ? (
+              <Badge variant="accent">Notifications on</Badge>
+            ) : null}
+          </div>
+        ) : null}
+        {permissionState === "default" ? (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+            <span>Browser notifications are off.</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={handleEnableNotifications}
+            >
+              Enable notifications
+            </Button>
+          </div>
+        ) : null}
         <div className="flex flex-col items-center gap-3">
           <ProgressRing
             value={phaseProgress}
@@ -648,9 +797,10 @@ export function FocusPanel({
                 : "stroke-emerald-500"
             }
           >
-            <p className="numeric-tabular text-foreground text-5xl font-semibold tracking-tight sm:text-6xl">
-              {isActiveSessionValid ? formatClock(elapsedSeconds) : "00:00:00"}
-            </p>
+            <FocusCircleTimer
+              isRunning={isRunning && !isStopping}
+              startedAt={activeSession?.started_at ?? null}
+            />
           </ProgressRing>
           <p className="text-muted-foreground text-xs">
             Shortcut: press Space to start/stop
@@ -864,9 +1014,22 @@ export function FocusPanel({
           <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
             Today&apos;s sessions
           </h2>
-          <Badge variant="neutral">
-            Total {formatElapsed(totalFocusedSecondsToday)}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="neutral">
+              Total {formatElapsed(totalFocusedSecondsToday)}
+            </Badge>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setManualAddError(null);
+                setIsManualModalOpen(true);
+              }}
+            >
+              Add session
+            </Button>
+          </div>
         </div>
         {todaySessions.length === 0 ? (
           <p className="border-border bg-card text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
@@ -954,6 +1117,22 @@ export function FocusPanel({
           setEditError(null);
         }}
         onSubmit={handleEditSubmit}
+      />
+      <ManualAddSessionModal
+        open={isManualModalOpen}
+        tasks={tasks}
+        isSubmitting={isAddingManualSession}
+        error={manualAddError}
+        onClose={() => {
+          if (isAddingManualSession) return;
+          setIsManualModalOpen(false);
+          setManualAddError(null);
+        }}
+        onSubmit={handleManualAddSubmit}
+        onValidationError={(message) => {
+          setManualAddError(message);
+          pushToast({ title: message, variant: "error" });
+        }}
       />
     </div>
   );
