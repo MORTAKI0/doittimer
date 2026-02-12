@@ -43,74 +43,122 @@ export default function HomePage() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-6 py-20 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-        <div>
-          <p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
-            Pomodoro, tasks, and focus in one place
-          </p>
-          <h1 className="mt-5 text-page-title text-foreground">Focus deeply without noisy productivity tooling.</h1>
-          <p className="mt-4 max-w-xl text-base text-muted-foreground">DoItTimer gives you a reliable focus loop with clean task management and practical daily insights.</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/signup" className={buttonStyles({ size: "lg" })}>Create free account</Link>
-            <Link href="/login" className={buttonStyles({ variant: "secondary", size: "lg" })}>I already have an account</Link>
-          </div>
-        </div>
-
-        <Card className="space-y-6 p-7" variant="interactive">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Current focus</p>
-              <p className="text-xs text-muted-foreground">Task: Product review prep</p>
+      <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="grid items-center gap-12 lg:grid-cols-2">
+          <div className="animate-fadeInUp space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1 text-xs font-semibold text-emerald-700">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              Free &middot; No credit card required
             </div>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">Running</span>
+            <h1 className="text-page-title text-foreground leading-tight">
+              Pomodoro, tasks, and focus
+              <span className="block bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                in one place.
+              </span>
+            </h1>
+            <p className="mt-4 max-w-xl text-base text-muted-foreground">DoItTimer gives you a reliable focus loop with clean task management and practical daily insights.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/signup" className={buttonStyles({ size: "lg" })}>Create free account</Link>
+              <Link href="/login" className={buttonStyles({ variant: "secondary", size: "lg" })}>I already have an account</Link>
+            </div>
           </div>
-          <div className="flex items-center justify-center">
-            <ProgressRing value={0.33} size={200}>
-              <p className="numeric-tabular text-center text-4xl font-semibold tracking-tight text-foreground">00:25:00</p>
-            </ProgressRing>
-          </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>8 min elapsed</span>
-            <span>17 min remaining</span>
-          </div>
-        </Card>
+
+          <Card className="space-y-6 p-7" variant="interactive">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Current focus</p>
+                <p className="text-xs text-muted-foreground">Task: Product review prep</p>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">Running</span>
+            </div>
+
+            <div className="animate-fadeInUp stagger-3 animate-floatSoft flex justify-center">
+              <div className="card-hover-lift w-full max-w-xs rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
+                <ProgressRing value={0.33} size={200}>
+                  <p className="numeric-tabular text-center text-4xl font-semibold tracking-tight text-foreground">00:25:00</p>
+                </ProgressRing>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>8 min elapsed</span>
+              <span>17 min remaining</span>
+            </div>
+          </Card>
+        </div>
       </section>
 
-      <section className="border-y border-border/80 bg-muted/20">
-        <div className="mx-auto grid max-w-6xl gap-4 px-6 py-16 md:grid-cols-3">
-          {features.map((feature) => (
-            <Card key={feature.title} variant="interactive" className="space-y-2">
-              <h2 className="text-card-title text-foreground">{feature.title}</h2>
-              <p className="text-sm text-muted-foreground">{feature.desc}</p>
-            </Card>
+      <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="text-center space-y-3">
+          <p className="text-overline">Features</p>
+          <h2 className="text-section-title text-foreground">Everything you need to stay focused</h2>
+        </div>
+        <div className="mt-10 grid gap-6 sm:grid-cols-3">
+          <div className="animate-fadeInUp stagger-1 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100">
+              <span className="text-xl">🎯</span>
+            </div>
+            <h3 className="text-card-title text-foreground">Focus sessions</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Start a timer, link a task, and track every minute. See your
+              daily stats at a glance.
+            </p>
+          </div>
+          <div className="animate-fadeInUp stagger-2 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
+              <span className="text-xl">✅</span>
+            </div>
+            <h3 className="text-card-title text-foreground">Task management</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Create, schedule, and queue tasks. Filter by project, status,
+              or due date.
+            </p>
+          </div>
+          <div className="animate-fadeInUp stagger-3 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100">
+              <span className="text-xl">📊</span>
+            </div>
+            <h3 className="text-card-title text-foreground">Dashboard insights</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Track trends in focus minutes, completion rate, and on-time
+              delivery across any range.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="text-center space-y-3">
+          <p className="text-overline">How it works</p>
+          <h2 className="text-section-title text-foreground">Three steps to flow state</h2>
+        </div>
+        <div className="mt-10 grid gap-8 sm:grid-cols-3">
+          {[
+            { step: "1", title: "Add your tasks", desc: "Create tasks, assign projects, and set due dates." },
+            { step: "2", title: "Start a session", desc: "Hit Space or tap Start, link a task, and enter flow." },
+            { step: "3", title: "Track progress", desc: "Review your dashboard, see trends, adjust your plan." },
+          ].map((item, i) => (
+            <div key={item.step} className={`animate-fadeInUp stagger-${i + 1} flex flex-col items-center gap-3 text-center`}>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-sm font-bold text-white shadow-md">
+                {item.step}
+              </span>
+              <h3 className="text-card-title text-foreground">{item.title}</h3>
+              <p className="text-sm text-muted-foreground">{item.desc}</p>
+            </div>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <div className="mb-8">
-          <h2 className="text-section-title text-foreground">How it works</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Three simple steps to run your day with intention.</p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {steps.map((step) => (
-            <Card key={step.n} className="space-y-2">
-              <p className="numeric-tabular text-xs font-semibold text-emerald-700">{step.n}</p>
-              <h3 className="text-card-title text-foreground">{step.title}</h3>
-              <p className="text-sm text-muted-foreground">{step.desc}</p>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-t border-border/80 bg-emerald-600">
-        <div className="mx-auto max-w-4xl px-6 py-16 text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-white">Ready to focus better?</h2>
-          <p className="mt-3 text-sm text-emerald-100">Start with a free account and build a steady focus rhythm.</p>
-          <div className="mt-6">
-            <Link href="/signup" className="inline-flex h-11 items-center justify-center rounded-xl border border-white bg-white px-5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50">
-              Get started
-            </Link>
+      <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="animate-scaleIn rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 p-12 text-center">
+          <h2 className="text-section-title text-foreground">
+            Ready to build better habits?
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+            Join for free. No credit card, no ads, no limitations.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href="/signup" className={buttonStyles({ size: "lg" })}>Create free account</Link>
+            <Link href="/login" className={buttonStyles({ variant: "secondary", size: "lg" })}>Sign in</Link>
           </div>
         </div>
       </section>

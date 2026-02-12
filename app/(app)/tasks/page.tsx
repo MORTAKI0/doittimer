@@ -62,16 +62,16 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
   const statusParam = searchParams.status;
   const status =
     statusParam === "active"
-    || statusParam === "completed"
-    || statusParam === "archived"
-    || statusParam === "all"
+      || statusParam === "completed"
+      || statusParam === "archived"
+      || statusParam === "all"
       ? statusParam
       : "all";
   const scheduledParam = searchParams.scheduled;
   const scheduledOnly =
     scheduledParam === "all"
-    || scheduledParam === "scheduled"
-    || scheduledParam === "unscheduled"
+      || scheduledParam === "scheduled"
+      || scheduledParam === "unscheduled"
       ? scheduledParam
       : "all";
   const rangeParam = searchParams.range;
@@ -173,7 +173,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1">
+      <div className="animate-fadeInUp space-y-1">
         <h1 className="text-page-title text-foreground">Tasks</h1>
         <p className="text-sm text-muted-foreground">
           Plan your day, manage queue order, and keep task states clean.
@@ -182,7 +182,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
 
       <div className="grid gap-8 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
         <div className="space-y-6 lg:sticky lg:top-24 lg:h-fit">
-          <Card>
+          <Card className="animate-fadeInUp stagger-1">
             <CardHeader>
               <CardTitle>Create task</CardTitle>
               <CardDescription>Add quickly with project and schedule hints.</CardDescription>
@@ -195,13 +195,13 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
             />
           </Card>
 
-          <Card>
+          <Card className="animate-fadeInUp stagger-2">
             <ProjectsPanel initialProjects={projects} initialError={projectsError} />
           </Card>
         </div>
 
         <div className="space-y-6">
-          <Card className="space-y-4">
+          <Card className="animate-fadeInUp stagger-3 space-y-4">
             <div data-testid="tasks-list">
               {listError ? (
                 <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -233,14 +233,14 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                     </div>
                   ) : (
                     <div className="space-y-6">
-                        <TaskList
-                          tasks={tasks}
-                          projects={activeProjects}
-                          pomodoroStatsByTaskId={pomodoroStatsByTaskId}
-                          queueItems={queueItems}
-                          currentRange={scheduledRange}
-                          currentDate={scheduledDate}
-                        />
+                      <TaskList
+                        tasks={tasks}
+                        projects={activeProjects}
+                        pomodoroStatsByTaskId={pomodoroStatsByTaskId}
+                        queueItems={queueItems}
+                        currentRange={scheduledRange}
+                        currentDate={scheduledDate}
+                      />
 
                       <div className="border-t border-border pt-4">
                         <Pagination

@@ -136,12 +136,15 @@ export function GlobalRunningSessionWidget({
   }
 
   return (
-    <div className="fixed bottom-20 left-3 z-40 lg:bottom-4 lg:left-4">
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 shadow-[var(--shadow-lift)] backdrop-blur">
+    <div className="animate-fadeInUp fixed bottom-20 left-3 z-40 lg:bottom-4 lg:left-4">
+      <div className={[
+        "rounded-xl border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 shadow-[var(--shadow-lift)] backdrop-blur transition-shadow duration-300",
+        isRunning ? "animate-glowPulse" : "",
+      ].join(" ")}>
         <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase">
           <span
             className={[
-              "h-1.5 w-1.5 rounded-full",
+              "h-2 w-2 rounded-full transition-colors",
               isRunning ? "animate-pulse bg-emerald-500" : "bg-slate-400",
             ].join(" ")}
           />
@@ -153,7 +156,7 @@ export function GlobalRunningSessionWidget({
           </span>
           <Link
             href="/focus"
-            className="rounded-md border border-emerald-300 bg-white/80 px-2 py-1 text-[11px] font-medium text-emerald-800 transition hover:bg-white"
+            className="rounded-md border border-emerald-300 bg-white/80 px-2 py-1 text-[11px] font-medium text-emerald-800 transition-all duration-200 hover:bg-white hover:shadow-sm"
           >
             {isRunning ? "Open" : "Go to Focus"}
           </Link>

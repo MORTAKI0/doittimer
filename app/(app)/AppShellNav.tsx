@@ -27,12 +27,28 @@ const GlobalRunningSessionWidget = dynamic(
   { ssr: false },
 );
 
-const NAV_LINKS = [
+const CORE_LINKS = [
   { href: "/dashboard", label: "Dashboard", Icon: IconDashboard },
   { href: "/tasks", label: "Tasks", Icon: IconTasks },
   { href: "/focus", label: "Focus", Icon: IconFocus },
+] as const;
+
+const SETTINGS_LINKS = [
   { href: "/settings", label: "Settings", Icon: IconSettings },
 ] as const;
+
+const NAV_LINKS = [...CORE_LINKS, ...SETTINGS_LINKS] as const;
+
+function UserAvatar({ email }: { email: string | null }) {
+  const initials = email
+    ? email.slice(0, 2).toUpperCase()
+    : "U";
+  return (
+    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-800">
+      {initials}
+    </span>
+  );
+}
 
 type AppShellNavProps = {
   children: React.ReactNode;
@@ -105,9 +121,15 @@ export function AppShellNav({
       <div className="mx-auto grid min-h-dvh max-w-[1200px] grid-cols-1 lg:grid-cols-[220px_1fr]">
         <aside className="border-border/80 bg-muted/20 hidden border-r lg:block">
           <div className="sticky top-0 flex h-dvh flex-col px-4 py-6">
-            <Brand />
+            <div className="flex items-center justify-between">
+              <Brand />
+              <span className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/50 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                ⌘K
+              </span>
+            </div>
             <nav className="mt-8 space-y-1" aria-label="Main navigation">
-              {NAV_LINKS.map((link) => {
+              <p className="text-overline mb-2 px-3">Core</p>
+              {CORE_LINKS.map((link) => {
                 const isActive =
                   pathname === link.href ||
                   pathname.startsWith(`${link.href}/`);
@@ -117,10 +139,10 @@ export function AppShellNav({
                     href={link.href}
                     aria-current={isActive ? "page" : undefined}
                     className={[
-                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all duration-150",
+                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all duration-200",
                       isActive
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                        : "text-muted-foreground hover:border-border hover:bg-card hover:text-foreground border-transparent",
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm"
+                        : "text-muted-foreground border-transparent hover:border-border hover:bg-card hover:text-foreground hover:translate-x-0.5",
                     ].join(" ")}
                   >
                     <link.Icon className="h-4 w-4" aria-hidden="true" />
@@ -133,22 +155,50 @@ export function AppShellNav({
                   </Link>
                 );
               })}
+
+              <div className="my-3 border-t border-border/50" />
+              <p className="text-overline mb-2 px-3">Workspace</p>
+              {SETTINGS_LINKS.map((link) => {
+                const isActive =
+                  pathname === link.href ||
+                  pathname.startsWith(`${link.href}/`);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={[
+                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all duration-200",
+                      isActive
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm"
+                        : "text-muted-foreground border-transparent hover:border-border hover:bg-card hover:text-foreground hover:translate-x-0.5",
+                    ].join(" ")}
+                  >
+                    <link.Icon className="h-4 w-4" aria-hidden="true" />
+                    <span>{link.label}</span>
+                  </Link>
+                );
+              })}
             </nav>
             <div className="mt-auto space-y-3">
               {hasActiveFocus ? (
                 <Link
                   href="/focus"
-                  className="block rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"
+                  className="animate-fadeIn block rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900 shadow-sm"
                 >
-                  <div className="font-semibold">Focus now running</div>
+                  <div className="flex items-center gap-2 font-semibold">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                    Focus running
+                  </div>
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <span>Session</span>
-                    <span className="numeric-tabular">Live timer active</span>
+                    <span>Active session</span>
+                    <span className="numeric-tabular">Live</span>
                   </div>
                 </Link>
               ) : null}
-              <div className="border-border bg-card flex items-center justify-between rounded-xl border px-3 py-2">
-                <p className="text-muted-foreground truncate text-xs">
+              <div className="border-border bg-card flex items-center gap-2 rounded-xl border px-3 py-2">
+                <UserAvatar email={userEmail} />
+                <p className="text-muted-foreground flex-1 truncate text-xs">
                   {userEmail ?? "Signed in"}
                 </p>
                 <ThemeToggle initialTheme={initialTheme} />

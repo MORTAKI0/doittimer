@@ -40,30 +40,39 @@ export default async function SettingsPage() {
   const notionError = notionResult.success ? null : notionResult.error;
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
+    <div className="space-y-8">
+      <div className="animate-fadeInUp space-y-1">
         <p className="text-overline">Workspace</p>
         <h1 className="text-page-title text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground">Personalize focus defaults, integrations, and data controls.</p>
+        <p className="text-sm text-muted-foreground">
+          Manage your account, preferences, and integrations.
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card variant="accent" className="space-y-3 p-6">
+        <Card variant="accent" className="animate-fadeInUp stagger-1 space-y-3 p-6">
           <p className="text-overline">Profile</p>
-          <p className="text-sm text-muted-foreground">Signed in as</p>
-          <p className="text-base font-semibold text-foreground">{email}</p>
+          <div className="flex items-center gap-4 rounded-xl bg-muted/30 p-4">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-800">
+              {email ? email.slice(0, 2).toUpperCase() : "U"}
+            </span>
+            <div>
+              <p className="text-sm font-medium text-foreground">{email ?? "Unknown"}</p>
+              <p className="text-xs text-muted-foreground">Signed in</p>
+            </div>
+          </div>
           <form action={signOutAction} className="pt-2">
             <Button type="submit" variant="secondary">Sign out</Button>
           </form>
         </Card>
 
-        <Card className="space-y-3 p-6">
+        <Card className="animate-fadeInUp stagger-2 space-y-3 p-6">
           <p className="text-overline">Theme</p>
           <p className="text-sm text-muted-foreground">Theme can be toggled in the app navigation. Preference is saved per session cookie.</p>
         </Card>
       </div>
 
-      <Card className="space-y-4 p-6">
+      <Card className="animate-fadeInUp stagger-3 space-y-4 p-6">
         <div>
           <p className="text-overline">Focus Defaults</p>
           <p className="mt-2 text-sm text-muted-foreground">Auto-save is enabled. You can also click Save now as fallback.</p>
@@ -80,8 +89,12 @@ export default async function SettingsPage() {
         />
       </Card>
 
-      <DataManagementCard />
-      <NotionIntegrationCard initialConnection={notionConnection} initialError={notionError} />
+      <div className="animate-fadeInUp stagger-4">
+        <DataManagementCard />
+      </div>
+      <div className="animate-fadeInUp stagger-5">
+        <NotionIntegrationCard initialConnection={notionConnection} initialError={notionError} />
+      </div>
     </div>
   );
 }
