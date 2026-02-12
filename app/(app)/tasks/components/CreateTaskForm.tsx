@@ -227,7 +227,7 @@ export function CreateTaskForm({
       ) : null}
 
       <Button type="submit" disabled={isDisabled} className="w-full">
-        {isPending ? "Creating..." : "Add task"}
+        {isPending ? "Creating..." : "+ Add task"}
       </Button>
       <p className="text-center text-xs text-muted-foreground">
         Your task will appear in the list instantly.

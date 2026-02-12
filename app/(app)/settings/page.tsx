@@ -68,7 +68,13 @@ export default async function SettingsPage() {
 
         <Card className="animate-fadeInUp stagger-2 space-y-3 p-6">
           <p className="text-overline">Theme</p>
-          <p className="text-sm text-muted-foreground">Theme can be toggled in the app navigation. Preference is saved per session cookie.</p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-lg" aria-hidden="true">🌙</span>
+            <div>
+              <p className="text-sm font-medium text-foreground">Dark mode active</p>
+              <p className="text-xs text-muted-foreground">Toggle via the sidebar ☀️ / 🌙 button.</p>
+            </div>
+          </div>
         </Card>
       </div>
 

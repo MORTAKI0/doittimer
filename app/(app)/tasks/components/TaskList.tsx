@@ -565,7 +565,7 @@ export function TaskList({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-3">
                       <span className={[
-                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                        "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full",
                         isArchived ? "bg-slate-400" : task.completed ? "bg-emerald-500" : "bg-blue-500",
                       ].join(" ")} aria-hidden="true" />
                       <input

@@ -43,7 +43,11 @@ export default function HomePage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <section className="relative mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24 overflow-hidden">
+        {/* Hero background decoration */}
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+          <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-gradient-to-br from-emerald-500/[0.07] via-teal-500/[0.04] to-transparent blur-3xl" />
+        </div>
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div className="animate-fadeInUp space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1 text-xs font-semibold text-emerald-700">
@@ -59,7 +63,7 @@ export default function HomePage() {
             <p className="mt-4 max-w-xl text-base text-muted-foreground">DoItTimer gives you a reliable focus loop with clean task management and practical daily insights.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/signup" className={buttonStyles({ size: "lg" })}>Create free account</Link>
-              <Link href="/login" className={buttonStyles({ variant: "secondary", size: "lg" })}>I already have an account</Link>
+              <Link href="/login" className={`${buttonStyles({ variant: "secondary", size: "lg" })} border border-border/80`}>I already have an account</Link>
             </div>
           </div>
 
@@ -72,7 +76,7 @@ export default function HomePage() {
               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">Running</span>
             </div>
 
-            <div className="animate-fadeInUp stagger-3 animate-floatSoft flex justify-center">
+            <div className="animate-floatSoft flex justify-center">
               <div className="card-hover-lift w-full max-w-xs rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
                 <ProgressRing value={0.33} size={200}>
                   <p className="numeric-tabular text-center text-4xl font-semibold tracking-tight text-foreground">00:25:00</p>
@@ -94,8 +98,8 @@ export default function HomePage() {
         </div>
         <div className="mt-10 grid gap-6 sm:grid-cols-3">
           <div className="animate-fadeInUp stagger-1 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100">
-              <span className="text-xl">🎯</span>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15">
+              <span className="text-xl" aria-hidden="true">🎯</span>
             </div>
             <h3 className="text-card-title text-foreground">Focus sessions</h3>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -104,8 +108,8 @@ export default function HomePage() {
             </p>
           </div>
           <div className="animate-fadeInUp stagger-2 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
-              <span className="text-xl">✅</span>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/15">
+              <span className="text-xl" aria-hidden="true">✅</span>
             </div>
             <h3 className="text-card-title text-foreground">Task management</h3>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -114,8 +118,8 @@ export default function HomePage() {
             </p>
           </div>
           <div className="animate-fadeInUp stagger-3 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100">
-              <span className="text-xl">📊</span>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/15">
+              <span className="text-xl" aria-hidden="true">📊</span>
             </div>
             <h3 className="text-card-title text-foreground">Dashboard insights</h3>
             <p className="mt-2 text-sm text-muted-foreground">
