@@ -1,0 +1,77 @@
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+⨯ Error: You must be signed in.
+    at getDashboardSummary (app\actions\dashboard.ts:322:11)
+    at async DashboardPage (app\(app)\dashboard\page.tsx:239:19)
+  320 |
+  321 |   if (userError || !userData.user) {
+> 322 |     throw new Error("You must be signed in.");
+      |           ^
+  323 |   }
+  324 |
+  325 |   const userId = userData.user.id; {
+  digest: '155834646'
+}
+TypeError: fetch failed
+    at async signUpAction (lib\auth\actions.ts:44:23)
+  42 |   try {
+  43 |     const supabase = await createSupabaseServerClient();
+> 44 |     const { error } = await supabase.auth.signUp({
+     |                       ^
+  45 |       email: parsed.data.email,
+  46 |       password: parsed.data.password,
+  47 |     }); {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at async signInAction (lib\auth\actions.ts:72:23)
+  70 |   try {
+  71 |     const supabase = await createSupabaseServerClient();
+> 72 |     const { error } = await supabase.auth.signInWithPassword({
+     |                       ^
+  73 |       email: parsed.data.email,
+  74 |       password: parsed.data.password,
+  75 |     }); {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+{
+  prefix: '[doittimer]',
+  scope: 'actions.dashboard.getDashboardSummary.auth',
+  reqId: null,
+  userId: null,
+  code: 'auth_required',
+  message: 'You must be signed in to continue.',
+  retryable: false,
+  severity: 'info',
+  context: { range: 'today', from: null, to: null },
+  meta: { supabaseMessage: 'Auth session missing!', status: 400 }
+}
+^C

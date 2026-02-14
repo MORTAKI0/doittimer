@@ -3,6 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 
+import { subscribeCrossTabEvents } from "@/lib/crossTab/channel";
+import { consumeRecentEvent } from "@/lib/realtime/eventDeduper";
+import { scheduleRouteRefresh } from "@/lib/realtime/routeRefreshScheduler";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { formatDuration } from "@/lib/time/formatDuration";
 
 type ActiveSessionInput = {
@@ -13,12 +17,18 @@ type ActiveSessionInput = {
 
 type GlobalRunningSessionWidgetProps = {
   activeSession: ActiveSessionInput | null;
+  userId: string | null;
   appName?: string;
 };
 
 type ActiveSessionResponse = {
   activeSession: ActiveSessionInput | null;
 };
+
+function readField(record: unknown, key: string) {
+  if (!record || typeof record !== "object") return undefined;
+  return (record as Record<string, unknown>)[key];
+}
 
 function formatTitleTime(totalSeconds: number) {
   const clamped = Math.max(0, Math.floor(totalSeconds));
@@ -32,6 +42,7 @@ function formatTitleTime(totalSeconds: number) {
 
 export function GlobalRunningSessionWidget({
   activeSession,
+  userId,
   appName = "DoItTimer",
 }: GlobalRunningSessionWidgetProps) {
   const [mounted, setMounted] = React.useState(false);
@@ -131,17 +142,89 @@ export function GlobalRunningSessionWidget({
     return () => window.clearInterval(pollTimer);
   }, [mounted]);
 
+  const scheduleWidgetPoll = React.useCallback(() => {
+    scheduleRouteRefresh({
+      routeKey: "global-active-session",
+      reason: "sync:active-session",
+      refresh: () => {
+        void (async () => {
+          try {
+            const response = await fetch("/api/sessions/active", {
+              method: "GET",
+              cache: "no-store",
+            });
+            if (!response.ok) return;
+            const data = (await response.json()) as ActiveSessionResponse;
+            setSession(data.activeSession ?? null);
+            if (!data.activeSession) {
+              setElapsedSeconds(0);
+            }
+          } catch {
+            // Ignore transient refresh errors.
+          }
+        })();
+      },
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (!mounted) return;
+
+    return subscribeCrossTabEvents((event) => {
+      if (!event.type.startsWith("focus:")) return;
+      const key = event.entityId ? `sessions:${event.entityId}` : `event:${event.eventId}`;
+      if (!consumeRecentEvent(key)) return;
+      scheduleWidgetPoll();
+    });
+  }, [mounted, scheduleWidgetPoll]);
+
+  React.useEffect(() => {
+    if (!mounted || !userId) return;
+
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel(`global:sessions:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sessions",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const maybeNewId = readField(payload.new, "id");
+          const maybeOldId = readField(payload.old, "id");
+          const maybeId = typeof maybeNewId === "string"
+            ? maybeNewId
+            : typeof maybeOldId === "string"
+              ? maybeOldId
+              : "unknown";
+          if (!consumeRecentEvent(`sessions:${maybeId}`)) return;
+          scheduleWidgetPoll();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [mounted, scheduleWidgetPoll, userId]);
+
   if (!mounted) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-20 left-3 z-40 lg:bottom-4 lg:left-4">
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 shadow-[var(--shadow-lift)] backdrop-blur">
+    <div className="animate-fadeInUp fixed bottom-20 left-3 z-40 lg:bottom-4 lg:left-4">
+      <div className={[
+        "rounded-xl border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 shadow-[var(--shadow-lift)] backdrop-blur transition-shadow duration-300",
+        isRunning ? "animate-glowPulse" : "",
+      ].join(" ")}>
         <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase">
           <span
             className={[
-              "h-1.5 w-1.5 rounded-full",
+              "h-2 w-2 rounded-full transition-colors",
               isRunning ? "animate-pulse bg-emerald-500" : "bg-slate-400",
             ].join(" ")}
           />
@@ -153,7 +236,7 @@ export function GlobalRunningSessionWidget({
           </span>
           <Link
             href="/focus"
-            className="rounded-md border border-emerald-300 bg-white/80 px-2 py-1 text-[11px] font-medium text-emerald-800 transition hover:bg-white"
+            className="rounded-md border border-emerald-300 bg-white/80 px-2 py-1 text-[11px] font-medium text-emerald-800 transition-all duration-200 hover:bg-white hover:shadow-sm"
           >
             {isRunning ? "Open" : "Go to Focus"}
           </Link>

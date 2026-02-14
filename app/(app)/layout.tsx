@@ -37,6 +37,7 @@ export default async function AppLayout({
   return (
     <AppShellNav
       initialTheme={initialTheme}
+      userId={user.id}
       userEmail={user.email ?? null}
       queueCount={queueCount}
       hasActiveFocus={Boolean(activeSession)}

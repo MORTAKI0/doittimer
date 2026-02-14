@@ -30,6 +30,9 @@ import {
   FOCUS_INTERVAL_STORAGE_KEY,
   normalizeFocusIntervalMinutes,
 } from "@/lib/focusInterval";
+import { publishCrossTabEvent } from "@/lib/crossTab/channel";
+import { useFocusLeader } from "@/lib/crossTab/leader";
+import { scheduleRouteRefresh } from "@/lib/realtime/routeRefreshScheduler";
 import { useIntervalBell } from "@/lib/useIntervalBell";
 import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
@@ -186,6 +189,7 @@ export function FocusPanel({
   queueItems,
 }: FocusPanelProps) {
   const router = useRouter();
+  const { isLeader } = useFocusLeader();
   const { pushToast } = useToast();
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
@@ -263,7 +267,7 @@ export function FocusPanel({
   );
   const parsedPhaseStartedAtMs =
     hasPomodoroPhase &&
-    typeof activeSession?.pomodoro_phase_started_at === "string"
+      typeof activeSession?.pomodoro_phase_started_at === "string"
       ? parseTimestamptz(activeSession.pomodoro_phase_started_at)
       : null;
   const parsedPausedAtMs =
@@ -281,26 +285,62 @@ export function FocusPanel({
   );
   const phaseProgress = hasPomodoroPhase
     ? 1 -
-      Math.max(
-        0,
-        Math.min(
-          1,
-          (phaseRemainingSeconds ?? 0) / Math.max(1, phaseDurationSeconds ?? 1),
-        ),
-      )
+    Math.max(
+      0,
+      Math.min(
+        1,
+        (phaseRemainingSeconds ?? 0) / Math.max(1, phaseDurationSeconds ?? 1),
+      ),
+    )
     : 1 -
-      Math.max(
-        0,
-        Math.min(
-          1,
-          legacyRemainingSeconds /
-            Math.max(1, effectivePomodoro.workMinutes * 60),
-        ),
-      );
+    Math.max(
+      0,
+      Math.min(
+        1,
+        legacyRemainingSeconds /
+        Math.max(1, effectivePomodoro.workMinutes * 60),
+      ),
+    );
   const totalFocusedSecondsToday = todaySessions.reduce(
     (sum, session) => sum + (session.duration_seconds ?? 0),
     0,
   );
+  const requestFocusRefresh = React.useCallback(
+    (reason: string) => {
+      scheduleRouteRefresh({
+        routeKey: "/focus",
+        reason,
+        refresh: () => router.refresh(),
+      });
+    },
+    [router],
+  );
+  const publishFocusEvent = React.useCallback(
+    (
+      type: "focus:session_changed" | "focus:pomodoro_changed",
+      operation:
+        | "start"
+        | "stop"
+        | "edit"
+        | "manual_add"
+        | "pause"
+        | "resume"
+        | "skip"
+        | "restart"
+        | "update",
+      entityId?: string,
+    ) => {
+      publishCrossTabEvent({
+        type,
+        routeHint: "/focus",
+        entityType: "sessions",
+        entityId,
+        operation,
+      });
+    },
+    [],
+  );
+
   const {
     requestNotificationPermission,
     isPermissionGranted,
@@ -308,6 +348,7 @@ export function FocusPanel({
     playTestSound,
   } = useIntervalBell({
     enabled: isRunning,
+    isLeader,
     intervalMinutes: intervalBellMinutes,
     title: "Focus interval",
   });
@@ -318,11 +359,11 @@ export function FocusPanel({
       wasRunningRef.current = isRunning;
       return;
     }
-    if (isRunning && !wasRunningRef.current) {
+    if (isRunning && !wasRunningRef.current && isLeader) {
       void playTestSound();
     }
     wasRunningRef.current = isRunning;
-  }, [isRunning, playTestSound]);
+  }, [isLeader, isRunning, playTestSound]);
 
   const handlePomodoroSkip = React.useCallback(async () => {
     if (!activeSession || !hasValidId || isPomodoroUpdating) return;
@@ -331,10 +372,18 @@ export function FocusPanel({
     const result = await pomodoroSkipPhase(activeSession.id);
     if (!result.success) {
       setError(toEnglishError(result.error));
+    } else {
+      publishFocusEvent("focus:pomodoro_changed", "skip", activeSession.id);
     }
     setIsPomodoroUpdating(false);
-    router.refresh();
-  }, [activeSession, hasValidId, isPomodoroUpdating, router]);
+    requestFocusRefresh("mutation:pomodoro_skip");
+  }, [
+    activeSession,
+    hasValidId,
+    isPomodoroUpdating,
+    publishFocusEvent,
+    requestFocusRefresh,
+  ]);
 
   React.useEffect(() => {
     if (hasActiveSession || hasManualSelection || !defaultTaskId) return;
@@ -379,7 +428,7 @@ export function FocusPanel({
         "focus.fullscreen",
         isFullscreenMode ? "1" : "0",
       );
-    } catch {}
+    } catch { }
   }, [isFullscreenMode]);
 
   React.useEffect(() => {
@@ -523,7 +572,8 @@ export function FocusPanel({
     setIsStarting(false);
     setMusicUrl("");
     pushToast({ title: "Focus session started", variant: "success" });
-    router.refresh();
+    publishFocusEvent("focus:session_changed", "start", result.data.id);
+    requestFocusRefresh("mutation:start");
   }
 
   async function handleStop() {
@@ -541,7 +591,8 @@ export function FocusPanel({
 
     setIsStopping(false);
     pushToast({ title: "Focus session stopped", variant: "info" });
-    router.refresh();
+    publishFocusEvent("focus:session_changed", "stop", activeSession.id);
+    requestFocusRefresh("mutation:stop");
   }
 
   React.useEffect(() => {
@@ -578,9 +629,11 @@ export function FocusPanel({
     const result = await pomodoroPause(activeSession.id);
     if (!result.success) {
       setError(toEnglishError(result.error));
+    } else {
+      publishFocusEvent("focus:pomodoro_changed", "pause", activeSession.id);
     }
     setIsPomodoroUpdating(false);
-    router.refresh();
+    requestFocusRefresh("mutation:pomodoro_pause");
   }
 
   async function handlePomodoroResume() {
@@ -590,9 +643,11 @@ export function FocusPanel({
     const result = await pomodoroResume(activeSession.id);
     if (!result.success) {
       setError(toEnglishError(result.error));
+    } else {
+      publishFocusEvent("focus:pomodoro_changed", "resume", activeSession.id);
     }
     setIsPomodoroUpdating(false);
-    router.refresh();
+    requestFocusRefresh("mutation:pomodoro_resume");
   }
 
   async function handlePomodoroRestart() {
@@ -602,9 +657,11 @@ export function FocusPanel({
     const result = await pomodoroRestartPhase(activeSession.id);
     if (!result.success) {
       setError(toEnglishError(result.error));
+    } else {
+      publishFocusEvent("focus:pomodoro_changed", "restart", activeSession.id);
     }
     setIsPomodoroUpdating(false);
-    router.refresh();
+    requestFocusRefresh("mutation:pomodoro_restart");
   }
 
   function handleSwitchToNextUp() {
@@ -649,7 +706,8 @@ export function FocusPanel({
     setEditingSession(null);
     setEditError(null);
     pushToast({ title: "Session updated", variant: "success" });
-    router.refresh();
+    publishFocusEvent("focus:session_changed", "edit", result.data.id);
+    requestFocusRefresh("mutation:edit");
   }
 
   async function handleManualAddSubmit(values: {
@@ -687,7 +745,8 @@ export function FocusPanel({
     setManualAddError(null);
     setIsManualModalOpen(false);
     pushToast({ title: "Session added", variant: "success" });
-    router.refresh();
+    publishFocusEvent("focus:session_changed", "manual_add", result.data.id);
+    requestFocusRefresh("mutation:manual_add");
   }
 
   async function handleEnableNotifications() {
@@ -718,9 +777,9 @@ export function FocusPanel({
     >
       <div
         className={[
-          "bg-muted/25 space-y-3 rounded-2xl border p-4",
+          "bg-muted/25 space-y-3 rounded-2xl border p-4 transition-all duration-300",
           isRunning
-            ? "border-emerald-200 shadow-sm ring-1 ring-emerald-100"
+            ? "border-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100"
             : "border-border",
         ]
           .filter(Boolean)
@@ -732,10 +791,10 @@ export function FocusPanel({
               className="h-4 w-4 text-emerald-600"
               aria-hidden="true"
             />
-            Active session
+            {isRunning ? "Active session" : "Session"}
           </div>
           <div className="flex items-center gap-2">
-            {isRunning ? <Badge variant="accent">Running</Badge> : null}
+            {isRunning ? <Badge variant="accent">Running</Badge> : <Badge variant="neutral">Idle</Badge>}
             <Button
               size="sm"
               variant="secondary"
@@ -781,30 +840,36 @@ export function FocusPanel({
             </Button>
           </div>
         ) : null}
-        <div className="flex flex-col items-center gap-3">
-          <ProgressRing
-            value={phaseProgress}
-            size={220}
-            strokeWidth={12}
-            trackClassName="stroke-border"
-            indicatorClassName={
-              hasPomodoroPhase
-                ? pomodoroPhase === "work"
-                  ? "stroke-emerald-500"
-                  : pomodoroPhase === "long_break"
-                    ? "stroke-amber-500"
-                    : "stroke-teal-500"
-                : "stroke-emerald-500"
-            }
-          >
-            <FocusCircleTimer
-              isRunning={isRunning && !isStopping}
-              startedAt={activeSession?.started_at ?? null}
-            />
-          </ProgressRing>
-          <p className="text-muted-foreground text-xs">
-            Shortcut: press Space to start/stop
-          </p>
+        <div className="flex flex-col items-center gap-4">
+          <div className={[
+            "rounded-full p-1 transition-shadow duration-500",
+            isRunning ? "shadow-[0_0_40px_rgba(16,185,129,0.2)]" : "",
+          ].join(" ")}>
+            <ProgressRing
+              value={phaseProgress}
+              size={240}
+              strokeWidth={16}
+              trackClassName="stroke-border/60"
+              indicatorClassName={
+                hasPomodoroPhase
+                  ? pomodoroPhase === "work"
+                    ? "stroke-emerald-500"
+                    : pomodoroPhase === "long_break"
+                      ? "stroke-amber-500"
+                      : "stroke-teal-500"
+                  : "stroke-emerald-500"
+              }
+            >
+              <FocusCircleTimer
+                isRunning={isRunning && !isStopping}
+                startedAt={activeSession?.started_at ?? null}
+              />
+            </ProgressRing>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
+            <kbd className="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px]">Space</kbd>
+            <span>to start / stop</span>
+          </div>
         </div>
         <p className="text-muted-foreground text-sm">
           {hasPomodoroPhase
@@ -814,10 +879,26 @@ export function FocusPanel({
               : `Work duration: ${effectivePomodoro.workMinutes}m`}
         </p>
         {hasPomodoroPhase && pomodoroPhaseLabel ? (
-          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-            <span>Phase:</span>
-            <Badge variant="neutral">{pomodoroPhaseLabel}</Badge>
-            {isPomodoroPaused ? <Badge variant="neutral">Paused</Badge> : null}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className={[
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
+              pomodoroPhase === "work"
+                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                : pomodoroPhase === "long_break"
+                  ? "border border-amber-200 bg-amber-50 text-amber-700"
+                  : "border border-teal-200 bg-teal-50 text-teal-700",
+            ].join(" ")}>
+              <span className={[
+                "h-1.5 w-1.5 rounded-full",
+                pomodoroPhase === "work" ? "bg-emerald-500" : pomodoroPhase === "long_break" ? "bg-amber-500" : "bg-teal-500",
+              ].join(" ")} />
+              {pomodoroPhaseLabel}
+            </span>
+            {isPomodoroPaused ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+                ⏸ Paused
+              </span>
+            ) : null}
           </div>
         ) : null}
         {activeTaskLabel ? (
@@ -890,9 +971,9 @@ export function FocusPanel({
         <div className="space-y-2">
           <label
             htmlFor="task-select"
-            className="text-foreground text-sm font-medium"
+            className="text-foreground flex items-center gap-1.5 text-sm font-medium"
           >
-            Link a task
+            📋 Link a task
           </label>
           <Select
             id="task-select"
@@ -918,9 +999,9 @@ export function FocusPanel({
         <div className="space-y-2">
           <label
             htmlFor="music-url"
-            className="text-foreground text-sm font-medium"
+            className="text-foreground flex items-center gap-1.5 text-sm font-medium"
           >
-            Music link (optional)
+            🎵 Music link (optional)
           </label>
           <Input
             id="music-url"
@@ -956,8 +1037,10 @@ export function FocusPanel({
               isLoading={isStarting}
               loadingLabel="Starting..."
               disabled={isStopping}
+              size="lg"
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 px-8 text-white shadow-md hover:from-emerald-700 hover:to-teal-700"
             >
-              Start session
+              ▶ Start session
             </Button>
           )}
         </div>

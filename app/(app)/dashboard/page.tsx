@@ -148,6 +148,13 @@ function completionMicrocopy(rate: number) {
   return "Start with a single high-impact task to build momentum.";
 }
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 function renderTaskItems(
   items: TaskLite[],
   emptyTitle: string,
@@ -262,12 +269,12 @@ export default async function DashboardPage(props: {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="animate-fadeInUp flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-overline">Overview</p>
+          <p className="text-overline">{getGreeting()}</p>
           <h1 className="text-page-title text-foreground">Dashboard</h1>
           <p className="text-muted-foreground text-sm">
-            {summary.range.label} · timezone {summary.range.tz}
+            {summary.range.label}
           </p>
         </div>
         <Link href="/focus" className={buttonStyles({ size: "sm" })}>
@@ -275,7 +282,7 @@ export default async function DashboardPage(props: {
         </Link>
       </div>
 
-      <Card variant="accent" className="space-y-3">
+      <Card variant="accent" className="animate-fadeInUp stagger-1 space-y-3">
         <CardHeader>
           <CardTitle>Range</CardTitle>
           <CardDescription>
@@ -289,7 +296,68 @@ export default async function DashboardPage(props: {
         />
       </Card>
 
-      <Card className="space-y-4">
+      <div className="animate-fadeInUp stagger-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="card-hover-lift">
+          <KpiCard
+            label="Created"
+            tooltip="Tasks where created_at is within the selected period."
+            value={summary.kpis.created}
+            href="/tasks?status=all"
+            helperText="Range metric"
+            icon={<IconTasks className="h-4 w-4" aria-hidden="true" />}
+          />
+        </div>
+        <div className="card-hover-lift">
+          <KpiCard
+            label="Completed"
+            tooltip="Tasks where completed_at is within the selected period."
+            value={summary.kpis.completed}
+            href="/tasks?status=completed"
+            helperText="Range metric"
+            icon={<IconTrophy className="h-4 w-4" aria-hidden="true" />}
+          />
+        </div>
+        <div className="card-hover-lift">
+          <KpiCard
+            label="Archived"
+            tooltip="Tasks where archived_at is within the selected period."
+            value={summary.kpis.archived}
+            href="/tasks?status=archived"
+            helperText="Range metric"
+            icon={<IconDashboard className="h-4 w-4" aria-hidden="true" />}
+          />
+        </div>
+        <div className="card-hover-lift">
+          <KpiCard
+            label="Queue items"
+            tooltip="Number of tasks currently in your queue."
+            value={summary.kpis.queueCount}
+            href="/tasks"
+            helperText="Live value"
+            icon={<IconFocus className="h-4 w-4" aria-hidden="true" />}
+          />
+        </div>
+        <div className="card-hover-lift">
+          <KpiCard
+            label="Completion rate"
+            tooltip="Completed divided by created for the selected range."
+            value={formatPercent(summary.kpis.completionRate)}
+            href="/tasks?status=completed"
+            helperText="Range metric"
+          />
+        </div>
+        <div className="card-hover-lift">
+          <KpiCard
+            label="On-time rate"
+            tooltip="Completed tasks finished on or before their scheduled date in your timezone."
+            value={formatPercent(summary.kpis.onTimeRate)}
+            href={onTimeTasksHref}
+            helperText={`Based on ${summary.range.tz}`}
+          />
+        </div>
+      </div>
+
+      <Card className="animate-fadeInUp stagger-3 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-section-title text-foreground">Trends</h2>
@@ -304,87 +372,49 @@ export default async function DashboardPage(props: {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-3">
-          <TrendLineChart
-            title="Focus minutes"
-            points={trendPoints}
-            valueSelector={(point) => point.focus_minutes}
-            valueFormatter={(value) => `${Math.round(value ?? 0)}`}
-          />
-          <TrendLineChart
-            title="Completed tasks"
-            points={trendPoints}
-            valueSelector={(point) => point.completed_tasks}
-            valueFormatter={(value) => `${Math.round(value ?? 0)}`}
-          />
-          <TrendLineChart
-            title="On-time rate"
-            points={trendPoints}
-            valueSelector={(point) => point.on_time_rate}
-            valueFormatter={(value) =>
-              value == null ? "-" : `${Math.round(value * 100)}%`
-            }
-            emptyLabel="No scheduled completions yet"
-          />
+          <div className="card-hover-lift rounded-xl">
+            <TrendLineChart
+              title="Focus minutes"
+              points={trendPoints}
+              valueSelector={(point) => point.focus_minutes}
+              valueFormatter={(value) => `${Math.round(value ?? 0)}`}
+            />
+          </div>
+          <div className="card-hover-lift rounded-xl">
+            <TrendLineChart
+              title="Completed tasks"
+              points={trendPoints}
+              valueSelector={(point) => point.completed_tasks}
+              valueFormatter={(value) => `${Math.round(value ?? 0)}`}
+            />
+          </div>
+          <div className="card-hover-lift rounded-xl">
+            <TrendLineChart
+              title="On-time rate"
+              points={trendPoints}
+              valueSelector={(point) => point.on_time_rate}
+              valueFormatter={(value) =>
+                value == null ? "-" : `${Math.round(value * 100)}%`
+              }
+              emptyLabel="No scheduled completions yet"
+            />
+          </div>
         </div>
 
         {noTrendData ? (
-          <p className="text-muted-foreground text-xs">No data yet.</p>
+          <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center">
+            <p className="text-sm text-muted-foreground">No data yet for this period.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              <a href="/focus" className="font-medium text-emerald-600 hover:underline">Start a focus session</a> to see your trends here.
+            </p>
+          </div>
         ) : null}
         {!trendsResult.success ? (
           <p className="text-xs text-red-700">{trendsResult.error}</p>
         ) : null}
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <KpiCard
-          label="Created"
-          tooltip="Tasks where created_at is within the selected period."
-          value={summary.kpis.created}
-          href="/tasks?status=all"
-          helperText="Range metric"
-          icon={<IconTasks className="h-4 w-4" aria-hidden="true" />}
-        />
-        <KpiCard
-          label="Completed"
-          tooltip="Tasks where completed_at is within the selected period."
-          value={summary.kpis.completed}
-          href="/tasks?status=completed"
-          helperText="Range metric"
-          icon={<IconTrophy className="h-4 w-4" aria-hidden="true" />}
-        />
-        <KpiCard
-          label="Archived"
-          tooltip="Tasks where archived_at is within the selected period."
-          value={summary.kpis.archived}
-          href="/tasks?status=archived"
-          helperText="Range metric"
-          icon={<IconDashboard className="h-4 w-4" aria-hidden="true" />}
-        />
-        <KpiCard
-          label="Queue items"
-          tooltip="Number of tasks currently in your queue."
-          value={summary.kpis.queueCount}
-          href="/tasks"
-          helperText="Live value"
-          icon={<IconFocus className="h-4 w-4" aria-hidden="true" />}
-        />
-        <KpiCard
-          label="Completion rate"
-          tooltip="Completed divided by created for the selected range."
-          value={formatPercent(summary.kpis.completionRate)}
-          href="/tasks?status=completed"
-          helperText="Range metric"
-        />
-        <KpiCard
-          label="On-time rate"
-          tooltip="Completed tasks finished on or before their scheduled date in your timezone."
-          value={formatPercent(summary.kpis.onTimeRate)}
-          href={onTimeTasksHref}
-          helperText={`Based on ${summary.range.tz}`}
-        />
-      </div>
-
-      <Card className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+      <Card className="animate-scaleIn flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <div>
           <p className="text-overline">Daily completion</p>
           <h2 className="text-section-title">
@@ -421,7 +451,7 @@ export default async function DashboardPage(props: {
         </Card>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <div className="animate-fadeInUp grid gap-4 lg:grid-cols-[2fr_1fr]">
         <Card className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>

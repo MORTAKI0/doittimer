@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logServerError } from "@/lib/logging/logServerError";
 
@@ -319,7 +320,17 @@ export async function getDashboardSummary(
   const { data: userData, error: userError } = await supabase.auth.getUser();
 
   if (userError || !userData.user) {
-    throw new Error("You must be signed in.");
+    logServerError({
+      scope: "actions.dashboard.getDashboardSummary.auth",
+      userId: undefined,
+      error: userError ?? new Error("Missing authenticated user while loading dashboard."),
+      context: {
+        range: safeInput.range,
+        from: safeInput.from ?? null,
+        to: safeInput.to ?? null,
+      },
+    });
+    redirect("/login");
   }
 
   const userId = userData.user.id;

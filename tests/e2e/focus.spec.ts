@@ -3,6 +3,8 @@ import { ensureNoActiveSession, startSession, stopSession } from "./helpers";
 
 test("start and stop a focus session", async ({ page }) => {
   await page.goto("/focus");
+  await expect(page.getByText("Hydration failed")).toHaveCount(0);
+  await expect(page.getByText("server rendered HTML didn't match")).toHaveCount(0);
   await ensureNoActiveSession(page);
 
   await startSession(page);
@@ -19,4 +21,28 @@ test("start and stop a focus session", async ({ page }) => {
   await expect(sessionsList).toBeVisible();
   await expect(sessionsList.locator("li").first()).toBeVisible();
   await expect(sessionsList.locator("li").first()).toContainText(/\d+s|\d+m/);
+});
+
+test("syncs start and stop across two tabs", async ({ context }) => {
+  const pageA = await context.newPage();
+  const pageB = await context.newPage();
+
+  await pageA.goto("/focus");
+  await pageB.goto("/focus");
+
+  await ensureNoActiveSession(pageA);
+  await pageB.reload();
+
+  await startSession(pageA);
+  await expect(pageB.getByRole("button", { name: "Stop session" })).toBeVisible({
+    timeout: 10000,
+  });
+
+  await stopSession(pageB);
+  await expect(pageA.getByRole("button", { name: "Start session" })).toBeVisible({
+    timeout: 10000,
+  });
+
+  await pageA.close();
+  await pageB.close();
 });

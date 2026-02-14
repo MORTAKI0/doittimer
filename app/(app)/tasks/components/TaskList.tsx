@@ -491,7 +491,7 @@ export function TaskList({
               {queue.map((item, index) => {
                 const isPending = Boolean(queuePendingIds[item.task_id]);
                 return (
-                  <li key={item.task_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3">
+                  <li key={item.task_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3 transition-all duration-200 hover:border-emerald-200 hover:shadow-sm">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">
                         {index + 1}. {item.title}
@@ -557,13 +557,17 @@ export function TaskList({
               <li
                 key={task.id}
                 className={[
-                  "rounded-xl border border-border bg-card px-4 py-3 transition-all",
-                  isArchived ? "border-dashed opacity-80" : "hover:border-emerald-200 hover:shadow-sm",
+                  "rounded-xl border border-border bg-card px-4 py-3 transition-all duration-200",
+                  isArchived ? "border-dashed opacity-80" : "card-hover-lift hover:border-emerald-200",
                 ].join(" ")}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-3">
+                      <span className={[
+                        "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full",
+                        isArchived ? "bg-slate-400" : task.completed ? "bg-emerald-500" : "bg-blue-500",
+                      ].join(" ")} aria-hidden="true" />
                       <input
                         type="checkbox"
                         checked={task.completed}

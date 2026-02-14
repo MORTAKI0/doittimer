@@ -17,16 +17,16 @@ export default function SignupPage() {
       </header>
 
       <section className="mx-auto grid max-w-6xl gap-8 px-6 py-12 lg:grid-cols-[1fr_420px] lg:items-center">
-        <div className="space-y-4">
+        <div className="animate-fadeInUp space-y-4">
           <p className="text-overline">Start fresh</p>
           <h1 className="text-page-title">Build a calmer focus system.</h1>
-          <p className="max-w-lg text-sm text-muted-foreground">Create your workspace and start with a clean task + focus loop that stays reliable across devices.</p>
-          <div className="rounded-xl border border-border bg-card/70 p-4 text-sm text-muted-foreground">
+          <p className="max-w-lg text-sm text-muted-foreground">Create your workspace and start with a clean task + focus loop that stays reliable across devices. <span className="font-semibold text-emerald-700">100% free.</span></p>
+          <div className="rounded-xl border border-emerald-200/50 bg-card/70 p-4 text-sm text-muted-foreground shadow-sm">
             Your timezone and defaults can be updated any time in Settings.
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="animate-fadeInUp stagger-2 space-y-3">
           <SignupForm />
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}

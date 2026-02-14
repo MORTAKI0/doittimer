@@ -1,0 +1,57 @@
+
+> doittimer@0.1.0 predev C:\Users\abmor\Desktop\doittimer
+> pnpm prepare:fonts
+
+
+> doittimer@0.1.0 prepare:fonts C:\Users\abmor\Desktop\doittimer
+> node scripts/generate-font-sans.mjs
+
+
+> doittimer@0.1.0 dev C:\Users\abmor\Desktop\doittimer
+> next dev
+
+▲ Next.js 16.1.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.246:3000
+- Environments: .env.local
+
+✓ Starting...
+✓ Ready in 1961ms
+ GET /login 200 in 1458ms (compile: 983ms, render: 475ms)
+ POST /login 200 in 6.5s (compile: 19ms, render: 6.5s)
+ GET /dashboard 307 in 2.7s (compile: 1443ms, render: 1290ms)
+ GET /login 200 in 165ms (compile: 10ms, render: 155ms)
+ GET /signup 200 in 1051ms (compile: 883ms, render: 168ms)
+ POST /signup 200 in 1152ms (compile: 9ms, render: 1143ms)
+ GET /login 200 in 163ms (compile: 9ms, render: 155ms)
+ POST /login 200 in 11.0s (compile: 8ms, render: 11.0s)
+ GET /login 200 in 145ms (compile: 14ms, render: 130ms)
+ POST /login 303 in 4.0s (compile: 7ms, render: 4.0s)
+[rpc:get_active_session_v2] data shape {
+  type: 'object',
+  isArray: true,
+  data: [
+    {
+      id: '4a3d0c9e-a2bc-406d-8e62-5bc5bf3c75fb',
+      user_id: '008d4342-409f-4ba0-b060-aac5c09c3de3',
+      task_id: null,
+      started_at: '2026-02-14T21:22:38.42042+00:00',
+      ended_at: null,
+      duration_seconds: 0,
+      music_url: null,
+      pomodoro_phase: 'work',
+      pomodoro_phase_started_at: '2026-02-14T21:22:44.220193+00:00',
+      pomodoro_is_paused: false,
+      pomodoro_paused_at: null,
+      pomodoro_cycle_count: 0,
+      task_title: null
+    }
+  ]
+}
+ GET /dashboard 200 in 4.2s (compile: 10ms, render: 4.1s)
+✓ Compiled in 1178ms
+✓ Compiled in 597ms
+✓ Compiled in 256ms
+ GET /dashboard 307 in 1604ms (compile: 1001ms, render: 603ms)
+ GET /login 200 in 160ms (compile: 28ms, render: 132ms)
+ ELIFECYCLE  Command failed with exit code 3221225786.

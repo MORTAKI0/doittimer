@@ -11,7 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getUser } from "@/lib/auth/get-user";
 import { FocusPanel } from "./FocusPanel";
+import { FocusRealtimeSync } from "./FocusRealtimeSync";
 
 const ERROR_MAP: Record<string, string> = {
   "Tu dois etre connecte.": "You must be signed in.",
@@ -30,6 +32,7 @@ function toEnglishError(message: string | null) {
 }
 
 export default async function FocusPage() {
+  const user = await getUser();
   const [activeResult, todayResult, tasksResult, settingsResult, queueResult] =
     await Promise.all([
       getActiveSessionDetails(),
@@ -47,17 +50,17 @@ export default async function FocusPage() {
     : null;
   const pomodoroDefaults = settingsResult.success
     ? {
-        workMinutes: settingsResult.data.pomodoro_work_minutes,
-        shortBreakMinutes: settingsResult.data.pomodoro_short_break_minutes,
-        longBreakMinutes: settingsResult.data.pomodoro_long_break_minutes,
-        longBreakEvery: settingsResult.data.pomodoro_long_break_every,
-      }
+      workMinutes: settingsResult.data.pomodoro_work_minutes,
+      shortBreakMinutes: settingsResult.data.pomodoro_short_break_minutes,
+      longBreakMinutes: settingsResult.data.pomodoro_long_break_minutes,
+      longBreakEvery: settingsResult.data.pomodoro_long_break_every,
+    }
     : {
-        workMinutes: 25,
-        shortBreakMinutes: 5,
-        longBreakMinutes: 15,
-        longBreakEvery: 4,
-      };
+      workMinutes: 25,
+      shortBreakMinutes: 5,
+      longBreakMinutes: 15,
+      longBreakEvery: 4,
+    };
   const pomodoroEnabled = settingsResult.success
     ? settingsResult.data.pomodoro_v2_enabled
     : false;
@@ -68,13 +71,13 @@ export default async function FocusPage() {
       count: todaySessions.length,
       first: todaySessions[0]
         ? {
-            id: todaySessions[0].id,
-            started_at: todaySessions[0].started_at,
-            ended_at: todaySessions[0].ended_at,
-            duration_seconds: todaySessions[0].duration_seconds,
-            edited_at: todaySessions[0].edited_at,
-            edit_reason: todaySessions[0].edit_reason,
-          }
+          id: todaySessions[0].id,
+          started_at: todaySessions[0].started_at,
+          ended_at: todaySessions[0].ended_at,
+          duration_seconds: todaySessions[0].duration_seconds,
+          edited_at: todaySessions[0].edited_at,
+          edit_reason: todaySessions[0].edit_reason,
+        }
         : null,
     });
   }
@@ -89,9 +92,15 @@ export default async function FocusPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
+      <FocusRealtimeSync userId={user?.id ?? null} />
+      <div className="animate-fadeInUp space-y-1">
         <p className="text-overline">Deep work</p>
-        <h1 className="text-page-title text-foreground">Focus</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-page-title text-foreground">Focus</h1>
+          <span className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/50 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+            Space to start/stop
+          </span>
+        </div>
         <p className="text-muted-foreground text-sm">
           Start a session, track Pomodoro phases, and keep momentum visible.
         </p>
@@ -103,7 +112,7 @@ export default async function FocusPage() {
         </p>
       ) : null}
 
-      <Card className="space-y-3">
+      <Card className="animate-fadeInUp stagger-2 space-y-3">
         <CardHeader>
           <CardTitle>Session controls</CardTitle>
           <CardDescription>

@@ -10,6 +10,11 @@
   --border: #e5e7eb;
   --ring: #10b981;
 
+  --accent-secondary: #7c3aed;
+  --accent-secondary-light: #a78bfa;
+  --accent-warm: #f59e0b;
+  --accent-info: #3b82f6;
+
   --font-sans-fallback: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial,
     sans-serif;
   --font-sans: var(--font-sans-fallback);
@@ -26,11 +31,9 @@
 
   --gradient-primary: linear-gradient(135deg, #10b981 0%, #0f766e 48%, #0f766e 100%);
   --gradient-warm: linear-gradient(120deg, #f59e0b 0%, #ea580c 100%);
-  --gradient-surface: linear-gradient(
-    160deg,
-    color-mix(in oklab, white 88%, #10b981 12%) 0%,
-    color-mix(in oklab, white 92%, #ffffff 8%) 100%
-  );
+  --gradient-surface: linear-gradient(160deg,
+      color-mix(in oklab, white 88%, #10b981 12%) 0%,
+      color-mix(in oklab, white 92%, #ffffff 8%) 100%);
 
   --glass-bg: color-mix(in oklab, var(--card) 82%, transparent);
   --glass-border: color-mix(in oklab, var(--ring) 20%, var(--border));
@@ -43,6 +46,9 @@
 
   --focus-ring-color: color-mix(in oklab, var(--ring) 80%, transparent);
   --focus-ring-glow: color-mix(in oklab, var(--ring) 28%, transparent);
+
+  --glow-primary: rgba(16, 185, 129, 0.35);
+  --glow-secondary: rgba(124, 58, 237, 0.3);
 }
 
 html[data-theme="dark"] {
@@ -55,23 +61,29 @@ html[data-theme="dark"] {
   --border: #27272a;
   --ring: #34d399;
 
+  --accent-secondary: #a78bfa;
+  --accent-secondary-light: #c4b5fd;
+  --accent-warm: #fbbf24;
+  --accent-info: #60a5fa;
+
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 24px rgba(0, 0, 0, 0.34);
   --shadow-lift: 0 2px 10px rgba(0, 0, 0, 0.33), 0 22px 44px rgba(0, 0, 0, 0.45);
   --shadow-glass: 0 14px 42px rgba(5, 150, 105, 0.2);
 
   --gradient-primary: linear-gradient(135deg, #34d399 0%, #0f766e 48%, #115e59 100%);
   --gradient-warm: linear-gradient(120deg, #fbbf24 0%, #ea580c 100%);
-  --gradient-surface: linear-gradient(
-    160deg,
-    color-mix(in oklab, #111214 92%, #34d399 8%) 0%,
-    color-mix(in oklab, #111214 96%, black 4%) 100%
-  );
+  --gradient-surface: linear-gradient(160deg,
+      color-mix(in oklab, #111214 92%, #34d399 8%) 0%,
+      color-mix(in oklab, #111214 96%, black 4%) 100%);
 
   --glass-bg: color-mix(in oklab, #111214 72%, transparent);
   --glass-border: color-mix(in oklab, var(--ring) 24%, var(--border));
 
   --skeleton-base: color-mix(in oklab, var(--muted) 82%, var(--background));
   --skeleton-highlight: color-mix(in oklab, var(--muted) 52%, #27272a);
+
+  --glow-primary: rgba(52, 211, 153, 0.4);
+  --glow-secondary: rgba(167, 139, 250, 0.35);
 }
 
 @theme inline {
@@ -140,6 +152,14 @@ h2,
   font-weight: 600;
 }
 
+.text-label {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  font-weight: 550;
+  color: var(--foreground);
+}
+
 .numeric-tabular {
   font-variant-numeric: tabular-nums;
 }
@@ -166,10 +186,12 @@ h2,
 }
 
 @keyframes pulseSoft {
+
   0%,
   100% {
     opacity: 0.55;
   }
+
   50% {
     opacity: 1;
   }
@@ -179,6 +201,7 @@ h2,
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -189,12 +212,10 @@ h2,
 }
 
 .shimmer {
-  background-image: linear-gradient(
-    100deg,
-    var(--skeleton-base) 30%,
-    var(--skeleton-highlight) 45%,
-    var(--skeleton-base) 60%
-  );
+  background-image: linear-gradient(100deg,
+      var(--skeleton-base) 30%,
+      var(--skeleton-highlight) 45%,
+      var(--skeleton-base) 60%);
   background-size: 200% 100%;
   animation: shimmer 1.5s var(--ease-standard) infinite;
 }
@@ -205,6 +226,146 @@ h2,
 
 .transition-emphasized {
   transition-timing-function: var(--ease-emphasized);
+}
+
+/* ── Entry animations ── */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes glowPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 8px 2px var(--glow-primary);
+  }
+
+  50% {
+    box-shadow: 0 0 20px 6px var(--glow-primary);
+  }
+}
+
+@keyframes floatSoft {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s var(--ease-emphasized) both;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s var(--ease-standard) both;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.4s var(--ease-emphasized) both;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.5s var(--ease-emphasized) both;
+}
+
+.animate-glowPulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+.animate-floatSoft {
+  animation: floatSoft 3s ease-in-out infinite;
+}
+
+/* Stagger delays for grouped entry animations */
+.stagger-1 {
+  animation-delay: 0.05s;
+}
+
+.stagger-2 {
+  animation-delay: 0.1s;
+}
+
+.stagger-3 {
+  animation-delay: 0.15s;
+}
+
+.stagger-4 {
+  animation-delay: 0.2s;
+}
+
+.stagger-5 {
+  animation-delay: 0.25s;
+}
+
+.stagger-6 {
+  animation-delay: 0.3s;
+}
+
+.stagger-7 {
+  animation-delay: 0.35s;
+}
+
+.stagger-8 {
+  animation-delay: 0.4s;
+}
+
+/* ── Interactive surfaces ── */
+
+.card-hover-lift {
+  transition: transform 0.25s var(--ease-emphasized), box-shadow 0.25s var(--ease-emphasized);
+}
+
+.card-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -222,7 +383,17 @@ h2,
   }
 
   .animate-pulse-soft,
-  .shimmer {
+  .shimmer,
+  .animate-fadeInUp,
+  .animate-fadeIn,
+  .animate-scaleIn,
+  .animate-slideInRight,
+  .animate-glowPulse,
+  .animate-floatSoft {
     animation: none !important;
+  }
+
+  .card-hover-lift:hover {
+    transform: none;
   }
 }
