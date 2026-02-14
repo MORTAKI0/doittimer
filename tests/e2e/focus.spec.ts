@@ -20,3 +20,27 @@ test("start and stop a focus session", async ({ page }) => {
   await expect(sessionsList.locator("li").first()).toBeVisible();
   await expect(sessionsList.locator("li").first()).toContainText(/\d+s|\d+m/);
 });
+
+test("syncs start and stop across two tabs", async ({ context }) => {
+  const pageA = await context.newPage();
+  const pageB = await context.newPage();
+
+  await pageA.goto("/focus");
+  await pageB.goto("/focus");
+
+  await ensureNoActiveSession(pageA);
+  await pageB.reload();
+
+  await startSession(pageA);
+  await expect(pageB.getByRole("button", { name: "Stop session" })).toBeVisible({
+    timeout: 10000,
+  });
+
+  await stopSession(pageB);
+  await expect(pageA.getByRole("button", { name: "Start session" })).toBeVisible({
+    timeout: 10000,
+  });
+
+  await pageA.close();
+  await pageB.close();
+});

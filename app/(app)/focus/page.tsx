@@ -11,7 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getUser } from "@/lib/auth/get-user";
 import { FocusPanel } from "./FocusPanel";
+import { FocusRealtimeSync } from "./FocusRealtimeSync";
 
 const ERROR_MAP: Record<string, string> = {
   "Tu dois etre connecte.": "You must be signed in.",
@@ -30,6 +32,7 @@ function toEnglishError(message: string | null) {
 }
 
 export default async function FocusPage() {
+  const user = await getUser();
   const [activeResult, todayResult, tasksResult, settingsResult, queueResult] =
     await Promise.all([
       getActiveSessionDetails(),
@@ -89,6 +92,7 @@ export default async function FocusPage() {
 
   return (
     <div className="space-y-6">
+      <FocusRealtimeSync userId={user?.id ?? null} />
       <div className="animate-fadeInUp space-y-1">
         <p className="text-overline">Deep work</p>
         <div className="flex flex-wrap items-center gap-3">

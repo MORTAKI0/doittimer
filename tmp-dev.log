@@ -1,0 +1,26 @@
+
+> doittimer@0.1.0 predev C:\Users\abmor\Desktop\doittimer
+> pnpm prepare:fonts
+
+
+> doittimer@0.1.0 prepare:fonts C:\Users\abmor\Desktop\doittimer
+> node scripts/generate-font-sans.mjs
+
+
+> doittimer@0.1.0 dev C:\Users\abmor\Desktop\doittimer
+> next dev
+
+Error: spawn EPERM
+    at ChildProcess.spawn (node:internal/child_process:421:11)
+    at spawn (node:child_process:796:9)
+    at fork (node:child_process:174:10)
+    at C:\Users\abmor\Desktop\doittimer\node_modules\next\dist\cli\next-dev.js:243:45
+    at new Promise (<anonymous>)
+    at startServer (C:\Users\abmor\Desktop\doittimer\node_modules\next\dist\cli\next-dev.js:212:16)
+    at runDevServer (C:\Users\abmor\Desktop\doittimer\node_modules\next\dist\cli\next-dev.js:334:23)
+    at Module.nextDev (C:\Users\abmor\Desktop\doittimer\node_modules\next\dist\cli\next-dev.js:342:11) {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'spawn'
+}
+ ELIFECYCLE  Command failed with exit code 1.

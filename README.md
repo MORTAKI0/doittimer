@@ -44,6 +44,7 @@ Env (create `.env.local`):
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
+You can copy from `.env.example` and fill the required values.
 
 Optional env:
 - `NEXT_PUBLIC_SITE_URL` (defaults to http://localhost:3000 for metadata)

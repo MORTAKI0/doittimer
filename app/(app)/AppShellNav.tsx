@@ -53,6 +53,7 @@ function UserAvatar({ email }: { email: string | null }) {
 type AppShellNavProps = {
   children: React.ReactNode;
   initialTheme: "light" | "dark";
+  userId: string;
   userEmail: string | null;
   queueCount: number;
   hasActiveFocus: boolean;
@@ -62,6 +63,7 @@ type AppShellNavProps = {
 export function AppShellNav({
   children,
   initialTheme,
+  userId,
   userEmail,
   queueCount,
   hasActiveFocus,
@@ -117,7 +119,7 @@ export function AppShellNav({
   return (
     <div className="bg-background text-foreground min-h-dvh">
       <CommandPalette actions={commandActions} />
-      <GlobalRunningSessionWidget activeSession={activeSession} />
+      <GlobalRunningSessionWidget activeSession={activeSession} userId={userId} />
       <div className="mx-auto grid min-h-dvh max-w-[1200px] grid-cols-1 lg:grid-cols-[220px_1fr]">
         <aside className="border-border/80 bg-muted/20 hidden border-r lg:block">
           <div className="sticky top-0 flex h-dvh flex-col px-4 py-6">

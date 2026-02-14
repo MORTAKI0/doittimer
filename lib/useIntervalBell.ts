@@ -6,6 +6,7 @@ import { normalizeFocusIntervalMinutes } from "@/lib/focusInterval";
 
 type UseIntervalBellArgs = {
   enabled: boolean;
+  isLeader: boolean;
   intervalMinutes: number;
   title?: string;
   soundSrc?: string;
@@ -24,6 +25,7 @@ function getPermissionState(): BellPermission {
 
 export function useIntervalBell({
   enabled,
+  isLeader,
   intervalMinutes,
   title = "Focus interval",
   soundSrc = SOUND_SRC,
@@ -80,7 +82,7 @@ export function useIntervalBell({
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    if (!enabled) return;
+    if (!enabled || !isLeader) return;
 
     const normalizedMinutes = normalizeFocusIntervalMinutes(intervalMinutes);
     const intervalMs = normalizedMinutes * 60_000;
@@ -96,7 +98,7 @@ export function useIntervalBell({
         intervalRef.current = null;
       }
     };
-  }, [enabled, intervalMinutes, playSound, showNotification]);
+  }, [enabled, intervalMinutes, isLeader, playSound, showNotification]);
 
   const requestNotificationPermission = React.useCallback(async () => {
     if (getPermissionState() === "unsupported") {

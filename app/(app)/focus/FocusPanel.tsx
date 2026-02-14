@@ -30,6 +30,9 @@ import {
   FOCUS_INTERVAL_STORAGE_KEY,
   normalizeFocusIntervalMinutes,
 } from "@/lib/focusInterval";
+import { publishCrossTabEvent } from "@/lib/crossTab/channel";
+import { useFocusLeader } from "@/lib/crossTab/leader";
+import { scheduleRouteRefresh } from "@/lib/realtime/routeRefreshScheduler";
 import { useIntervalBell } from "@/lib/useIntervalBell";
 import type { TaskRow } from "@/app/actions/tasks";
 import { Badge } from "@/components/ui/badge";
@@ -186,6 +189,7 @@ export function FocusPanel({
   queueItems,
 }: FocusPanelProps) {
   const router = useRouter();
+  const { isLeader } = useFocusLeader();
   const { pushToast } = useToast();
   const [isStarting, setIsStarting] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
@@ -301,6 +305,42 @@ export function FocusPanel({
     (sum, session) => sum + (session.duration_seconds ?? 0),
     0,
   );
+  const requestFocusRefresh = React.useCallback(
+    (reason: string) => {
+      scheduleRouteRefresh({
+        routeKey: "/focus",
+        reason,
+        refresh: () => router.refresh(),
+      });
+    },
+    [router],
+  );
+  const publishFocusEvent = React.useCallback(
+    (
+      type: "focus:session_changed" | "focus:pomodoro_changed",
+      operation:
+        | "start"
+        | "stop"
+        | "edit"
+        | "manual_add"
+        | "pause"
+        | "resume"
+        | "skip"
+        | "restart"
+        | "update",
+      entityId?: string,
+    ) => {
+      publishCrossTabEvent({
+        type,
+        routeHint: "/focus",
+        entityType: "sessions",
+        entityId,
+        operation,
+      });
+    },
+    [],
+  );
+
   const {
     requestNotificationPermission,
     isPermissionGranted,
@@ -308,6 +348,7 @@ export function FocusPanel({
     playTestSound,
   } = useIntervalBell({
     enabled: isRunning,
+    isLeader,
     intervalMinutes: intervalBellMinutes,
     title: "Focus interval",
   });
@@ -318,11 +359,11 @@ export function FocusPanel({
       wasRunningRef.current = isRunning;
       return;
     }
-    if (isRunning && !wasRunningRef.current) {
+    if (isRunning && !wasRunningRef.current && isLeader) {
       void playTestSound();
     }
     wasRunningRef.current = isRunning;
-  }, [isRunning, playTestSound]);
+  }, [isLeader, isRunning, playTestSound]);
 
   const handlePomodoroSkip = React.useCallback(async () => {
     if (!activeSession || !hasValidId || isPomodoroUpdating) return;
@@ -331,10 +372,18 @@ export function FocusPanel({
     const result = await pomodoroSkipPhase(activeSession.id);
     if (!result.success) {
       setError(toEnglishError(result.error));
+    } else {
+      publishFocusEvent("focus:pomodoro_changed", "skip", activeSession.id);
     }
     setIsPomodoroUpdating(false);
-    router.refresh();
-  }, [activeSession, hasValidId, isPomodoroUpdating, router]);
+    requestFocusRefresh("mutation:pomodoro_skip");
+  }, [
+    activeSession,
+    hasValidId,
+    isPomodoroUpdating,
+    publishFocusEvent,
+    requestFocusRefresh,
+  ]);
 
   React.useEffect(() => {
     if (hasActiveSession || hasManualSelection || !defaultTaskId) return;
@@ -523,7 +572,8 @@ export function FocusPanel({
     setIsStarting(false);
     setMusicUrl("");
     pushToast({ title: "Focus session started", variant: "success" });
-    router.refresh();
+    publishFocusEvent("focus:session_changed", "start", result.data.id);
+    requestFocusRefresh("mutation:start");
   }
 
   async function handleStop() {
@@ -541,7 +591,8 @@ export function FocusPanel({
 
     setIsStopping(false);
     pushToast({ title: "Focus session stopped", variant: "info" });
-    router.refresh();
+    publishFocusEvent("focus:session_changed", "stop", activeSession.id);
+    requestFocusRefresh("mutation:stop");
   }
 
   React.useEffect(() => {
@@ -578,9 +629,11 @@ export function FocusPanel({
     const result = await pomodoroPause(activeSession.id);
     if (!result.success) {
       setError(toEnglishError(result.error));
+    } else {
+      publishFocusEvent("focus:pomodoro_changed", "pause", activeSession.id);
     }
     setIsPomodoroUpdating(false);
-    router.refresh();
+    requestFocusRefresh("mutation:pomodoro_pause");
   }
 
   async function handlePomodoroResume() {
@@ -590,9 +643,11 @@ export function FocusPanel({
     const result = await pomodoroResume(activeSession.id);
     if (!result.success) {
       setError(toEnglishError(result.error));
+    } else {
+      publishFocusEvent("focus:pomodoro_changed", "resume", activeSession.id);
     }
     setIsPomodoroUpdating(false);
-    router.refresh();
+    requestFocusRefresh("mutation:pomodoro_resume");
   }
 
   async function handlePomodoroRestart() {
@@ -602,9 +657,11 @@ export function FocusPanel({
     const result = await pomodoroRestartPhase(activeSession.id);
     if (!result.success) {
       setError(toEnglishError(result.error));
+    } else {
+      publishFocusEvent("focus:pomodoro_changed", "restart", activeSession.id);
     }
     setIsPomodoroUpdating(false);
-    router.refresh();
+    requestFocusRefresh("mutation:pomodoro_restart");
   }
 
   function handleSwitchToNextUp() {
@@ -649,7 +706,8 @@ export function FocusPanel({
     setEditingSession(null);
     setEditError(null);
     pushToast({ title: "Session updated", variant: "success" });
-    router.refresh();
+    publishFocusEvent("focus:session_changed", "edit", result.data.id);
+    requestFocusRefresh("mutation:edit");
   }
 
   async function handleManualAddSubmit(values: {
@@ -687,7 +745,8 @@ export function FocusPanel({
     setManualAddError(null);
     setIsManualModalOpen(false);
     pushToast({ title: "Session added", variant: "success" });
-    router.refresh();
+    publishFocusEvent("focus:session_changed", "manual_add", result.data.id);
+    requestFocusRefresh("mutation:manual_add");
   }
 
   async function handleEnableNotifications() {
