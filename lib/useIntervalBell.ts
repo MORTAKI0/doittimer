@@ -30,9 +30,8 @@ export function useIntervalBell({
   title = "Focus interval",
   soundSrc = SOUND_SRC,
 }: UseIntervalBellArgs) {
-  const [permissionState, setPermissionState] = React.useState<BellPermission>(
-    () => getPermissionState(),
-  );
+  const [permissionState, setPermissionState] =
+    React.useState<BellPermission>("unsupported");
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const intervalRef = React.useRef<number | null>(null);
 

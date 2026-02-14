@@ -3,6 +3,8 @@ import { ensureNoActiveSession, startSession, stopSession } from "./helpers";
 
 test("start and stop a focus session", async ({ page }) => {
   await page.goto("/focus");
+  await expect(page.getByText("Hydration failed")).toHaveCount(0);
+  await expect(page.getByText("server rendered HTML didn't match")).toHaveCount(0);
   await ensureNoActiveSession(page);
 
   await startSession(page);
