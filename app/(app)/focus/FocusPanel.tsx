@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
   addManualSession,
@@ -17,7 +17,7 @@ import {
   pomodoroSkipPhase,
   pomodoroRestartPhase,
 } from "@/app/actions/pomodoro";
-import type { TaskQueueRow } from "@/app/actions/queue";
+import { addTaskToQueue, type TaskQueueRow } from "@/app/actions/queue";
 import {
   computeElapsedSeconds,
   getPhaseDurationSeconds,
@@ -40,7 +40,6 @@ import { Button } from "@/components/ui/button";
 import { IconFocus } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { ProgressRing } from "@/components/ui/progress-ring";
-import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { FocusCircleTimer } from "./FocusCircleTimer";
 import { ManualAddSessionModal } from "./ManualAddSessionModal";
@@ -50,6 +49,8 @@ import { datetimeLocalToIso } from "./sessionDateTime";
 type FocusPanelProps = {
   activeSession: SessionRow | null;
   todaySessions: SessionRow[];
+  selectedDay: string;
+  totalFocusedSeconds: number;
   tasks: TaskRow[];
   defaultTaskId: string | null;
   pomodoroDefaults: {
@@ -94,6 +95,26 @@ const ERROR_MAP: Record<string, string> = {
 function toEnglishError(message: string) {
   return ERROR_MAP[message] ?? message;
 }
+
+function todayDateOnly() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function shiftDateOnly(value: string, deltaDays: number) {
+  const source = new Date(`${value}T00:00:00.000Z`);
+  source.setUTCDate(source.getUTCDate() + deltaDays);
+  return source.toISOString().slice(0, 10);
+}
+
+type TaskPickerOption = {
+  id: string | null;
+  title: string;
+  group: "Today Queue" | "Recent" | "All tasks";
+};
 
 function formatElapsed(seconds: number) {
   const clamped = Math.max(0, seconds);
@@ -182,6 +203,8 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 export function FocusPanel({
   activeSession,
   todaySessions,
+  selectedDay,
+  totalFocusedSeconds,
   tasks,
   defaultTaskId,
   pomodoroDefaults,
@@ -189,6 +212,8 @@ export function FocusPanel({
   queueItems,
 }: FocusPanelProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isLeader } = useFocusLeader();
   const { pushToast } = useToast();
   const [isStarting, setIsStarting] = React.useState(false);
@@ -204,6 +229,7 @@ export function FocusPanel({
   const [hasManualSelection, setHasManualSelection] = React.useState(false);
   const [musicUrl, setMusicUrl] = React.useState("");
   const [isPomodoroUpdating, setIsPomodoroUpdating] = React.useState(false);
+  const [isQueueAddPending, setIsQueueAddPending] = React.useState(false);
   const [isEditingSession, setIsEditingSession] = React.useState(false);
   const [isAddingManualSession, setIsAddingManualSession] =
     React.useState(false);
@@ -217,6 +243,11 @@ export function FocusPanel({
   );
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [isFullscreenMode, setIsFullscreenMode] = React.useState(false);
+  const [queue, setQueue] = React.useState<TaskQueueRow[]>(queueItems);
+  const [taskPickerOpen, setTaskPickerOpen] = React.useState(false);
+  const [taskQuery, setTaskQuery] = React.useState("");
+  const [taskPickerHighlightedIndex, setTaskPickerHighlightedIndex] =
+    React.useState(0);
   const [intervalBellMinutes, setIntervalBellMinutes] = React.useState(
     DEFAULT_FOCUS_INTERVAL_MINUTES,
   );
@@ -277,11 +308,13 @@ export function FocusPanel({
   const phaseDurationSeconds = hasPomodoroPhase
     ? getPhaseDurationSeconds(pomodoroPhase as PomodoroPhase, effectivePomodoro)
     : null;
-  const nextUp = getNextUpTask(queueItems, activeSession?.task_id ?? null);
+  const nextUp = queue[0] ?? null;
+  const switchTarget = getNextUpTask(queue, activeSession?.task_id ?? null);
+  const nextQueueItems = queue.slice(1, 4);
   const canSwitchToNextUp = Boolean(
-    nextUp &&
-    !nextUp.archived_at &&
-    tasks.some((task) => task.id === nextUp.task_id),
+    switchTarget &&
+    !switchTarget.archived_at &&
+    tasks.some((task) => task.id === switchTarget.task_id),
   );
   const phaseProgress = hasPomodoroPhase
     ? 1 -
@@ -301,10 +334,67 @@ export function FocusPanel({
         Math.max(1, effectivePomodoro.workMinutes * 60),
       ),
     );
-  const totalFocusedSecondsToday = todaySessions.reduce(
-    (sum, session) => sum + (session.duration_seconds ?? 0),
-    0,
+  const activeTasks = React.useMemo(
+    () => tasks.filter((task) => !task.completed && task.archived_at == null),
+    [tasks],
   );
+  const activeTaskById = React.useMemo(
+    () => new Map(activeTasks.map((task) => [task.id, task] as const)),
+    [activeTasks],
+  );
+  const todayQueueTaskIds = React.useMemo(
+    () => queue.map((item) => item.task_id),
+    [queue],
+  );
+  const recentTaskIds = React.useMemo(() => {
+    const seen = new Set<string>();
+    const output: string[] = [];
+    for (const session of todaySessions) {
+      if (!session.task_id) continue;
+      if (seen.has(session.task_id)) continue;
+      if (!activeTaskById.has(session.task_id)) continue;
+      if (todayQueueTaskIds.includes(session.task_id)) continue;
+      seen.add(session.task_id);
+      output.push(session.task_id);
+      if (output.length >= 5) break;
+    }
+    return output;
+  }, [activeTaskById, todayQueueTaskIds, todaySessions]);
+  const taskPickerOptions = React.useMemo(() => {
+    const lower = taskQuery.trim().toLowerCase();
+    const output: TaskPickerOption[] = [];
+    const included = new Set<string>();
+    const queueLabelById = new Map(queue.map((item) => [item.task_id, item.title] as const));
+
+    for (const taskId of todayQueueTaskIds) {
+      const task = activeTaskById.get(taskId);
+      const title = task?.title ?? queueLabelById.get(taskId);
+      if (!title) continue;
+      if (lower && !title.toLowerCase().includes(lower)) continue;
+      output.push({ id: taskId, title, group: "Today Queue" });
+      included.add(taskId);
+    }
+
+    for (const taskId of recentTaskIds) {
+      if (included.has(taskId)) continue;
+      const task = activeTaskById.get(taskId);
+      if (!task) continue;
+      if (lower && !task.title.toLowerCase().includes(lower)) continue;
+      output.push({ id: task.id, title: task.title, group: "Recent" });
+      included.add(task.id);
+    }
+
+    for (const task of activeTasks) {
+      if (included.has(task.id)) continue;
+      if (lower && !task.title.toLowerCase().includes(lower)) continue;
+      output.push({ id: task.id, title: task.title, group: "All tasks" });
+    }
+
+    return output;
+  }, [activeTaskById, activeTasks, queue, recentTaskIds, taskQuery, todayQueueTaskIds]);
+  const selectedTaskLabel = selectedTaskId
+    ? tasks.find((task) => task.id === selectedTaskId)?.title ?? "Task deleted"
+    : "No task";
   const requestFocusRefresh = React.useCallback(
     (reason: string) => {
       scheduleRouteRefresh({
@@ -391,6 +481,14 @@ export function FocusPanel({
     if (!exists) return;
     setSelectedTaskId(defaultTaskId);
   }, [defaultTaskId, hasActiveSession, hasManualSelection, tasks]);
+
+  React.useEffect(() => {
+    setQueue(queueItems);
+  }, [queueItems]);
+
+  React.useEffect(() => {
+    setTaskPickerHighlightedIndex(0);
+  }, [taskPickerOptions]);
 
   React.useEffect(() => {
     try {
@@ -665,9 +763,79 @@ export function FocusPanel({
   }
 
   function handleSwitchToNextUp() {
-    if (!nextUp || !canSwitchToNextUp || hasActiveSession) return;
+    if (!switchTarget || !canSwitchToNextUp || hasActiveSession) return;
     setHasManualSelection(true);
-    setSelectedTaskId(nextUp.task_id);
+    setSelectedTaskId(switchTarget.task_id);
+  }
+
+  async function handleAddSelectedTaskToQueue() {
+    if (!selectedTaskId || isQueueAddPending) return;
+    setIsQueueAddPending(true);
+    setError(null);
+
+    const result = await addTaskToQueue(selectedTaskId);
+    if (!result.success) {
+      setError(toEnglishError(result.error));
+      setIsQueueAddPending(false);
+      return;
+    }
+
+    setQueue(result.data);
+    setIsQueueAddPending(false);
+    pushToast({ title: "Added to Today queue", variant: "success" });
+    requestFocusRefresh("mutation:add_to_today_queue");
+  }
+
+  function updateSelectedDay(nextDay: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("day", nextDay);
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
+  function pickTask(taskId: string | null) {
+    setHasManualSelection(true);
+    setSelectedTaskId(taskId);
+    setTaskPickerOpen(false);
+  }
+
+  function handleTaskPickerKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (!taskPickerOpen) {
+      if (event.key === "ArrowDown" || event.key === "Enter") {
+        setTaskPickerOpen(true);
+        event.preventDefault();
+      }
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setTaskPickerHighlightedIndex((prev) =>
+        Math.min(prev + 1, Math.max(taskPickerOptions.length - 1, 0)),
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setTaskPickerHighlightedIndex((prev) => Math.max(prev - 1, 0));
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const option = taskPickerOptions[taskPickerHighlightedIndex];
+      if (option) {
+        pickTask(option.id);
+      } else {
+        pickTask(null);
+      }
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setTaskPickerOpen(false);
+    }
   }
 
   async function handleEditSubmit(values: {
@@ -931,69 +1099,153 @@ export function FocusPanel({
 
       <div className="space-y-2">
         <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
-          Next up
+          Next up (Today queue)
         </h2>
         {nextUp ? (
-          <div
-            className="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
-            data-testid="next-up"
-          >
-            <div className="text-foreground flex items-center gap-2 text-sm">
-              <span>{nextUp.title}</span>
-              {nextUp.archived_at ? (
-                <Badge variant="neutral">Archived</Badge>
-              ) : null}
+          <div className="space-y-2 rounded-lg border border-border bg-card p-3" data-testid="next-up">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-foreground flex items-center gap-2 text-sm">
+                <span>{nextUp.title}</span>
+                {nextUp.archived_at ? (
+                  <Badge variant="neutral">Archived</Badge>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSwitchToNextUp}
+                disabled={hasActiveSession || !canSwitchToNextUp}
+                aria-label="Switch to next up"
+                data-testid="next-up-switch"
+                variant="secondary"
+              >
+                Switch
+              </Button>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSwitchToNextUp}
-              disabled={hasActiveSession || !canSwitchToNextUp}
-              aria-label="Switch to next up"
-              data-testid="next-up-switch"
-              variant="secondary"
-            >
-              Switch
-            </Button>
+            {nextQueueItems.length > 0 ? (
+              <ul className="space-y-1 border-t border-border/70 pt-2 text-xs text-muted-foreground">
+                {nextQueueItems.map((item) => (
+                  <li key={item.task_id} className="truncate">
+                    {item.sort_order + 1}. {item.title}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         ) : (
-          <p className="border-border bg-card text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
-            No tasks in Today queue.{" "}
-            <a href="/tasks" className="text-emerald-600">
-              Add tasks
-            </a>
-            .
-          </p>
+          <div className="space-y-3 rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
+            <p>No tasks in Today queue.</p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="/tasks"
+                className="inline-flex h-9 items-center rounded-xl border border-border bg-background px-3 text-sm text-foreground hover:bg-muted"
+              >
+                Add tasks
+              </a>
+              {selectedTaskId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAddSelectedTaskToQueue}
+                  isLoading={isQueueAddPending}
+                  loadingLabel="Adding..."
+                >
+                  Add selected task to Today queue
+                </Button>
+              ) : null}
+            </div>
+          </div>
         )}
       </div>
 
       <div className="space-y-3">
         <div className="space-y-2">
-          <label
-            htmlFor="task-select"
-            className="text-foreground flex items-center gap-1.5 text-sm font-medium"
-          >
-            📋 Link a task
+          <label className="text-foreground flex items-center gap-1.5 text-sm font-medium">
+            Link a task
           </label>
-          <Select
-            id="task-select"
-            value={selectedTaskId ?? ""}
-            onChange={(event) => {
-              const value = event.target.value;
-              setHasManualSelection(true);
-              setSelectedTaskId(value.length > 0 ? value : null);
-            }}
-            disabled={hasActiveSession || isStarting || isStopping}
-          >
-            <option value="">No task</option>
-            {tasks.map((task) => (
-              <option key={task.id} value={task.id}>
-                {task.title}
-              </option>
-            ))}
-          </Select>
-          {tasks.length === 0 ? (
-            <p className="text-muted-foreground text-xs">No tasks available.</p>
+          <p className="text-muted-foreground text-xs">
+            Link a task (for this session).
+          </p>
+          <div className="space-y-2">
+            <button
+              type="button"
+              className="flex h-10 w-full items-center justify-between rounded-xl border border-border bg-background px-3 text-left text-sm text-foreground"
+              onClick={() => setTaskPickerOpen((prev) => !prev)}
+              disabled={hasActiveSession || isStarting || isStopping}
+              aria-haspopup="listbox"
+              aria-expanded={taskPickerOpen}
+            >
+              <span className="truncate">{selectedTaskLabel}</span>
+              <span className="text-xs text-muted-foreground">Select</span>
+            </button>
+            {taskPickerOpen ? (
+              <div className="space-y-2 rounded-xl border border-border bg-card p-2">
+                <Input
+                  value={taskQuery}
+                  onChange={(event) => setTaskQuery(event.target.value)}
+                  onKeyDown={handleTaskPickerKeyDown}
+                  placeholder="Search tasks..."
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className={[
+                    "w-full rounded-lg px-2 py-1.5 text-left text-sm",
+                    selectedTaskId === null ? "bg-emerald-50 text-emerald-800" : "hover:bg-muted",
+                  ].join(" ")}
+                  onClick={() => pickTask(null)}
+                >
+                  No task
+                </button>
+                <ul className="max-h-64 space-y-2 overflow-auto" role="listbox" aria-label="Task options">
+                  {(["Today Queue", "Recent", "All tasks"] as const).map((groupName) => {
+                    const groupItems = taskPickerOptions.filter((option) => option.group === groupName);
+                    if (groupItems.length === 0) return null;
+                    return (
+                      <li key={groupName} className="space-y-1">
+                        <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {groupName}
+                        </p>
+                        <ul className="space-y-1">
+                          {groupItems.map((option) => {
+                            const optionIndex = taskPickerOptions.findIndex((candidate) => candidate.id === option.id && candidate.group === option.group);
+                            const highlighted = optionIndex === taskPickerHighlightedIndex;
+                            const selected = selectedTaskId === option.id;
+                            return (
+                              <li key={`${option.group}:${option.id}`}>
+                                <button
+                                  type="button"
+                                  role="option"
+                                  aria-selected={selected}
+                                  className={[
+                                    "w-full rounded-lg px-2 py-1.5 text-left text-sm",
+                                    selected
+                                      ? "bg-emerald-50 text-emerald-800"
+                                      : highlighted
+                                        ? "bg-muted text-foreground"
+                                        : "text-foreground hover:bg-muted",
+                                  ].join(" ")}
+                                  onMouseEnter={() => setTaskPickerHighlightedIndex(optionIndex)}
+                                  onClick={() => pickTask(option.id)}
+                                >
+                                  {option.title}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    );
+                  })}
+                  {taskPickerOptions.length === 0 ? (
+                    <li className="px-2 py-1.5 text-xs text-muted-foreground">No matching tasks.</li>
+                  ) : null}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+          {activeTasks.length === 0 ? (
+            <p className="text-muted-foreground text-xs">No active tasks available.</p>
           ) : null}
         </div>
         <div className="space-y-2">
@@ -1095,11 +1347,11 @@ export function FocusPanel({
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
-            Today&apos;s sessions
+            Sessions
           </h2>
           <div className="flex items-center gap-2">
             <Badge variant="neutral">
-              Total {formatElapsed(totalFocusedSecondsToday)}
+              Total {formatElapsed(totalFocusedSeconds)}
             </Badge>
             <Button
               type="button"
@@ -1114,9 +1366,45 @@ export function FocusPanel({
             </Button>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => updateSelectedDay(shiftDateOnly(selectedDay, -1))}
+          >
+            Prev
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={selectedDay === todayDateOnly() ? "primary" : "secondary"}
+            onClick={() => updateSelectedDay(todayDateOnly())}
+          >
+            Today
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => updateSelectedDay(shiftDateOnly(selectedDay, 1))}
+          >
+            Next
+          </Button>
+          <Input
+            type="date"
+            value={selectedDay}
+            onChange={(event) => {
+              if (!event.target.value) return;
+              updateSelectedDay(event.target.value);
+            }}
+            className="h-9 w-[170px]"
+            aria-label="Selected sessions day"
+          />
+        </div>
         {todaySessions.length === 0 ? (
           <p className="border-border bg-card text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
-            No sessions yet today. Start one to begin.
+            No sessions for this day.
           </p>
         ) : (
           <ul className="divide-border border-border divide-y rounded-lg border">
@@ -1230,3 +1518,4 @@ function resolveTaskLabel(
   const matched = tasks.find((task) => task.id === session.task_id);
   return matched?.title ?? "Task deleted";
 }
+
