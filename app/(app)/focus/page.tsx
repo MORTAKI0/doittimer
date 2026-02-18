@@ -1,7 +1,8 @@
 import { getTaskQueue } from "@/app/actions/queue";
 import {
   getActiveSessionDetails,
-  getTodaySessions,
+  getSessionTotalByDay,
+  getSessionsByDay,
 } from "@/app/actions/sessions";
 import { getUserSettings } from "@/app/actions/settings";
 import { getTasks } from "@/app/actions/tasks";
@@ -21,6 +22,10 @@ const ERROR_MAP: Record<string, string> = {
     "Unable to load the active session.",
   "Impossible de charger les sessions du jour.":
     "Unable to load today's sessions.",
+  "Impossible de charger les sessions.":
+    "Unable to load sessions.",
+  "Impossible de charger le total des sessions.":
+    "Unable to load session total.",
   "Impossible de charger les taches.": "Unable to load tasks.",
   "Erreur reseau. Verifie ta connexion et reessaie.":
     "Network error. Check your connection and try again.",
@@ -31,19 +36,46 @@ function toEnglishError(message: string | null) {
   return ERROR_MAP[message] ?? message;
 }
 
-export default async function FocusPage() {
+function isValidDateOnly(value: string | undefined): value is string {
+  if (!value) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime());
+}
+
+function todayDateOnly() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+type FocusPageProps = {
+  searchParams: Promise<{ day?: string }>;
+};
+
+export default async function FocusPage(props: FocusPageProps) {
+  const searchParams = await props.searchParams;
+  const selectedDay = isValidDateOnly(searchParams.day)
+    ? searchParams.day
+    : todayDateOnly();
   const user = await getUser();
-  const [activeResult, todayResult, tasksResult, settingsResult, queueResult] =
+  const [activeResult, sessionsResult, sessionTotalResult, tasksResult, settingsResult, queueResult] =
     await Promise.all([
       getActiveSessionDetails(),
-      getTodaySessions(),
-      getTasks({ limit: 200 }),
+      getSessionsByDay(selectedDay),
+      getSessionTotalByDay(selectedDay),
+      getTasks({ limit: 200, status: "active" }),
       getUserSettings(),
       getTaskQueue(),
     ]);
 
   const activeSession = activeResult.success ? activeResult.data : null;
-  const todaySessions = todayResult.success ? todayResult.data : [];
+  const daySessions = sessionsResult.success ? sessionsResult.data : [];
+  const daySessionsTotalSeconds = sessionTotalResult.success
+    ? sessionTotalResult.data.total_seconds
+    : 0;
   const tasks = tasksResult.success ? tasksResult.data.tasks : [];
   const defaultTaskId = settingsResult.success
     ? settingsResult.data.default_task_id
@@ -68,15 +100,15 @@ export default async function FocusPage() {
 
   if (process.env.NODE_ENV !== "production") {
     console.debug("[focus.page] todaySessions shape", {
-      count: todaySessions.length,
-      first: todaySessions[0]
+      count: daySessions.length,
+      first: daySessions[0]
         ? {
-          id: todaySessions[0].id,
-          started_at: todaySessions[0].started_at,
-          ended_at: todaySessions[0].ended_at,
-          duration_seconds: todaySessions[0].duration_seconds,
-          edited_at: todaySessions[0].edited_at,
-          edit_reason: todaySessions[0].edit_reason,
+          id: daySessions[0].id,
+          started_at: daySessions[0].started_at,
+          ended_at: daySessions[0].ended_at,
+          duration_seconds: daySessions[0].duration_seconds,
+          edited_at: daySessions[0].edited_at,
+          edit_reason: daySessions[0].edit_reason,
         }
         : null,
     });
@@ -84,8 +116,10 @@ export default async function FocusPage() {
 
   const errorMessage = !activeResult.success
     ? toEnglishError(activeResult.error)
-    : !todayResult.success
-      ? toEnglishError(todayResult.error)
+    : !sessionsResult.success
+      ? toEnglishError(sessionsResult.error)
+      : !sessionTotalResult.success
+        ? toEnglishError(sessionTotalResult.error)
       : !tasksResult.success
         ? toEnglishError(tasksResult.error)
         : null;
@@ -122,7 +156,9 @@ export default async function FocusPage() {
         </CardHeader>
         <FocusPanel
           activeSession={activeSession}
-          todaySessions={todaySessions}
+          todaySessions={daySessions}
+          selectedDay={selectedDay}
+          totalFocusedSeconds={daySessionsTotalSeconds}
           tasks={tasks}
           defaultTaskId={defaultTaskId}
           pomodoroDefaults={pomodoroDefaults}

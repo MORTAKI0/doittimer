@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import {
   getDashboardSummary,
+  getWorkTotals,
   type DashboardRange,
   type QueueItemLite,
   type TaskLite,
@@ -27,6 +28,7 @@ import { ProgressRing } from "@/components/ui/progress-ring";
 import { DashboardRangeSelector } from "./DashboardRangeSelector";
 import { TrendLineChart } from "./TrendLineChart";
 import { TrendRangeToggle } from "./TrendRangeToggle";
+import { WorkTotalsCards } from "./WorkTotalsCards";
 
 type SearchParams = Promise<{
   range?: string;
@@ -97,6 +99,13 @@ function buildEmptyTrendPoints(days: 7 | 30) {
 
 function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
+}
+
+function formatHoursMinutes(totalSeconds: number): string {
+  const clamped = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(clamped / 3600);
+  const minutes = Math.floor((clamped % 3600) / 60);
+  return `${hours}h ${minutes}m`;
 }
 
 function formatDateTime(value: string, tz: string): string {
@@ -241,6 +250,7 @@ export default async function DashboardPage(props: {
     from: searchParams.from,
     to: searchParams.to,
   });
+  const workTotals = await getWorkTotals();
   const trendsResult = await getDashboardTrends({ days: trendDays });
   const trendPoints = trendsResult.success
     ? trendsResult.data.points
@@ -295,6 +305,12 @@ export default async function DashboardPage(props: {
           to={searchParams.to}
         />
       </Card>
+
+      <WorkTotalsCards
+        today={formatHoursMinutes(workTotals.todaySeconds)}
+        week={formatHoursMinutes(workTotals.weekSeconds)}
+        month={formatHoursMinutes(workTotals.monthSeconds)}
+      />
 
       <div className="animate-fadeInUp stagger-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="card-hover-lift">

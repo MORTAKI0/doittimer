@@ -47,6 +47,12 @@ export type DashboardSummary = {
   };
 };
 
+export type WorkTotals = {
+  todaySeconds: number;
+  weekSeconds: number;
+  monthSeconds: number;
+};
+
 type GetDashboardSummaryInput = {
   range: DashboardRange;
   from?: string;
@@ -266,6 +272,17 @@ function toRate(numerator: number, denominator: number): number {
   return numerator / denominator;
 }
 
+function toSafeSeconds(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value));
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed));
+  }
+  return 0;
+}
+
 function localDateFromIso(isoString: string, tz: string): string {
   return localDateToISO(dateInTimezone(new Date(isoString), tz));
 }
@@ -305,6 +322,54 @@ async function countTasksInRange(
   }
 
   return count ?? 0;
+}
+
+export async function getWorkTotals(): Promise<WorkTotals> {
+  const supabase = await createSupabaseServerClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    logServerError({
+      scope: "actions.dashboard.getWorkTotals.auth",
+      userId: undefined,
+      error: userError ?? new Error("Missing authenticated user while loading work totals."),
+    });
+    redirect("/login");
+  }
+
+  const userId = userData.user.id;
+
+  try {
+    const { data: settingsRow, error: settingsError } = await supabase
+      .from("user_settings")
+      .select("timezone")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (settingsError) throw settingsError;
+    const tz = isValidTimezone(settingsRow?.timezone) ? settingsRow.timezone : null;
+
+    const { data, error } = await supabase.rpc("work_totals", {
+      p_tz: tz,
+    });
+
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      todaySeconds: toSafeSeconds(row?.today_seconds),
+      weekSeconds: toSafeSeconds(row?.week_seconds),
+      monthSeconds: toSafeSeconds(row?.month_seconds),
+    };
+  } catch (error) {
+    logServerError({
+      scope: "actions.dashboard.getWorkTotals",
+      userId,
+      error,
+      context: { rpc: "work_totals" },
+    });
+    throw new Error("Unable to load work totals.");
+  }
 }
 
 export async function getDashboardSummary(

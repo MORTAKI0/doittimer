@@ -8,6 +8,7 @@ import { logServerError } from "@/lib/logging/logServerError";
 
 export type TaskQueueRow = {
   task_id: string;
+  queue_date: string;
   sort_order: number;
   created_at: string;
   title: string;
@@ -24,6 +25,14 @@ const ERROR_QUEUE_FULL = "Limite de 7 elements atteinte.";
 const ERROR_TASK_NOT_FOUND = "Tache introuvable.";
 const ERROR_LIST = "Impossible de charger la file.";
 const ERROR_MUTATE = "Impossible de mettre a jour la file.";
+const ERROR_INVALID_DATE = "Date invalide. Format attendu: YYYY-MM-DD.";
+
+function isValidDateOnly(value: string | null | undefined): value is string {
+  if (!value) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime());
+}
 
 function normalizeRpcList<T>(data: unknown): T[] {
   if (data == null) return [];
@@ -39,7 +48,13 @@ function mapRpcError(error: { message?: string } | null) {
   return null;
 }
 
-export async function getTaskQueue(): Promise<ActionResult<TaskQueueRow[]>> {
+export async function getTaskQueue(
+  queueDate?: string | null,
+): Promise<ActionResult<TaskQueueRow[]>> {
+  if (queueDate != null && !isValidDateOnly(queueDate)) {
+    return { success: false, error: ERROR_INVALID_DATE };
+  }
+
   try {
     let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
@@ -51,7 +66,9 @@ export async function getTaskQueue(): Promise<ActionResult<TaskQueueRow[]>> {
 
     userId = userData.user.id;
 
-    const { data, error } = await supabase.rpc("task_queue_list");
+    const { data, error } = await supabase.rpc("task_queue_list", {
+      p_queue_date: queueDate ?? null,
+    });
 
     if (error) {
       logServerError({
@@ -76,11 +93,15 @@ export async function getTaskQueue(): Promise<ActionResult<TaskQueueRow[]>> {
 async function mutateQueue(
   rpc: string,
   taskId: string,
+  queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
   const parsedId = taskIdSchema.safeParse(taskId);
 
   if (!parsedId.success) {
     return { success: false, error: ERROR_INVALID_ID };
+  }
+  if (queueDate != null && !isValidDateOnly(queueDate)) {
+    return { success: false, error: ERROR_INVALID_DATE };
   }
 
   try {
@@ -96,6 +117,7 @@ async function mutateQueue(
 
     const { data, error } = await supabase.rpc(rpc, {
       p_task_id: parsedId.data,
+      p_queue_date: queueDate ?? null,
     });
 
     if (error) {
@@ -127,24 +149,28 @@ async function mutateQueue(
 
 export async function addTaskToQueue(
   taskId: string,
+  queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  return mutateQueue("task_queue_add", taskId);
+  return mutateQueue("task_queue_add", taskId, queueDate);
 }
 
 export async function removeTaskFromQueue(
   taskId: string,
+  queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  return mutateQueue("task_queue_remove", taskId);
+  return mutateQueue("task_queue_remove", taskId, queueDate);
 }
 
 export async function moveTaskQueueUp(
   taskId: string,
+  queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  return mutateQueue("task_queue_move_up", taskId);
+  return mutateQueue("task_queue_move_up", taskId, queueDate);
 }
 
 export async function moveTaskQueueDown(
   taskId: string,
+  queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  return mutateQueue("task_queue_move_down", taskId);
+  return mutateQueue("task_queue_move_down", taskId, queueDate);
 }

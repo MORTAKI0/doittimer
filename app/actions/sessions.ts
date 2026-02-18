@@ -36,6 +36,10 @@ export type ActiveSessionSnapshot = {
   ended_at: null;
 };
 
+export type DaySessionsTotal = {
+  total_seconds: number;
+};
+
 type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
@@ -59,6 +63,13 @@ const sessionManualAddInputSchema = z.object({
   endedAt: z.string().trim().datetime({ offset: true }),
   taskId: taskIdSchema.nullable().optional(),
 });
+
+function isValidDateOnly(value: string | null | undefined): value is string {
+  if (!value) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime());
+}
 
 function normalizeRpcRow<T>(data: unknown): T | null {
   if (data == null) return null;
@@ -195,6 +206,7 @@ export async function startSession(
     }
 
     revalidatePath("/focus");
+    revalidatePath("/dashboard");
 
     return { success: true, data: session };
   } catch (error) {
@@ -256,6 +268,7 @@ export async function stopSession(
     }
 
     revalidatePath("/focus");
+    revalidatePath("/dashboard");
 
     return { success: true, data: session };
   } catch (error) {
@@ -360,7 +373,16 @@ export async function getActiveSessionDetails(): Promise<
   }
 }
 
-export async function getTodaySessions(): Promise<ActionResult<SessionRow[]>> {
+export async function getSessionsByDay(
+  day?: string | null,
+): Promise<ActionResult<SessionRow[]>> {
+  if (day != null && !isValidDateOnly(day)) {
+    return {
+      success: false,
+      error: "Date invalide. Format attendu: YYYY-MM-DD.",
+    };
+  }
+
   try {
     let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
@@ -372,25 +394,28 @@ export async function getTodaySessions(): Promise<ActionResult<SessionRow[]>> {
 
     userId = userData.user.id;
 
-    const { data, error } = await supabase.rpc("get_today_sessions");
+    const { data, error } = await supabase.rpc("sessions_list_by_day", {
+      p_day: day ?? null,
+      p_tz: null,
+    });
 
     if (error) {
       logServerError({
-        scope: "actions.sessions.getTodaySessions",
+        scope: "actions.sessions.getSessionsByDay",
         userId,
         error,
-        context: { rpc: "get_today_sessions" },
+        context: { rpc: "sessions_list_by_day", day: day ?? null },
       });
       return {
         success: false,
-        error: "Impossible de charger les sessions du jour.",
+        error: "Impossible de charger les sessions.",
       };
     }
 
     const sessions = normalizeRpcList<SessionRow>(data);
 
     if (process.env.NODE_ENV !== "production") {
-      console.debug("[sessions.getTodaySessions] first row", {
+      console.debug("[sessions.getSessionsByDay] first row", {
         count: sessions.length,
         first: sessions[0]
           ? {
@@ -408,14 +433,81 @@ export async function getTodaySessions(): Promise<ActionResult<SessionRow[]>> {
     return { success: true, data: sessions };
   } catch (error) {
     logServerError({
-      scope: "actions.sessions.getTodaySessions",
+      scope: "actions.sessions.getSessionsByDay",
       error,
+      context: { day: day ?? null },
     });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
     };
   }
+}
+
+export async function getSessionTotalByDay(
+  day?: string | null,
+): Promise<ActionResult<DaySessionsTotal>> {
+  if (day != null && !isValidDateOnly(day)) {
+    return {
+      success: false,
+      error: "Date invalide. Format attendu: YYYY-MM-DD.",
+    };
+  }
+
+  try {
+    let userId: string | undefined;
+    const supabase = await createSupabaseServerClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      return { success: false, error: "Tu dois etre connecte." };
+    }
+
+    userId = userData.user.id;
+
+    const { data, error } = await supabase.rpc("sessions_total_by_day", {
+      p_day: day ?? null,
+      p_tz: null,
+    });
+
+    if (error) {
+      logServerError({
+        scope: "actions.sessions.getSessionTotalByDay",
+        userId,
+        error,
+        context: { rpc: "sessions_total_by_day", day: day ?? null },
+      });
+      return {
+        success: false,
+        error: "Impossible de charger le total des sessions.",
+      };
+    }
+
+    const row = normalizeRpcRow<{ total_seconds: number | null }>(data);
+    return {
+      success: true,
+      data: {
+        total_seconds:
+          typeof row?.total_seconds === "number" && Number.isFinite(row.total_seconds)
+            ? Math.max(0, Math.floor(row.total_seconds))
+            : 0,
+      },
+    };
+  } catch (error) {
+    logServerError({
+      scope: "actions.sessions.getSessionTotalByDay",
+      error,
+      context: { day: day ?? null },
+    });
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function getTodaySessions(): Promise<ActionResult<SessionRow[]>> {
+  return getSessionsByDay(null);
 }
 
 export async function editSession(input: {
@@ -510,6 +602,7 @@ export async function editSession(input: {
     }
 
     revalidatePath("/focus");
+    revalidatePath("/dashboard");
 
     return { success: true, data: session };
   } catch (error) {
@@ -602,6 +695,7 @@ export async function addManualSession(input: {
     }
 
     revalidatePath("/focus");
+    revalidatePath("/dashboard");
 
     return { success: true, data: session };
   } catch (error) {
