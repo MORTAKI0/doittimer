@@ -120,7 +120,7 @@ export function AppShellNav({
     <div className="bg-background text-foreground min-h-dvh">
       <CommandPalette actions={commandActions} />
       <GlobalRunningSessionWidget activeSession={activeSession} userId={userId} />
-      <div className="mx-auto grid min-h-dvh max-w-[1200px] grid-cols-1 lg:grid-cols-[220px_1fr]">
+      <div className="mx-auto grid min-h-dvh w-full max-w-[1680px] grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] 2xl:px-6">
         <aside className="border-border/80 bg-muted/20 hidden border-r lg:block">
           <div className="sticky top-0 flex h-dvh flex-col px-4 py-6">
             <div className="flex items-center justify-between">
@@ -228,7 +228,7 @@ export function AppShellNav({
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8 lg:pb-8">
+          <main className="flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 lg:py-8 lg:pb-8">
             {children}
           </main>
 
@@ -274,3 +274,4 @@ export function AppShellNav({
     </div>
   );
 }
+

@@ -12,13 +12,13 @@ export function TrendRangeToggle({
   hrefForDays,
 }: TrendRangeToggleProps) {
   return (
-    <div className="border-border bg-muted/30 inline-flex rounded-xl border p-1">
+    <div className="inline-flex rounded-2xl border border-border/80 bg-white/70 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
       <Link
         href={hrefForDays(7)}
         className={buttonStyles({
           size: "sm",
           variant: currentDays === 7 ? "primary" : "ghost",
-          className: "h-8 rounded-lg px-3 text-xs",
+          className: "h-8 rounded-xl px-3 text-xs",
         })}
       >
         7 days
@@ -28,7 +28,7 @@ export function TrendRangeToggle({
         className={buttonStyles({
           size: "sm",
           variant: currentDays === 30 ? "primary" : "ghost",
-          className: "h-8 rounded-lg px-3 text-xs",
+          className: "h-8 rounded-xl px-3 text-xs",
         })}
       >
         30 days

@@ -108,7 +108,7 @@ export function TrendLineChart({
   const hasAnyData = nonNullValues.length > 0;
 
   return (
-    <article className="border-border bg-card rounded-2xl border p-4">
+    <article className="rounded-[1.5rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,244,245,0.88))] p-4 shadow-[var(--shadow-soft)]">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-foreground text-sm font-semibold">{title}</h3>
         <p className="text-muted-foreground text-xs">
@@ -127,7 +127,7 @@ export function TrendLineChart({
           y={MARGIN_TOP}
           width={plotWidth}
           height={plotHeight}
-          fill="transparent"
+          fill="rgba(255,255,255,0.55)"
           stroke="var(--color-border)"
           strokeWidth="1"
           rx="8"
@@ -210,7 +210,7 @@ export function TrendLineChart({
       </svg>
 
       {!hasAnyData ? (
-        <p className="text-muted-foreground mt-2 text-xs">{emptyLabel}</p>
+        <p className="mt-2 text-xs text-muted-foreground">{emptyLabel}</p>
       ) : null}
     </article>
   );

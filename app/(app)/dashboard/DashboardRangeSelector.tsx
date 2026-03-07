@@ -72,17 +72,17 @@ export function DashboardRangeSelector({
 
   return (
     <div className="space-y-4">
-      <div className="inline-flex w-full flex-wrap gap-1 rounded-xl border border-border bg-muted/30 p-1">
+      <div className="inline-flex w-full flex-wrap gap-1 rounded-2xl border border-border/80 bg-white/70 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
         {RANGE_OPTIONS.map((option) => (
           <button
             key={option.value}
             type="button"
             onClick={() => navigateWith({ range: option.value })}
             className={[
-              "rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35",
+              "rounded-xl px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35",
               currentRange === option.value
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+                ? "bg-emerald-600 text-white shadow-[0_10px_24px_-14px_rgba(5,150,105,0.8)]"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             ].join(" ")}
           >
             {option.label}
@@ -90,17 +90,39 @@ export function DashboardRangeSelector({
         ))}
       </div>
 
-      <form className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 sm:grid-cols-[1fr_1fr_auto]" onSubmit={handleCustomSubmit}>
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          <span>From</span>
-          <Input type="date" value={fromInput} onChange={(event) => setFromInput(event.target.value)} aria-label="Custom range from" />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          <span>To</span>
-          <Input type="date" value={toInput} onChange={(event) => setToInput(event.target.value)} aria-label="Custom range to" />
-        </label>
-        <Button size="md" type="submit" variant={currentRange === "custom" ? "primary" : "secondary"} className="sm:self-end">
-          Apply
+      <form
+        className="space-y-3 rounded-2xl border border-border/80 bg-[linear-gradient(180deg,rgba(250,250,250,0.96),rgba(244,244,245,0.72))] p-4"
+        onSubmit={handleCustomSubmit}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+            <span className="font-medium uppercase tracking-[0.18em] text-[11px]">From</span>
+            <Input
+              type="date"
+              value={fromInput}
+              onChange={(event) => setFromInput(event.target.value)}
+              aria-label="Custom range from"
+              className="min-w-0"
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+            <span className="font-medium uppercase tracking-[0.18em] text-[11px]">To</span>
+            <Input
+              type="date"
+              value={toInput}
+              onChange={(event) => setToInput(event.target.value)}
+              aria-label="Custom range to"
+              className="min-w-0"
+            />
+          </label>
+        </div>
+        <Button
+          size="md"
+          type="submit"
+          variant={currentRange === "custom" ? "primary" : "secondary"}
+          className="w-full"
+        >
+          Apply custom range
         </Button>
       </form>
     </div>
