@@ -15,7 +15,7 @@ import { logServerError } from "@/lib/logging/logServerError";
 
 const DUPLICATE_WINDOW_MS = 10_000;
 const TASK_SELECT =
-  "id, title, completed, completed_at, scheduled_for, created_at, updated_at, project_id, archived_at, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
+  "id, title, completed, completed_at, scheduled_for, created_at, updated_at, project_id, archived_at, source, read_only, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
 
 export type TaskRow = {
   id: string;
@@ -27,6 +27,8 @@ export type TaskRow = {
   updated_at: string;
   project_id: string | null;
   archived_at: string | null;
+  source: string;
+  read_only: boolean;
   pomodoro_work_minutes?: number | null;
   pomodoro_short_break_minutes?: number | null;
   pomodoro_long_break_minutes?: number | null;
@@ -46,6 +48,35 @@ export type TaskPomodoroStats = {
 };
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
+
+const ERROR_READ_ONLY_TASK = "This task is managed in Notion. Edit it in Notion and sync again.";
+
+async function assertTaskWritable(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  taskId: string,
+) {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id, read_only")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return { ok: false as const, error: "Task not found" };
+  }
+
+  if (data.read_only) {
+    return { ok: false as const, error: ERROR_READ_ONLY_TASK };
+  }
+
+  return { ok: true as const };
+}
 
 function isRecentDuplicate(task: TaskRow | null) {
   if (!task?.created_at) return false;
@@ -531,6 +562,11 @@ export async function setTaskScheduledFor(
 
     userId = userData.user.id;
 
+    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableTask.ok) {
+      return { success: false, error: writableTask.error };
+    }
+
     const { data, error } = await supabase
       .from("tasks")
       .update({ scheduled_for: scheduledFor })
@@ -595,6 +631,11 @@ export async function setTaskCompleted(
     }
 
     userId = userData.user.id;
+
+    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableTask.ok) {
+      return { success: false, error: writableTask.error };
+    }
     let autoArchiveCompleted = false;
     if (completed) {
       const { data: settingsRow, error: settingsError } = await supabase
@@ -735,6 +776,11 @@ export async function updateTaskTitle(
 
     userId = userData.user.id;
 
+    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableTask.ok) {
+      return { success: false, error: writableTask.error };
+    }
+
     const { data, error } = await supabase
       .from("tasks")
       .update({ title: parsedTitle.data })
@@ -799,6 +845,11 @@ export async function deleteTask(taskId: string): Promise<ActionResult<TaskRow>>
     }
 
     userId = userData.user.id;
+
+    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableTask.ok) {
+      return { success: false, error: writableTask.error };
+    }
 
     const archivedAt = new Date().toISOString();
     const { data, error } = await supabase
@@ -874,6 +925,11 @@ export async function updateTaskProject(
 
     userId = userData.user.id;
 
+    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableTask.ok) {
+      return { success: false, error: writableTask.error };
+    }
+
     const { data, error } = await supabase
       .from("tasks")
       .update({ project_id: parsedProjectId.data ?? null })
@@ -940,6 +996,11 @@ export async function restoreTask(taskId: string): Promise<ActionResult<TaskRow>
     }
 
     userId = userData.user.id;
+
+    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableTask.ok) {
+      return { success: false, error: writableTask.error };
+    }
 
     const { data, error } = await supabase
       .from("tasks")
@@ -1039,6 +1100,11 @@ export async function updateTaskPomodoroOverrides(
     }
 
     userId = userData.user.id;
+
+    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableTask.ok) {
+      return { success: false, error: writableTask.error };
+    }
 
     const payload = normalizedOverrides
       ? {

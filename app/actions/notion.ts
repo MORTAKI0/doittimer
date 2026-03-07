@@ -1,56 +1,52 @@
-// file: app/actions/notion.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { envServer } from "@/lib/env.server";
 import { logServerError } from "@/lib/logging/logServerError";
+import { decryptNotionToken, encryptNotionToken } from "@/lib/notion/crypto";
+import {
+  buildProjectKey,
+  collectImportedProjects,
+  computeMissingImportedIds,
+  normalizeNotionTaskPage,
+  validateNotionImportSchema,
+  type ImportedNotionProject,
+  type ImportedNotionTask,
+} from "@/lib/notion/import";
+import {
+  NotionApiError,
+  getDatabase,
+  queryDatabase,
+  type NotionDatabase,
+} from "@/lib/notion/client";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   notionDatabaseIdSchema,
   notionTokenSchema,
   normalizeNotionDatabaseId,
 } from "@/lib/validation/notion.schema";
-import {
-  NotionApiError,
-  createPage,
-  getDatabase,
-  queryDatabase,
-  queryDatabaseByAppId,
-  updatePage,
-  type NotionDatabase,
-  type NotionPage,
-  type NotionPropertyValue,
-} from "@/lib/notion/client";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
-export type NotionConnectionSummary = {
-  connected: boolean;
+type ConnectionRow = {
+  user_id: string;
+  notion_token: string | null;
+  notion_token_encrypted: string | null;
+  notion_database_id: string | null;
+  workspace_name: string | null;
+  schema_version: number | null;
   last_synced_at: string | null;
-  last_status: "success" | "error" | null;
+  last_status: "success" | "error" | "running" | null;
   last_error: string | null;
-};
-
-export type NotionSyncSummary = {
-  createdProjects: number;
-  createdTasks: number;
-  updatedProjects: number;
-  updatedTasks: number;
-  pulledProjects: number;
-  pulledTasks: number;
-  archivedProjects: number;
-  restoredProjects: number;
-  archivedTasks: number;
-  restoredTasks: number;
-  warnings: number;
-  errors: number;
 };
 
 type ProjectRow = {
   id: string;
   name: string;
   archived_at: string | null;
-  updated_at: string;
+  source: string;
+  read_only: boolean;
 };
 
 type TaskRow = {
@@ -58,1201 +54,65 @@ type TaskRow = {
   title: string;
   completed: boolean;
   project_id: string | null;
+  scheduled_for: string | null;
   archived_at: string | null;
-  updated_at: string;
+  source: string;
+  read_only: boolean;
 };
 
 type ProjectMapRow = {
   project_id: string;
-  notion_page_id: string;
-  last_pulled_at: string | null;
+  notion_project_key: string | null;
 };
 
 type TaskMapRow = {
   task_id: string;
   notion_page_id: string;
-  last_pulled_at: string | null;
 };
 
-type NotionProjectRecord = {
-  pageId: string;
-  appId: string | null;
-  name: string;
-  archived: boolean;
-  lastEditedAt: string | null;
+const NOTION_SCHEMA_VERSION = 1;
+const NOTION_SOURCE = "notion";
+const READ_ONLY_IMPORT = true;
+
+export type NotionConnectionSummary = {
+  connected: boolean;
+  database_id: string | null;
+  workspace_name: string | null;
+  schema_version: number | null;
+  has_saved_token: boolean;
+  last_synced_at: string | null;
+  last_status: "success" | "error" | "running" | null;
+  last_error: string | null;
 };
 
-type NotionTaskRecord = {
-  pageId: string;
-  appId: string | null;
-  title: string;
-  completed: boolean;
-  projectName: string;
-  archived: boolean;
-  lastEditedAt: string | null;
+export type NotionValidationSummary = {
+  database_id: string;
+  database_title: string | null;
+  workspace_name: string | null;
 };
 
-const REQUIRED_PROPERTIES = {
-  name: "Name",
-  type: "Type",
-  completed: "Completed",
-  project: "Project",
-  archived: "Archived",
-  appId: "App ID",
+export type NotionSyncSummary = {
+  createdProjects: number;
+  updatedProjects: number;
+  archivedProjects: number;
+  restoredProjects: number;
+  createdTasks: number;
+  updatedTasks: number;
+  archivedTasks: number;
+  restoredTasks: number;
+  warnings: number;
 };
 
-const TYPE_OPTIONS = ["Project", "Task"];
-const CONCURRENCY_LIMIT = 3;
-
-export async function getNotionConnection(): Promise<ActionResult<NotionConnectionSummary>> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "You must be signed in." };
-    }
-
-    const { data, error } = await supabase
-      .from("notion_connections")
-      .select("last_synced_at, last_status, last_error")
-      .eq("user_id", userData.user.id)
-      .maybeSingle();
-
-    if (error) {
-      logServerError({
-        scope: "actions.notion.getNotionConnection",
-        userId: userData.user.id,
-        error,
-        context: { action: "select" },
-      });
-      return { success: false, error: "Unable to load Notion connection." };
-    }
-
-    if (!data) {
-      return {
-        success: true,
-        data: {
-          connected: false,
-          last_synced_at: null,
-          last_status: null,
-          last_error: null,
-        },
-      };
-    }
-
-    return {
-      success: true,
-      data: {
-        connected: true,
-        last_synced_at: data.last_synced_at ?? null,
-        last_status: data.last_status ?? null,
-        last_error: data.last_error ?? null,
-      },
-    };
-  } catch (error) {
-    logServerError({
-      scope: "actions.notion.getNotionConnection",
-      error,
-    });
-    return { success: false, error: "Network error. Check your connection and try again." };
-  }
+function getDatabaseTitle(database: NotionDatabase) {
+  return database.title?.map((item) => item.plain_text ?? "").join("").trim() || null;
 }
 
-export async function connectNotion(
-  token: string,
-  databaseId: string,
-): Promise<ActionResult<NotionConnectionSummary>> {
-  const parsedToken = notionTokenSchema.safeParse(token);
-  const parsedDatabaseId = notionDatabaseIdSchema.safeParse(databaseId);
-
-  if (!parsedToken.success) {
-    return { success: false, error: parsedToken.error.issues[0]?.message ?? "Invalid token." };
-  }
-
-  if (!parsedDatabaseId.success) {
-    return {
-      success: false,
-      error: parsedDatabaseId.error.issues[0]?.message ?? "Invalid database id.",
-    };
-  }
-
-  const normalizedDatabaseId = normalizeNotionDatabaseId(parsedDatabaseId.data);
-
-  if (!normalizedDatabaseId) {
-    return { success: false, error: "Invalid database id." };
-  }
-
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "You must be signed in." };
-    }
-
-    const { data, error } = await supabase
-      .from("notion_connections")
-      .upsert(
-        {
-          user_id: userData.user.id,
-          notion_token: parsedToken.data,
-          notion_database_id: normalizedDatabaseId,
-          last_status: null,
-          last_error: null,
-          last_synced_at: null,
-        },
-        { onConflict: "user_id" },
-      )
-      .select("last_synced_at, last_status, last_error")
-      .single();
-
-    if (error || !data) {
-      logServerError({
-        scope: "actions.notion.connectNotion",
-        userId: userData.user.id,
-        error: error ?? new Error("Notion connection upsert returned no data."),
-        context: { action: "upsert" },
-      });
-      return { success: false, error: "Unable to connect Notion." };
-    }
-
-    revalidatePath("/settings");
-
-    return {
-      success: true,
-      data: {
-        connected: true,
-        last_synced_at: data.last_synced_at ?? null,
-        last_status: data.last_status ?? null,
-        last_error: data.last_error ?? null,
-      },
-    };
-  } catch (error) {
-    logServerError({
-      scope: "actions.notion.connectNotion",
-      error,
-    });
-    return { success: false, error: "Network error. Check your connection and try again." };
-  }
-}
-
-export async function disconnectNotion(): Promise<ActionResult<NotionConnectionSummary>> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "You must be signed in." };
-    }
-
-    const userId = userData.user.id;
-
-    const { error: deleteConnectionError } = await supabase
-      .from("notion_connections")
-      .delete()
-      .eq("user_id", userId);
-
-    if (deleteConnectionError) {
-      logServerError({
-        scope: "actions.notion.disconnectNotion",
-        userId,
-        error: deleteConnectionError,
-        context: { action: "delete-connection" },
-      });
-      return { success: false, error: "Unable to disconnect Notion." };
-    }
-
-    await supabase.from("notion_task_map").delete().eq("user_id", userId);
-    await supabase.from("notion_project_map").delete().eq("user_id", userId);
-
-    revalidatePath("/settings");
-
-    return {
-      success: true,
-      data: {
-        connected: false,
-        last_synced_at: null,
-        last_status: null,
-        last_error: null,
-      },
-    };
-  } catch (error) {
-    logServerError({
-      scope: "actions.notion.disconnectNotion",
-      error,
-    });
-    return { success: false, error: "Network error. Check your connection and try again." };
-  }
-}
-
-export async function syncNotionNow(): Promise<ActionResult<NotionSyncSummary>> {
-  const supabase = await createSupabaseServerClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-
-  if (userError || !userData.user) {
-    return { success: false, error: "You must be signed in." };
-  }
-
-  const userId = userData.user.id;
-
-  const { data: connection, error: connectionError } = await supabase
-    .from("notion_connections")
-    .select("notion_token, notion_database_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (connectionError) {
-    logServerError({
-      scope: "actions.notion.syncNotionNow",
-      userId,
-      error: connectionError,
-      context: { action: "select-connection" },
-    });
-    return { success: false, error: "Unable to load Notion connection." };
-  }
-
-  if (!connection) {
-    return { success: false, error: "Connect Notion first." };
-  }
-
-  const parsedToken = notionTokenSchema.safeParse(connection.notion_token ?? "");
-  const parsedDatabaseId = notionDatabaseIdSchema.safeParse(connection.notion_database_id ?? "");
-  const normalizedDatabaseId = parsedDatabaseId.success
-    ? normalizeNotionDatabaseId(parsedDatabaseId.data)
-    : null;
-
-  if (!parsedToken.success || !parsedDatabaseId.success || !normalizedDatabaseId) {
-    const message = "Notion connection is invalid. Please reconnect.";
-    await setNotionStatusError(supabase, userId, message);
-    return { success: false, error: message };
-  }
-
-  const token = parsedToken.data;
-
-  try {
-    const database = await getDatabase({
-      token,
-      databaseId: normalizedDatabaseId,
-    });
-    const schemaError = validateNotionDatabaseSchema(database);
-
-    if (schemaError) {
-      await setNotionStatusError(supabase, userId, schemaError);
-      return { success: false, error: schemaError };
-    }
-
-    const [
-      { data: projects, error: projectsError },
-      { data: tasks, error: tasksError },
-      { data: projectMaps, error: projectMapsError },
-      { data: taskMaps, error: taskMapsError },
-    ] = await Promise.all([
-      supabase
-        .from("projects")
-        .select("id, name, archived_at, updated_at")
-        .eq("user_id", userId),
-      supabase
-        .from("tasks")
-        .select("id, title, completed, project_id, archived_at, updated_at")
-        .eq("user_id", userId),
-      supabase
-        .from("notion_project_map")
-        .select("project_id, notion_page_id, last_pulled_at")
-        .eq("user_id", userId),
-      supabase
-        .from("notion_task_map")
-        .select("task_id, notion_page_id, last_pulled_at")
-        .eq("user_id", userId),
-    ]);
-
-    if (projectsError) {
-      logServerError({
-        scope: "actions.notion.syncNotionNow",
-        userId,
-        error: projectsError,
-        context: { action: "select-projects" },
-      });
-      const message = "Unable to load projects for Notion sync.";
-      await setNotionStatusError(supabase, userId, message);
-      return { success: false, error: message };
-    }
-
-    if (tasksError) {
-      logServerError({
-        scope: "actions.notion.syncNotionNow",
-        userId,
-        error: tasksError,
-        context: { action: "select-tasks" },
-      });
-      const message = "Unable to load tasks for Notion sync.";
-      await setNotionStatusError(supabase, userId, message);
-      return { success: false, error: message };
-    }
-
-    if (projectMapsError) {
-      logServerError({
-        scope: "actions.notion.syncNotionNow",
-        userId,
-        error: projectMapsError,
-        context: { action: "select-project-maps" },
-      });
-      const message = "Unable to load Notion project mappings.";
-      await setNotionStatusError(supabase, userId, message);
-      return { success: false, error: message };
-    }
-
-    if (taskMapsError) {
-      logServerError({
-        scope: "actions.notion.syncNotionNow",
-        userId,
-        error: taskMapsError,
-        context: { action: "select-task-maps" },
-      });
-      const message = "Unable to load Notion task mappings.";
-      await setNotionStatusError(supabase, userId, message);
-      return { success: false, error: message };
-    }
-
-    const [notionProjectPages, notionTaskPages] = await Promise.all([
-      queryDatabase({
-        token,
-        databaseId: normalizedDatabaseId,
-        filter: {
-          property: REQUIRED_PROPERTIES.type,
-          select: { equals: "Project" },
-        },
-      }),
-      queryDatabase({
-        token,
-        databaseId: normalizedDatabaseId,
-        filter: {
-          property: REQUIRED_PROPERTIES.type,
-          select: { equals: "Task" },
-        },
-      }),
-    ]);
-
-    const notionProjects = notionProjectPages
-      .map(parseNotionProjectRecord)
-      .filter(Boolean) as NotionProjectRecord[];
-    const notionTasks = notionTaskPages
-      .map(parseNotionTaskRecord)
-      .filter(Boolean) as NotionTaskRecord[];
-
-    const projectById = new Map<string, ProjectRow>();
-    const taskById = new Map<string, TaskRow>();
-    const activeProjectsByName = new Map<string, string>();
-
-    (projects ?? []).forEach((project) => {
-      projectById.set(project.id, project);
-      if (!project.archived_at) {
-        activeProjectsByName.set(normalizeLookup(project.name), project.id);
-      }
-    });
-
-    (tasks ?? []).forEach((task) => {
-      taskById.set(task.id, task);
-    });
-
-    const projectMapByProjectId = new Map<string, ProjectMapRow>();
-    (projectMaps ?? []).forEach((mapping) => {
-      projectMapByProjectId.set(mapping.project_id, mapping);
-    });
-
-    const taskMapByTaskId = new Map<string, TaskMapRow>();
-    (taskMaps ?? []).forEach((mapping) => {
-      taskMapByTaskId.set(mapping.task_id, mapping);
-    });
-
-    const notionProjectsByPageId = new Map<string, NotionProjectRecord>();
-    const notionProjectsByAppId = new Map<string, NotionProjectRecord>();
-    const notionTasksByPageId = new Map<string, NotionTaskRecord>();
-    const notionTasksByAppId = new Map<string, NotionTaskRecord>();
-
-    notionProjects.forEach((record) => {
-      notionProjectsByPageId.set(record.pageId, record);
-      if (record.appId) {
-        notionProjectsByAppId.set(record.appId, record);
-      }
-    });
-
-    notionTasks.forEach((record) => {
-      notionTasksByPageId.set(record.pageId, record);
-      if (record.appId) {
-        notionTasksByAppId.set(record.appId, record);
-      }
-    });
-
-    const summary: NotionSyncSummary = {
-      createdProjects: 0,
-      createdTasks: 0,
-      updatedProjects: 0,
-      updatedTasks: 0,
-      pulledProjects: 0,
-      pulledTasks: 0,
-      archivedProjects: 0,
-      restoredProjects: 0,
-      archivedTasks: 0,
-      restoredTasks: 0,
-      warnings: 0,
-      errors: 0,
-    };
-    const errors: string[] = [];
-
-    await runWithConcurrency(notionProjects, CONCURRENCY_LIMIT, async (record) => {
-      try {
-        const existing = record.appId ? projectById.get(record.appId) : null;
-        if (existing) return;
-
-        const normalizedName = normalizeProjectName(record.name);
-        const archivedAt = record.archived ? new Date().toISOString() : null;
-        const insertPayload: {
-          id?: string;
-          user_id: string;
-          name: string;
-          archived_at: string | null;
-        } = {
-          user_id: userId,
-          name: normalizedName,
-          archived_at: archivedAt,
-        };
-        if (record.appId && isUuid(record.appId)) {
-          insertPayload.id = record.appId;
-        }
-
-        const { data: created, error: insertError } = await supabase
-          .from("projects")
-          .insert(insertPayload)
-          .select("id, name, archived_at, updated_at")
-          .single();
-
-        if (insertError || !created) {
-          throw insertError ?? new Error("Project insert failed.");
-        }
-
-        summary.pulledProjects += 1;
-
-        projectById.set(created.id, created);
-        if (!created.archived_at) {
-          activeProjectsByName.set(normalizeLookup(created.name), created.id);
-        }
-
-        if (record.appId !== created.id) {
-          await updatePage({
-            token,
-            pageId: record.pageId,
-            properties: buildAppIdProperties(created.id),
-          });
-        }
-
-        await upsertProjectMapping(
-          supabase,
-          userId,
-          created.id,
-          record.pageId,
-          new Date().toISOString(),
-        );
-      } catch (error) {
-        summary.errors += 1;
-        errors.push(toSyncErrorMessage(error));
-      }
-    });
-
-    await runWithConcurrency(projects ?? [], CONCURRENCY_LIMIT, async (project) => {
-      try {
-        const mapping = projectMapByProjectId.get(project.id) ?? null;
-        let notionRecord = mapping
-          ? notionProjectsByPageId.get(mapping.notion_page_id) ?? null
-          : null;
-
-        if (!notionRecord) {
-          notionRecord = notionProjectsByAppId.get(project.id) ?? null;
-          if (notionRecord && (!mapping || mapping.notion_page_id !== notionRecord.pageId)) {
-            await upsertProjectMapping(
-              supabase,
-              userId,
-              project.id,
-              notionRecord.pageId,
-              mapping?.last_pulled_at ?? null,
-            );
-          }
-        }
-
-        if (!notionRecord) {
-          const existing = await queryDatabaseByAppId({
-            token,
-            databaseId: normalizedDatabaseId,
-            appId: project.id,
-          });
-          const parsedExisting = existing ? parseNotionProjectRecord(existing) : null;
-          if (parsedExisting) {
-            notionRecord = parsedExisting;
-            await upsertProjectMapping(
-              supabase,
-              userId,
-              project.id,
-              parsedExisting.pageId,
-              mapping?.last_pulled_at ?? null,
-            );
-          }
-        }
-
-        if (!notionRecord) {
-          const created = await createPage({
-            token,
-            databaseId: normalizedDatabaseId,
-            properties: buildProjectProperties(project),
-          });
-          summary.createdProjects += 1;
-          await upsertProjectMapping(supabase, userId, project.id, created.id, null);
-          return;
-        }
-
-        const appUpdatedAtMs = toTimestamp(project.updated_at) ?? 0;
-        const notionEditedAtMs = toTimestamp(notionRecord.lastEditedAt) ?? 0;
-        const lastPulledAtMs = mapping?.last_pulled_at
-          ? toTimestamp(mapping.last_pulled_at)
-          : null;
-        const notionEligible = lastPulledAtMs == null
-          || (notionEditedAtMs != null && notionEditedAtMs > lastPulledAtMs);
-        const notionNewer = notionEligible && notionEditedAtMs > appUpdatedAtMs;
-        const appNewer = appUpdatedAtMs > notionEditedAtMs;
-
-        if (notionNewer) {
-          const normalizedName = normalizeProjectName(notionRecord.name);
-          const nextArchived = notionRecord.archived;
-          const wasArchived = Boolean(project.archived_at);
-          const needsUpdate =
-            normalizeLookup(project.name) !== normalizeLookup(normalizedName)
-            || wasArchived !== nextArchived;
-
-          if (needsUpdate) {
-            const archivedAt = nextArchived ? new Date().toISOString() : null;
-            const { data: updated, error: updateError } = await supabase
-              .from("projects")
-              .update({ name: normalizedName, archived_at: archivedAt })
-              .eq("id", project.id)
-              .eq("user_id", userId)
-              .select("id, name, archived_at, updated_at")
-              .single();
-
-            if (updateError || !updated) {
-              throw updateError ?? new Error("Project update failed.");
-            }
-
-            summary.pulledProjects += 1;
-            if (!wasArchived && updated.archived_at) {
-              summary.archivedProjects += 1;
-            }
-            if (wasArchived && !updated.archived_at) {
-              summary.restoredProjects += 1;
-            }
-
-            if (!project.archived_at) {
-              activeProjectsByName.delete(normalizeLookup(project.name));
-            }
-            projectById.set(updated.id, updated);
-            if (!updated.archived_at) {
-              activeProjectsByName.set(normalizeLookup(updated.name), updated.id);
-            }
-
-            await setProjectLastPulledAt(
-              supabase,
-              userId,
-              project.id,
-              new Date().toISOString(),
-            );
-          }
-          return;
-        }
-
-        if (appNewer) {
-          const appProjectProperties = buildProjectProperties(project);
-          const needsUpdate =
-            normalizeLookup(project.name) !== normalizeLookup(notionRecord.name)
-            || Boolean(project.archived_at) !== notionRecord.archived;
-
-          if (needsUpdate) {
-            await updatePage({
-              token,
-              pageId: notionRecord.pageId,
-              properties: appProjectProperties,
-            });
-            summary.updatedProjects += 1;
-          }
-        }
-      } catch (error) {
-        summary.errors += 1;
-        errors.push(toSyncErrorMessage(error));
-      }
-    });
-
-    await runWithConcurrency(notionTasks, CONCURRENCY_LIMIT, async (record) => {
-      try {
-        const existing = record.appId ? taskById.get(record.appId) : null;
-        if (existing) return;
-
-        const normalizedTitle = normalizeTaskTitle(record.title);
-        const archivedAt = record.archived ? new Date().toISOString() : null;
-        const { projectId, warning } = resolveProjectIdFromNotion(
-          record.projectName,
-          activeProjectsByName,
-        );
-        if (warning) {
-          summary.warnings += 1;
-        }
-
-        const insertPayload: {
-          id?: string;
-          user_id: string;
-          title: string;
-          completed: boolean;
-          project_id: string | null;
-          archived_at: string | null;
-        } = {
-          user_id: userId,
-          title: normalizedTitle,
-          completed: record.completed,
-          project_id: projectId,
-          archived_at: archivedAt,
-        };
-        if (record.appId && isUuid(record.appId)) {
-          insertPayload.id = record.appId;
-        }
-
-        const { data: created, error: insertError } = await supabase
-          .from("tasks")
-          .insert(insertPayload)
-          .select("id, title, completed, project_id, archived_at, updated_at")
-          .single();
-
-        if (insertError || !created) {
-          throw insertError ?? new Error("Task insert failed.");
-        }
-
-        summary.pulledTasks += 1;
-
-        taskById.set(created.id, created);
-
-        if (record.appId !== created.id) {
-          await updatePage({
-            token,
-            pageId: record.pageId,
-            properties: buildAppIdProperties(created.id),
-          });
-        }
-
-        await upsertTaskMapping(
-          supabase,
-          userId,
-          created.id,
-          record.pageId,
-          new Date().toISOString(),
-        );
-      } catch (error) {
-        summary.errors += 1;
-        errors.push(toSyncErrorMessage(error));
-      }
-    });
-
-    await runWithConcurrency(tasks ?? [], CONCURRENCY_LIMIT, async (task) => {
-      try {
-        const mapping = taskMapByTaskId.get(task.id) ?? null;
-        let notionRecord = mapping
-          ? notionTasksByPageId.get(mapping.notion_page_id) ?? null
-          : null;
-
-        if (!notionRecord) {
-          notionRecord = notionTasksByAppId.get(task.id) ?? null;
-          if (notionRecord && (!mapping || mapping.notion_page_id !== notionRecord.pageId)) {
-            await upsertTaskMapping(
-              supabase,
-              userId,
-              task.id,
-              notionRecord.pageId,
-              mapping?.last_pulled_at ?? null,
-            );
-          }
-        }
-
-        if (!notionRecord) {
-          const existing = await queryDatabaseByAppId({
-            token,
-            databaseId: normalizedDatabaseId,
-            appId: task.id,
-          });
-          const parsedExisting = existing ? parseNotionTaskRecord(existing) : null;
-          if (parsedExisting) {
-            notionRecord = parsedExisting;
-            await upsertTaskMapping(
-              supabase,
-              userId,
-              task.id,
-              parsedExisting.pageId,
-              mapping?.last_pulled_at ?? null,
-            );
-          }
-        }
-
-        if (!notionRecord) {
-          const projectName = task.project_id
-            ? projectById.get(task.project_id)?.name ?? ""
-            : "";
-          const created = await createPage({
-            token,
-            databaseId: normalizedDatabaseId,
-            properties: buildTaskProperties(task, projectName),
-          });
-          summary.createdTasks += 1;
-          await upsertTaskMapping(supabase, userId, task.id, created.id, null);
-          return;
-        }
-
-        const appUpdatedAtMs = toTimestamp(task.updated_at) ?? 0;
-        const notionEditedAtMs = toTimestamp(notionRecord.lastEditedAt) ?? 0;
-        const lastPulledAtMs = mapping?.last_pulled_at
-          ? toTimestamp(mapping.last_pulled_at)
-          : null;
-        const notionEligible = lastPulledAtMs == null
-          || (notionEditedAtMs != null && notionEditedAtMs > lastPulledAtMs);
-        const notionNewer = notionEligible && notionEditedAtMs > appUpdatedAtMs;
-        const appNewer = appUpdatedAtMs > notionEditedAtMs;
-
-        if (notionNewer) {
-          const normalizedTitle = normalizeTaskTitle(notionRecord.title);
-          const nextArchived = notionRecord.archived;
-          const wasArchived = Boolean(task.archived_at);
-          const { projectId, warning } = resolveProjectIdFromNotion(
-            notionRecord.projectName,
-            activeProjectsByName,
-          );
-          if (warning) {
-            summary.warnings += 1;
-          }
-
-          const needsUpdate =
-            normalizeLookup(task.title) !== normalizeLookup(normalizedTitle)
-            || task.completed !== notionRecord.completed
-            || task.project_id !== projectId
-            || wasArchived !== nextArchived;
-
-          if (needsUpdate) {
-            const archivedAt = nextArchived ? new Date().toISOString() : null;
-            const { data: updated, error: updateError } = await supabase
-              .from("tasks")
-              .update({
-                title: normalizedTitle,
-                completed: notionRecord.completed,
-                project_id: projectId,
-                archived_at: archivedAt,
-              })
-              .eq("id", task.id)
-              .eq("user_id", userId)
-              .select("id, title, completed, project_id, archived_at, updated_at")
-              .single();
-
-            if (updateError || !updated) {
-              throw updateError ?? new Error("Task update failed.");
-            }
-
-            summary.pulledTasks += 1;
-            if (!wasArchived && updated.archived_at) {
-              summary.archivedTasks += 1;
-            }
-            if (wasArchived && !updated.archived_at) {
-              summary.restoredTasks += 1;
-            }
-
-            taskById.set(updated.id, updated);
-
-            await setTaskLastPulledAt(
-              supabase,
-              userId,
-              task.id,
-              new Date().toISOString(),
-            );
-          }
-          return;
-        }
-
-        if (appNewer) {
-          const projectName = task.project_id
-            ? projectById.get(task.project_id)?.name ?? ""
-            : "";
-          const needsUpdate =
-            normalizeLookup(task.title) !== normalizeLookup(notionRecord.title)
-            || task.completed !== notionRecord.completed
-            || Boolean(task.archived_at) !== notionRecord.archived
-            || normalizeLookup(projectName) !== normalizeLookup(notionRecord.projectName);
-
-          if (needsUpdate) {
-            await updatePage({
-              token,
-              pageId: notionRecord.pageId,
-              properties: buildTaskProperties(task, projectName),
-            });
-            summary.updatedTasks += 1;
-          }
-        }
-      } catch (error) {
-        summary.errors += 1;
-        errors.push(toSyncErrorMessage(error));
-      }
-    });
-
-    if (errors.length > 0) {
-      const message = "Notion sync completed with errors. Please try again.";
-      await setNotionStatusError(supabase, userId, message);
-      return { success: false, error: message };
-    }
-
-    await setNotionStatusSuccess(supabase, userId);
-    revalidatePath("/settings");
-    return { success: true, data: summary };
-  } catch (error) {
-    const message = mapNotionError(error);
-    await setNotionStatusError(supabase, userId, message);
-    logServerError({
-      scope: "actions.notion.syncNotionNow",
-      userId,
-      error,
-    });
-    return { success: false, error: message };
-  }
-}
-
-function normalizeLookup(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function normalizeProjectName(value: string): string {
-  const trimmed = value.trim();
-  const safe = trimmed.length > 0 ? trimmed : "Untitled project";
-  return safe.slice(0, 120);
-}
-
-function normalizeTaskTitle(value: string): string {
-  const trimmed = value.trim();
-  const safe = trimmed.length > 0 ? trimmed : "Untitled task";
-  return safe.slice(0, 500);
-}
-
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
-}
-
-function toTimestamp(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function buildAppIdProperties(appId: string): Record<string, NotionPropertyValue> {
-  return {
-    [REQUIRED_PROPERTIES.appId]: {
-      rich_text: [{ text: { content: appId } }],
-    },
-  };
-}
-
-function getPropertyValue(
-  properties: Record<string, unknown> | undefined,
-  key: string,
-): Record<string, unknown> | null {
-  if (!properties) return null;
-  const value = properties[key];
-  if (!value || typeof value !== "object") return null;
-  return value as Record<string, unknown>;
-}
-
-function readTitleValue(properties: Record<string, unknown> | undefined, key: string): string {
-  const prop = getPropertyValue(properties, key);
-  if (!prop || prop.type !== "title") return "";
-  const items = Array.isArray(prop.title) ? prop.title : [];
-  const text = items
-    .map((item) => {
-      if (item && typeof item === "object") {
-        const record = item as { plain_text?: string; text?: { content?: string } };
-        return record.plain_text ?? record.text?.content ?? "";
-      }
-      return "";
-    })
-    .join("");
-  return text.trim();
-}
-
-function readRichTextValue(properties: Record<string, unknown> | undefined, key: string): string {
-  const prop = getPropertyValue(properties, key);
-  if (!prop || prop.type !== "rich_text") return "";
-  const items = Array.isArray(prop.rich_text) ? prop.rich_text : [];
-  const text = items
-    .map((item) => {
-      if (item && typeof item === "object") {
-        const record = item as { plain_text?: string; text?: { content?: string } };
-        return record.plain_text ?? record.text?.content ?? "";
-      }
-      return "";
-    })
-    .join("");
-  return text.trim();
-}
-
-function readCheckboxValue(
-  properties: Record<string, unknown> | undefined,
-  key: string,
-): boolean {
-  const prop = getPropertyValue(properties, key);
-  if (!prop || prop.type !== "checkbox") return false;
-  return Boolean(prop.checkbox);
-}
-
-function parseNotionProjectRecord(page: NotionPage): NotionProjectRecord | null {
-  const properties = page.properties;
-  const name = readTitleValue(properties, REQUIRED_PROPERTIES.name);
-  const appId = readRichTextValue(properties, REQUIRED_PROPERTIES.appId) || null;
-  const archived = readCheckboxValue(properties, REQUIRED_PROPERTIES.archived);
-  return {
-    pageId: page.id,
-    appId: appId && appId.trim() !== "" ? appId : null,
-    name,
-    archived,
-    lastEditedAt: page.last_edited_time ?? null,
-  };
-}
-
-function parseNotionTaskRecord(page: NotionPage): NotionTaskRecord | null {
-  const properties = page.properties;
-  const title = readTitleValue(properties, REQUIRED_PROPERTIES.name);
-  const appId = readRichTextValue(properties, REQUIRED_PROPERTIES.appId) || null;
-  const completed = readCheckboxValue(properties, REQUIRED_PROPERTIES.completed);
-  const projectName = readRichTextValue(properties, REQUIRED_PROPERTIES.project);
-  const archived = readCheckboxValue(properties, REQUIRED_PROPERTIES.archived);
-  return {
-    pageId: page.id,
-    appId: appId && appId.trim() !== "" ? appId : null,
-    title,
-    completed,
-    projectName,
-    archived,
-    lastEditedAt: page.last_edited_time ?? null,
-  };
-}
-
-function resolveProjectIdFromNotion(
-  projectName: string,
-  activeProjectsByName: Map<string, string>,
-): { projectId: string | null; warning: boolean } {
-  const trimmed = projectName.trim();
-  if (!trimmed) {
-    return { projectId: null, warning: false };
-  }
-  const match = activeProjectsByName.get(normalizeLookup(trimmed));
-  if (!match) {
-    return { projectId: null, warning: true };
-  }
-  return { projectId: match, warning: false };
-}
-
-function buildProjectProperties(project: ProjectRow): Record<string, NotionPropertyValue> {
-  return {
-    [REQUIRED_PROPERTIES.name]: {
-      title: [{ text: { content: project.name } }],
-    },
-    [REQUIRED_PROPERTIES.type]: {
-      select: { name: "Project" },
-    },
-    [REQUIRED_PROPERTIES.completed]: {
-      checkbox: false,
-    },
-    [REQUIRED_PROPERTIES.project]: {
-      rich_text: [{ text: { content: project.name } }],
-    },
-    [REQUIRED_PROPERTIES.archived]: {
-      checkbox: Boolean(project.archived_at),
-    },
-    [REQUIRED_PROPERTIES.appId]: {
-      rich_text: [{ text: { content: project.id } }],
-    },
-  };
-}
-
-function buildTaskProperties(
-  task: TaskRow,
-  projectName: string,
-): Record<string, NotionPropertyValue> {
-  return {
-    [REQUIRED_PROPERTIES.name]: {
-      title: [{ text: { content: task.title } }],
-    },
-    [REQUIRED_PROPERTIES.type]: {
-      select: { name: "Task" },
-    },
-    [REQUIRED_PROPERTIES.completed]: {
-      checkbox: Boolean(task.completed),
-    },
-    [REQUIRED_PROPERTIES.project]: {
-      rich_text: projectName ? [{ text: { content: projectName } }] : [],
-    },
-    [REQUIRED_PROPERTIES.archived]: {
-      checkbox: Boolean(task.archived_at),
-    },
-    [REQUIRED_PROPERTIES.appId]: {
-      rich_text: [{ text: { content: task.id } }],
-    },
-  };
-}
-
-async function upsertProjectMapping(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  projectId: string,
-  notionPageId: string,
-  lastPulledAt: string | null,
-) {
-  const { error } = await supabase
-    .from("notion_project_map")
-    .upsert(
-      {
-        project_id: projectId,
-        user_id: userId,
-        notion_page_id: notionPageId,
-        last_pulled_at: lastPulledAt,
-      },
-      { onConflict: "project_id" },
-    );
-
-  if (error) {
-    throw error;
-  }
-}
-
-async function upsertTaskMapping(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  taskId: string,
-  notionPageId: string,
-  lastPulledAt: string | null,
-) {
-  const { error } = await supabase
-    .from("notion_task_map")
-    .upsert(
-      {
-        task_id: taskId,
-        user_id: userId,
-        notion_page_id: notionPageId,
-        last_pulled_at: lastPulledAt,
-      },
-      { onConflict: "task_id" },
-    );
-
-  if (error) {
-    throw error;
-  }
-}
-
-async function setProjectLastPulledAt(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  projectId: string,
-  lastPulledAt: string,
-) {
-  const { error } = await supabase
-    .from("notion_project_map")
-    .update({ last_pulled_at: lastPulledAt })
-    .eq("user_id", userId)
-    .eq("project_id", projectId);
-
-  if (error) {
-    throw error;
-  }
-}
-
-async function setTaskLastPulledAt(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  taskId: string,
-  lastPulledAt: string,
-) {
-  const { error } = await supabase
-    .from("notion_task_map")
-    .update({ last_pulled_at: lastPulledAt })
-    .eq("user_id", userId)
-    .eq("task_id", taskId);
-
-  if (error) {
-    throw error;
-  }
-}
-
-async function runWithConcurrency<T>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<void>,
-) {
-  const size = Math.max(1, Math.min(limit, items.length));
-  let index = 0;
-  const workers = Array.from({ length: size }, async () => {
-    while (true) {
-      const currentIndex = index;
-      index += 1;
-      if (currentIndex >= items.length) {
-        break;
-      }
-      await worker(items[currentIndex]);
-    }
-  });
-  await Promise.all(workers);
-}
-
-function validateNotionDatabaseSchema(database: NotionDatabase): string | null {
-  const properties = database.properties ?? {};
-  const errors: string[] = [];
-
-  const nameProp = properties[REQUIRED_PROPERTIES.name];
-  if (!nameProp || nameProp.type !== "title") {
-    errors.push("Name (Title)");
-  }
-
-  const typeProp = properties[REQUIRED_PROPERTIES.type];
-  if (!typeProp || typeProp.type !== "select") {
-    errors.push("Type (Select)");
-  } else {
-    const options = typeProp.select?.options ?? [];
-    const optionNames = options.map((option) => option.name).filter(Boolean);
-    const missingType = TYPE_OPTIONS.filter((option) => !optionNames.includes(option));
-    if (missingType.length > 0) {
-      errors.push("Type options (Project, Task)");
-    }
-  }
-
-  const completedProp = properties[REQUIRED_PROPERTIES.completed];
-  if (!completedProp || completedProp.type !== "checkbox") {
-    errors.push("Completed (Checkbox)");
-  }
-
-  const projectProp = properties[REQUIRED_PROPERTIES.project];
-  if (!projectProp || projectProp.type !== "rich_text") {
-    errors.push("Project (Rich text)");
-  }
-
-  const archivedProp = properties[REQUIRED_PROPERTIES.archived];
-  if (!archivedProp || archivedProp.type !== "checkbox") {
-    errors.push("Archived (Checkbox)");
-  }
-
-  const appIdProp = properties[REQUIRED_PROPERTIES.appId];
-  if (!appIdProp || appIdProp.type !== "rich_text") {
-    errors.push("App ID (Rich text)");
-  }
-
-  if (errors.length === 0) {
-    return null;
-  }
-
-  return `Notion database is missing required properties: ${errors.join(", ")}.`;
+function sanitizeMessage(message: string) {
+  return message
+    .replace(/secret_[A-Za-z0-9]+/g, "[redacted]")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
+    .trim()
+    .slice(0, 500);
 }
 
 function mapNotionError(error: unknown): string {
@@ -1270,70 +130,813 @@ function mapNotionError(error: unknown): string {
       return "Notion API is unavailable. Please try again.";
     }
   }
-  return "Notion sync failed. Please try again.";
+
+  return "Notion request failed. Please try again.";
 }
 
-function toSyncErrorMessage(error: unknown): string {
-  if (error instanceof NotionApiError) {
-    if (error.status === 404) {
-      return "Notion page not found.";
-    }
-    if (error.status === 401 || error.status === 403) {
-      return "Notion authorization failed.";
-    }
-    if (error.status === 429) {
-      return "Notion rate limit exceeded.";
-    }
-    if (error.status >= 500) {
-      return "Notion API error.";
-    }
+function buildConnectionSummary(connection: ConnectionRow | null): NotionConnectionSummary {
+  const hasSavedToken = Boolean(connection?.notion_token_encrypted || connection?.notion_token);
+  return {
+    connected: Boolean(connection?.notion_database_id && hasSavedToken),
+    database_id: connection?.notion_database_id ?? null,
+    workspace_name: connection?.workspace_name ?? null,
+    schema_version: connection?.schema_version ?? null,
+    has_saved_token: hasSavedToken,
+    last_synced_at: connection?.last_synced_at ?? null,
+    last_status: connection?.last_status ?? null,
+    last_error: connection?.last_error ?? null,
+  };
+}
+
+async function getAuthedContext() {
+  const supabase = await createSupabaseServerClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { supabase, userId: null as string | null, error: "You must be signed in." };
   }
-  return "Unexpected sync error.";
+
+  return { supabase, userId: userData.user.id, error: null as string | null };
 }
 
-async function setNotionStatusSuccess(
+async function getConnectionRow(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   userId: string,
 ) {
+  const { data, error } = await supabase
+    .from("notion_connections")
+    .select(
+      "user_id, notion_token, notion_token_encrypted, notion_database_id, workspace_name, schema_version, last_synced_at, last_status, last_error",
+    )
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? null) as ConnectionRow | null;
+}
+
+async function maybeMigratePlaintextToken(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  connection: ConnectionRow,
+  token: string,
+) {
+  if (connection.notion_token_encrypted || !connection.notion_token) {
+    return;
+  }
+
+  const encrypted = encryptNotionToken(token, envServer.NOTION_TOKEN_ENCRYPTION_KEY);
+  await supabase
+    .from("notion_connections")
+    .update({ notion_token_encrypted: encrypted, notion_token: null })
+    .eq("user_id", userId);
+}
+
+async function resolveTokenInput(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  connection: ConnectionRow | null,
+  tokenInput: string,
+) {
+  const trimmed = tokenInput.trim();
+
+  if (trimmed) {
+    const parsedToken = notionTokenSchema.safeParse(trimmed);
+    if (!parsedToken.success) {
+      return { error: parsedToken.error.issues[0]?.message ?? "Notion token is invalid.", token: null };
+    }
+
+    return { error: null, token: parsedToken.data };
+  }
+
+  if (!connection) {
+    return { error: "Notion token is required.", token: null };
+  }
+
+  if (connection.notion_token_encrypted) {
+    try {
+      return {
+        error: null,
+        token: decryptNotionToken(connection.notion_token_encrypted, envServer.NOTION_TOKEN_ENCRYPTION_KEY),
+      };
+    } catch (error) {
+      logServerError({
+        scope: "actions.notion.resolveTokenInput",
+        userId,
+        error,
+        context: { action: "decrypt-token" },
+      });
+      return { error: "Stored Notion token is invalid. Please reconnect.", token: null };
+    }
+  }
+
+  if (connection.notion_token) {
+    const parsedToken = notionTokenSchema.safeParse(connection.notion_token);
+    if (!parsedToken.success) {
+      return { error: "Stored Notion token is invalid. Please reconnect.", token: null };
+    }
+
+    await maybeMigratePlaintextToken(supabase, userId, connection, parsedToken.data);
+    return { error: null, token: parsedToken.data };
+  }
+
+  return { error: "Notion token is required.", token: null };
+}
+
+function resolveDatabaseIdInput(connection: ConnectionRow | null, databaseIdInput: string) {
+  const candidate = databaseIdInput.trim() || connection?.notion_database_id || "";
+  const parsed = notionDatabaseIdSchema.safeParse(candidate);
+
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "Notion database id is invalid.",
+      databaseId: null,
+    };
+  }
+
+  const normalized = normalizeNotionDatabaseId(parsed.data);
+  if (!normalized) {
+    return { error: "Notion database id is invalid.", databaseId: null };
+  }
+
+  return { error: null, databaseId: normalized };
+}
+
+async function validateDatabaseAccess(token: string, databaseId: string) {
+  const database = await getDatabase({ token, databaseId });
+  const schemaError = validateNotionImportSchema(database);
+
+  if (schemaError) {
+    return { error: schemaError, database: null as NotionDatabase | null };
+  }
+
+  return { error: null, database };
+}
+
+async function setConnectionStatus(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  status: "success" | "error" | "running",
+  errorMessage?: string | null,
+) {
+  const payload: {
+    last_status: "success" | "error" | "running";
+    last_error: string | null;
+    last_synced_at?: string;
+  } = {
+    last_status: status,
+    last_error: errorMessage ? sanitizeMessage(errorMessage) : null,
+  };
+
+  if (status === "success") {
+    payload.last_synced_at = new Date().toISOString();
+  }
+
   const { error } = await supabase
     .from("notion_connections")
-    .update({
-      last_synced_at: new Date().toISOString(),
-      last_status: "success",
+    .update(payload)
+    .eq("user_id", userId);
+
+  if (error) {
+    logServerError({
+      scope: "actions.notion.setConnectionStatus",
+      userId,
+      error,
+      context: { status },
+    });
+  }
+}
+
+async function recordSyncRun(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  status: "success" | "error",
+  summary: NotionSyncSummary | null,
+  errorMessage?: string,
+) {
+  const { error } = await supabase.from("notion_sync_runs").insert({
+    user_id: userId,
+    status,
+    summary,
+    error: errorMessage ? sanitizeMessage(errorMessage) : null,
+  });
+
+  if (error) {
+    logServerError({
+      scope: "actions.notion.recordSyncRun",
+      userId,
+      error,
+      context: { status },
+    });
+  }
+}
+
+async function upsertProjectMap(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  projectId: string,
+  notionProjectKey: string,
+) {
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("notion_project_map").upsert(
+    {
+      user_id: userId,
+      project_id: projectId,
+      notion_project_key: notionProjectKey,
+      last_pulled_at: now,
+    },
+    { onConflict: "user_id,project_id" },
+  );
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function upsertTaskMap(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  taskId: string,
+  notionPageId: string,
+) {
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("notion_task_map").upsert(
+    {
+      user_id: userId,
+      task_id: taskId,
+      notion_page_id: notionPageId,
+      last_pulled_at: now,
+    },
+    { onConflict: "user_id,task_id" },
+  );
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function archiveMissingProjects(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  missingProjectIds: string[],
+) {
+  let archivedCount = 0;
+
+  for (const projectId of missingProjectIds) {
+    const { data, error } = await supabase
+      .from("projects")
+      .update({ archived_at: new Date().toISOString(), source: NOTION_SOURCE, read_only: READ_ONLY_IMPORT })
+      .eq("id", projectId)
+      .eq("user_id", userId)
+      .is("archived_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (data) {
+      archivedCount += 1;
+    }
+  }
+
+  return archivedCount;
+}
+
+async function archiveMissingTasks(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  missingTaskIds: string[],
+) {
+  let archivedCount = 0;
+
+  for (const taskId of missingTaskIds) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({ archived_at: new Date().toISOString(), source: NOTION_SOURCE, read_only: READ_ONLY_IMPORT })
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .is("archived_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (data) {
+      archivedCount += 1;
+    }
+  }
+
+  return archivedCount;
+}
+
+async function syncProjects(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  importedProjects: ImportedNotionProject[],
+  localProjects: ProjectRow[],
+  projectMaps: ProjectMapRow[],
+  summary: NotionSyncSummary,
+) {
+  const projectIdByKey = new Map<string, string>();
+  const seenProjectIds = new Set<string>();
+  const localProjectById = new Map(localProjects.map((project) => [project.id, project]));
+  const localImportedProjectByKey = new Map(
+    localProjects
+      .filter((project) => project.source === NOTION_SOURCE)
+      .map((project) => [buildProjectKey(project.name), project]),
+  );
+  const projectMapByKey = new Map(
+    projectMaps
+      .filter((row): row is ProjectMapRow & { notion_project_key: string } => Boolean(row.notion_project_key))
+      .map((row) => [row.notion_project_key, row.project_id]),
+  );
+
+  for (const importedProject of importedProjects) {
+    const mappedProjectId = projectMapByKey.get(importedProject.key) ?? null;
+    const existingProject = mappedProjectId
+      ? localProjectById.get(mappedProjectId) ?? null
+      : localImportedProjectByKey.get(importedProject.key) ?? null;
+
+    if (!existingProject) {
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          user_id: userId,
+          name: importedProject.name,
+          archived_at: null,
+          source: NOTION_SOURCE,
+          read_only: READ_ONLY_IMPORT,
+        })
+        .select("id, name, archived_at, source, read_only")
+        .single();
+
+      if (error || !data) {
+        throw error ?? new Error("Unable to create imported project.");
+      }
+
+      await upsertProjectMap(supabase, userId, data.id, importedProject.key);
+      projectIdByKey.set(importedProject.key, data.id);
+      seenProjectIds.add(data.id);
+      summary.createdProjects += 1;
+      continue;
+    }
+
+    const nextPayload = {
+      name: importedProject.name,
+      archived_at: null,
+      source: NOTION_SOURCE,
+      read_only: READ_ONLY_IMPORT,
+    };
+    const needsUpdate =
+      existingProject.name !== nextPayload.name
+      || existingProject.archived_at !== nextPayload.archived_at
+      || existingProject.source !== nextPayload.source
+      || existingProject.read_only !== nextPayload.read_only;
+
+    if (needsUpdate) {
+      const { data, error } = await supabase
+        .from("projects")
+        .update(nextPayload)
+        .eq("id", existingProject.id)
+        .eq("user_id", userId)
+        .select("id, archived_at")
+        .single();
+
+      if (error || !data) {
+        throw error ?? new Error("Unable to update imported project.");
+      }
+
+      summary.updatedProjects += 1;
+      if (existingProject.archived_at && !data.archived_at) {
+        summary.restoredProjects += 1;
+      }
+    }
+
+    await upsertProjectMap(supabase, userId, existingProject.id, importedProject.key);
+    projectIdByKey.set(importedProject.key, existingProject.id);
+    seenProjectIds.add(existingProject.id);
+  }
+
+  const missingProjectIds = computeMissingImportedIds(
+    projectMaps
+      .filter((row) => Boolean(row.notion_project_key))
+      .map((row) => row.project_id),
+    seenProjectIds,
+  );
+  summary.archivedProjects += await archiveMissingProjects(supabase, userId, missingProjectIds);
+
+  return projectIdByKey;
+}
+
+async function syncTasks(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  importedTasks: ImportedNotionTask[],
+  localTasks: TaskRow[],
+  taskMaps: TaskMapRow[],
+  projectIdByKey: Map<string, string>,
+  summary: NotionSyncSummary,
+) {
+  const localTaskById = new Map(localTasks.map((task) => [task.id, task]));
+  const taskMapByPageId = new Map(taskMaps.map((row) => [row.notion_page_id, row.task_id]));
+  const seenTaskIds = new Set<string>();
+
+  for (const importedTask of importedTasks) {
+    const projectId = projectIdByKey.get(importedTask.projectKey) ?? null;
+
+    if (!projectId) {
+      summary.warnings += 1;
+      continue;
+    }
+
+    const existingTaskId = taskMapByPageId.get(importedTask.notionPageId) ?? null;
+    const existingTask = existingTaskId ? localTaskById.get(existingTaskId) ?? null : null;
+    const archivedAt = importedTask.archived
+      ? existingTask?.archived_at ?? new Date().toISOString()
+      : null;
+
+    if (!existingTask) {
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert({
+          user_id: userId,
+          title: importedTask.title,
+          completed: importedTask.completed,
+          project_id: projectId,
+          scheduled_for: importedTask.scheduledFor,
+          archived_at: archivedAt,
+          source: NOTION_SOURCE,
+          read_only: READ_ONLY_IMPORT,
+        })
+        .select("id, title, completed, project_id, scheduled_for, archived_at, source, read_only")
+        .single();
+
+      if (error || !data) {
+        throw error ?? new Error("Unable to create imported task.");
+      }
+
+      await upsertTaskMap(supabase, userId, data.id, importedTask.notionPageId);
+      seenTaskIds.add(data.id);
+      summary.createdTasks += 1;
+      continue;
+    }
+
+    const nextPayload = {
+      title: importedTask.title,
+      completed: importedTask.completed,
+      project_id: projectId,
+      scheduled_for: importedTask.scheduledFor,
+      archived_at: archivedAt,
+      source: NOTION_SOURCE,
+      read_only: READ_ONLY_IMPORT,
+    };
+
+    const needsUpdate =
+      existingTask.title !== nextPayload.title
+      || existingTask.completed !== nextPayload.completed
+      || existingTask.project_id !== nextPayload.project_id
+      || existingTask.scheduled_for !== nextPayload.scheduled_for
+      || existingTask.archived_at !== nextPayload.archived_at
+      || existingTask.source !== nextPayload.source
+      || existingTask.read_only !== nextPayload.read_only;
+
+    if (needsUpdate) {
+      const { data, error } = await supabase
+        .from("tasks")
+        .update(nextPayload)
+        .eq("id", existingTask.id)
+        .eq("user_id", userId)
+        .select("id, archived_at")
+        .single();
+
+      if (error || !data) {
+        throw error ?? new Error("Unable to update imported task.");
+      }
+
+      summary.updatedTasks += 1;
+      if (existingTask.archived_at && !data.archived_at) {
+        summary.restoredTasks += 1;
+      }
+    }
+
+    await upsertTaskMap(supabase, userId, existingTask.id, importedTask.notionPageId);
+    seenTaskIds.add(existingTask.id);
+  }
+
+  const missingTaskIds = computeMissingImportedIds(taskMaps.map((row) => row.task_id), seenTaskIds);
+  summary.archivedTasks += await archiveMissingTasks(supabase, userId, missingTaskIds);
+}
+
+export async function getNotionConnection(): Promise<ActionResult<NotionConnectionSummary>> {
+  try {
+    const { supabase, userId, error } = await getAuthedContext();
+    if (error || !userId) {
+      return { success: false, error: error ?? "You must be signed in." };
+    }
+
+    const connection = await getConnectionRow(supabase, userId);
+    return { success: true, data: buildConnectionSummary(connection) };
+  } catch (error) {
+    logServerError({
+      scope: "actions.notion.getNotionConnection",
+      error,
+    });
+    return { success: false, error: "Unable to load Notion connection." };
+  }
+}
+
+export async function validateNotionConnection(
+  tokenInput: string,
+  databaseIdInput: string,
+): Promise<ActionResult<NotionValidationSummary>> {
+  try {
+    const { supabase, userId, error } = await getAuthedContext();
+    if (error || !userId) {
+      return { success: false, error: error ?? "You must be signed in." };
+    }
+
+    const connection = await getConnectionRow(supabase, userId);
+    const tokenResult = await resolveTokenInput(supabase, userId, connection, tokenInput);
+    if (tokenResult.error || !tokenResult.token) {
+      return { success: false, error: tokenResult.error ?? "Notion token is required." };
+    }
+
+    const databaseResult = resolveDatabaseIdInput(connection, databaseIdInput);
+    if (databaseResult.error || !databaseResult.databaseId) {
+      return { success: false, error: databaseResult.error ?? "Notion database id is invalid." };
+    }
+
+    const validation = await validateDatabaseAccess(tokenResult.token, databaseResult.databaseId);
+    if (validation.error || !validation.database) {
+      return { success: false, error: validation.error ?? "Unable to validate Notion database." };
+    }
+
+    return {
+      success: true,
+      data: {
+        database_id: databaseResult.databaseId,
+        database_title: getDatabaseTitle(validation.database),
+        workspace_name: connection?.workspace_name ?? null,
+      },
+    };
+  } catch (error) {
+    const message = mapNotionError(error);
+    logServerError({
+      scope: "actions.notion.validateNotionConnection",
+      error,
+    });
+    return { success: false, error: message };
+  }
+}
+
+export async function saveNotionConnection(
+  tokenInput: string,
+  databaseIdInput: string,
+): Promise<ActionResult<NotionConnectionSummary>> {
+  try {
+    const { supabase, userId, error } = await getAuthedContext();
+    if (error || !userId) {
+      return { success: false, error: error ?? "You must be signed in." };
+    }
+
+    const existing = await getConnectionRow(supabase, userId);
+    const tokenResult = await resolveTokenInput(supabase, userId, existing, tokenInput);
+    if (tokenResult.error || !tokenResult.token) {
+      return { success: false, error: tokenResult.error ?? "Notion token is required." };
+    }
+
+    const databaseResult = resolveDatabaseIdInput(existing, databaseIdInput);
+    if (databaseResult.error || !databaseResult.databaseId) {
+      return { success: false, error: databaseResult.error ?? "Notion database id is invalid." };
+    }
+
+    const validation = await validateDatabaseAccess(tokenResult.token, databaseResult.databaseId);
+    if (validation.error || !validation.database) {
+      return { success: false, error: validation.error ?? "Unable to validate Notion database." };
+    }
+
+    const encryptedToken = encryptNotionToken(tokenResult.token, envServer.NOTION_TOKEN_ENCRYPTION_KEY);
+    const payload = {
+      user_id: userId,
+      notion_token: null,
+      notion_token_encrypted: encryptedToken,
+      notion_database_id: databaseResult.databaseId,
+      workspace_name: existing?.workspace_name ?? null,
+      schema_version: NOTION_SCHEMA_VERSION,
+      last_status: null,
       last_error: null,
-    })
-    .eq("user_id", userId);
+    };
 
-  if (error) {
+    const { error: upsertError } = await supabase
+      .from("notion_connections")
+      .upsert(payload, { onConflict: "user_id" });
+
+    if (upsertError) {
+      throw upsertError;
+    }
+
+    revalidatePath("/settings");
+
+    return {
+      success: true,
+      data: buildConnectionSummary({
+        user_id: userId,
+        notion_token: null,
+        notion_token_encrypted: encryptedToken,
+        notion_database_id: databaseResult.databaseId,
+        workspace_name: existing?.workspace_name ?? null,
+        schema_version: NOTION_SCHEMA_VERSION,
+        last_synced_at: existing?.last_synced_at ?? null,
+        last_status: null,
+        last_error: null,
+      }),
+    };
+  } catch (error) {
+    const message = mapNotionError(error);
     logServerError({
-      scope: "actions.notion.setNotionStatusSuccess",
-      userId,
+      scope: "actions.notion.saveNotionConnection",
       error,
-      context: { action: "update-status" },
     });
+    return { success: false, error: message };
   }
 }
 
-async function setNotionStatusError(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  message: string,
-) {
-  const sanitized = message.trim().slice(0, 500);
-  const { error } = await supabase
-    .from("notion_connections")
-    .update({
-      last_status: "error",
-      last_error: sanitized || "Notion sync failed.",
-    })
-    .eq("user_id", userId);
+export async function disconnectNotion(): Promise<ActionResult<NotionConnectionSummary>> {
+  try {
+    const { supabase, userId, error } = await getAuthedContext();
+    if (error || !userId) {
+      return { success: false, error: error ?? "You must be signed in." };
+    }
 
-  if (error) {
+    const { error: deleteError } = await supabase
+      .from("notion_connections")
+      .delete()
+      .eq("user_id", userId);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    revalidatePath("/settings");
+
+    return {
+      success: true,
+      data: {
+        connected: false,
+        database_id: null,
+        workspace_name: null,
+        schema_version: null,
+        has_saved_token: false,
+        last_synced_at: null,
+        last_status: null,
+        last_error: null,
+      },
+    };
+  } catch (error) {
     logServerError({
-      scope: "actions.notion.setNotionStatusError",
-      userId,
+      scope: "actions.notion.disconnectNotion",
       error,
-      context: { action: "update-status" },
     });
+    return { success: false, error: "Unable to disconnect Notion." };
   }
 }
+
+export async function runNotionImport(): Promise<ActionResult<NotionSyncSummary>> {
+  try {
+    const { supabase, userId, error } = await getAuthedContext();
+    if (error || !userId) {
+      return { success: false, error: error ?? "You must be signed in." };
+    }
+
+    const connection = await getConnectionRow(supabase, userId);
+    if (!connection) {
+      return { success: false, error: "Connect Notion first." };
+    }
+
+    const tokenResult = await resolveTokenInput(supabase, userId, connection, "");
+    if (tokenResult.error || !tokenResult.token) {
+      await setConnectionStatus(supabase, userId, "error", tokenResult.error ?? "Stored Notion token is invalid.");
+      return { success: false, error: tokenResult.error ?? "Stored Notion token is invalid." };
+    }
+
+    const databaseResult = resolveDatabaseIdInput(connection, "");
+    if (databaseResult.error || !databaseResult.databaseId) {
+      await setConnectionStatus(supabase, userId, "error", databaseResult.error ?? "Stored Notion database id is invalid.");
+      return { success: false, error: databaseResult.error ?? "Stored Notion database id is invalid." };
+    }
+
+    await setConnectionStatus(supabase, userId, "running");
+
+    const validation = await validateDatabaseAccess(tokenResult.token, databaseResult.databaseId);
+    if (validation.error || !validation.database) {
+      await setConnectionStatus(supabase, userId, "error", validation.error ?? "Unable to validate Notion database.");
+      return { success: false, error: validation.error ?? "Unable to validate Notion database." };
+    }
+
+    const pages = await queryDatabase({
+      token: tokenResult.token,
+      databaseId: databaseResult.databaseId,
+    });
+    const importedTasks = pages
+      .map(normalizeNotionTaskPage)
+      .filter((task): task is ImportedNotionTask => Boolean(task));
+    const importedProjects = collectImportedProjects(importedTasks);
+    const skippedPages = Math.max(0, pages.length - importedTasks.length);
+
+    const [
+      { data: localProjects, error: projectsError },
+      { data: localTasks, error: tasksError },
+      { data: projectMaps, error: projectMapsError },
+      { data: taskMaps, error: taskMapsError },
+    ] = await Promise.all([
+      supabase
+        .from("projects")
+        .select("id, name, archived_at, source, read_only")
+        .eq("user_id", userId),
+      supabase
+        .from("tasks")
+        .select("id, title, completed, project_id, scheduled_for, archived_at, source, read_only")
+        .eq("user_id", userId),
+      supabase
+        .from("notion_project_map")
+        .select("project_id, notion_project_key")
+        .eq("user_id", userId),
+      supabase
+        .from("notion_task_map")
+        .select("task_id, notion_page_id")
+        .eq("user_id", userId),
+    ]);
+
+    if (projectsError || tasksError || projectMapsError || taskMapsError) {
+      throw projectsError ?? tasksError ?? projectMapsError ?? taskMapsError;
+    }
+
+    const summary: NotionSyncSummary = {
+      createdProjects: 0,
+      updatedProjects: 0,
+      archivedProjects: 0,
+      restoredProjects: 0,
+      createdTasks: 0,
+      updatedTasks: 0,
+      archivedTasks: 0,
+      restoredTasks: 0,
+      warnings: skippedPages,
+    };
+
+    const projectIdByKey = await syncProjects(
+      supabase,
+      userId,
+      importedProjects,
+      (localProjects ?? []) as ProjectRow[],
+      (projectMaps ?? []) as ProjectMapRow[],
+      summary,
+    );
+
+    await syncTasks(
+      supabase,
+      userId,
+      importedTasks,
+      (localTasks ?? []) as TaskRow[],
+      (taskMaps ?? []) as TaskMapRow[],
+      projectIdByKey,
+      summary,
+    );
+
+    await setConnectionStatus(supabase, userId, "success");
+    await recordSyncRun(supabase, userId, "success", summary);
+
+    revalidatePath("/settings");
+    revalidatePath("/tasks");
+    revalidatePath("/focus");
+    revalidatePath("/dashboard");
+
+    return { success: true, data: summary };
+  } catch (error) {
+    const message = mapNotionError(error);
+    try {
+      const { supabase, userId } = await getAuthedContext();
+      if (userId) {
+        await setConnectionStatus(supabase, userId, "error", message);
+        await recordSyncRun(supabase, userId, "error", null, message);
+      }
+    } catch {
+      // Best effort status update only.
+    }
+
+    logServerError({
+      scope: "actions.notion.runNotionImport",
+      error,
+    });
+    return { success: false, error: message };
+  }
+}
+
+export const connectNotion = saveNotionConnection;
+export const syncNotionNow = runNotionImport;

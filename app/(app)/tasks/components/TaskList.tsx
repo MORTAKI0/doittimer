@@ -63,6 +63,7 @@ const ERROR_MAP: Record<string, string> = {
   "Limite de 7 elements atteinte.": "Queue limit reached (7 items).",
   "Tache introuvable.": "Task not found.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
+  "This task is managed in Notion. Edit it in Notion and sync again.": "This task is managed in Notion. Edit it in Notion and sync again.",
 };
 
 function toEnglishError(message: string) {
@@ -165,6 +166,10 @@ export function TaskList({
 
   function formatDraftValue(value: number | null) {
     return value == null ? "" : String(value);
+  }
+
+  function isManagedInNotion(task: TaskRow) {
+    return task.read_only || task.source === "notion";
   }
 
   async function handleToggle(task: TaskRow) {
@@ -552,6 +557,7 @@ export function TaskList({
             const projectLabel = task.project_id ? projectLabelById.get(task.project_id) ?? "Project archived" : null;
             const stats = pomodoroStatsByTaskId[task.id];
             const isArchived = task.archived_at != null;
+            const isManaged = isManagedInNotion(task);
 
             return (
               <li
@@ -572,7 +578,7 @@ export function TaskList({
                         type="checkbox"
                         checked={task.completed}
                         onChange={() => handleToggle(task)}
-                        disabled={isPending || isEditing || isArchived}
+                        disabled={isPending || isEditing || isArchived || isManaged}
                         aria-label={`Mark ${task.title} as completed`}
                         className="mt-1 h-4 w-4 rounded border-border text-emerald-600 focus-ring"
                       />
@@ -585,6 +591,7 @@ export function TaskList({
                           {projectLabel ? <Badge variant="neutral">{projectLabel}</Badge> : null}
                           {task.scheduled_for ? <Badge variant="neutral">Due {task.scheduled_for}</Badge> : null}
                           {isArchived ? <Badge variant="neutral">Archived</Badge> : null}
+                          {isManaged ? <Badge variant="warning">Managed in Notion</Badge> : null}
                           {stats ? <Badge variant="neutral">Pomodoro {stats.pomodoros_today}/{stats.pomodoros_total}</Badge> : null}
                         </div>
                       </div>
@@ -597,7 +604,7 @@ export function TaskList({
                           id={`task-scheduled-for-${task.id}`}
                           type="date"
                           value={task.scheduled_for ?? ""}
-                          disabled={isPending || isEditing}
+                          disabled={isPending || isEditing || isManaged}
                           onChange={(event) => {
                             const value = event.target.value;
                             void handleSetScheduledFor(task, value === "" ? null : value);
@@ -610,15 +617,15 @@ export function TaskList({
                             size="sm"
                             type="button"
                             variant="secondary"
-                            disabled={isPending || isEditing || task.scheduled_for === currentDate}
+                            disabled={isPending || isEditing || isManaged || task.scheduled_for === currentDate}
                             onClick={() => void handleSetScheduledFor(task, currentDate)}
                             data-testid={`task-scheduled-filter-date-${task.id}`}
                           >
                             Set to filter date
                           </Button>
                         ) : null}
-                        <Button size="sm" type="button" variant="secondary" disabled={isPending || isEditing} onClick={() => void handleSetScheduledFor(task, todayYYYYMMDD())} data-testid={`task-scheduled-today-${task.id}`}>Today</Button>
-                        <Button size="sm" type="button" variant="secondary" disabled={isPending || isEditing || !task.scheduled_for} onClick={() => void handleSetScheduledFor(task, null)} data-testid={`task-scheduled-clear-${task.id}`}>Clear</Button>
+                        <Button size="sm" type="button" variant="secondary" disabled={isPending || isEditing || isManaged} onClick={() => void handleSetScheduledFor(task, todayYYYYMMDD())} data-testid={`task-scheduled-today-${task.id}`}>Today</Button>
+                        <Button size="sm" type="button" variant="secondary" disabled={isPending || isEditing || isManaged || !task.scheduled_for} onClick={() => void handleSetScheduledFor(task, null)} data-testid={`task-scheduled-clear-${task.id}`}>Clear</Button>
                       </div>
                     ) : null}
                   </div>
@@ -626,22 +633,28 @@ export function TaskList({
                   {!isEditing ? (
                     <div className="flex shrink-0 items-center gap-2">
                       {isArchived ? (
-                        <Button size="sm" type="button" variant="secondary" onClick={() => handleRestore(task)} disabled={isPending} data-testid="task-restore">Restore</Button>
+                        !isManaged ? (
+                          <Button size="sm" type="button" variant="secondary" onClick={() => handleRestore(task)} disabled={isPending} data-testid="task-restore">Restore</Button>
+                        ) : null
                       ) : (
                         <>
                           <Button size="sm" type="button" variant="secondary" onClick={() => handleQueueAdd(task)} disabled={queueIds.has(task.id) || queueIsFull || isPending} data-testid={`queue-add-${task.id}`}>
                             Add queue
                           </Button>
-                          <Tooltip label="Edit task details">
-                            <IconButton type="button" onClick={() => startEditing(task)} disabled={isPending} aria-label="Edit task">
-                              <IconPencil className="h-4 w-4" aria-hidden="true" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip label="Archive this task">
-                            <IconButton type="button" variant="danger" onClick={() => handleDelete(task)} disabled={isPending} aria-label="Delete task">
-                              <IconTrash className="h-4 w-4" aria-hidden="true" />
-                            </IconButton>
-                          </Tooltip>
+                          {!isManaged ? (
+                            <>
+                              <Tooltip label="Edit task details">
+                                <IconButton type="button" onClick={() => startEditing(task)} disabled={isPending} aria-label="Edit task">
+                                  <IconPencil className="h-4 w-4" aria-hidden="true" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip label="Archive this task">
+                                <IconButton type="button" variant="danger" onClick={() => handleDelete(task)} disabled={isPending} aria-label="Delete task">
+                                  <IconTrash className="h-4 w-4" aria-hidden="true" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          ) : null}
                         </>
                       )}
                     </div>

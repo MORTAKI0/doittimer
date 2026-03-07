@@ -30,6 +30,7 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible de charger les projets.": "Unable to load projects.",
   "Impossible de mettre a jour le projet.": "Unable to update the project.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
+  "This project is managed in Notion. Edit it in Notion and sync again.": "This project is managed in Notion. Edit it in Notion and sync again.",
 };
 
 function toEnglishError(message: string) {
@@ -38,6 +39,10 @@ function toEnglishError(message: string) {
 
 function isArchived(project: ProjectRow) {
   return Boolean(project.archived_at);
+}
+
+function isManagedInNotion(project: ProjectRow) {
+  return project.read_only || project.source === "notion";
 }
 
 export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelProps) {
@@ -219,6 +224,7 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
             const isEditing = editingId === project.id;
             const isPending = Boolean(pendingIds[project.id]);
             const archived = isArchived(project);
+            const managed = isManagedInNotion(project);
 
             return (
               <div
@@ -228,12 +234,13 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                     {archived ? <Badge variant="warning">Archived</Badge> : null}
+                    {managed ? <Badge variant="neutral">Managed in Notion</Badge> : null}
                     <span>{project.name}</span>
                   </div>
 
                   {!isEditing ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      {!archived ? (
+                      {!archived && !managed ? (
                         <IconButton
                           type="button"
                           onClick={() => startEditing(project)}
@@ -243,15 +250,17 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
                           <IconPencil className="h-4 w-4" aria-hidden="true" />
                         </IconButton>
                       ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={archived ? "primary" : "secondary"}
-                        onClick={() => handleArchiveToggle(project, !archived)}
-                        disabled={isPending}
-                      >
-                        {archived ? "Restore" : "Archive"}
-                      </Button>
+                      {!managed ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={archived ? "primary" : "secondary"}
+                          onClick={() => handleArchiveToggle(project, !archived)}
+                          disabled={isPending}
+                        >
+                          {archived ? "Restore" : "Archive"}
+                        </Button>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="w-full space-y-2 sm:max-w-xs">

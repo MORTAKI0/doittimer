@@ -6,6 +6,9 @@ const ServerEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
   SETTINGS_RPC_DIAG_TIMEOUT_MS: z.string().optional(),
+  NOTION_TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, "NOTION_TOKEN_ENCRYPTION_KEY must be 64 hex characters."),
 });
 
 const parsed = ServerEnvSchema.safeParse({
@@ -13,6 +16,7 @@ const parsed = ServerEnvSchema.safeParse({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   SETTINGS_RPC_DIAG_TIMEOUT_MS: process.env.SETTINGS_RPC_DIAG_TIMEOUT_MS,
+  NOTION_TOKEN_ENCRYPTION_KEY: process.env.NOTION_TOKEN_ENCRYPTION_KEY,
 });
 
 if (!parsed.success) {

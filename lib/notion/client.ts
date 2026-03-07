@@ -8,6 +8,7 @@ export type NotionPropertyValue = Record<string, unknown>;
 
 export type NotionDatabase = {
   id: string;
+  title?: Array<{ plain_text?: string }>;
   properties: Record<
     string,
     {
@@ -19,6 +20,8 @@ export type NotionDatabase = {
 
 export type NotionPage = {
   id: string;
+  archived?: boolean;
+  in_trash?: boolean;
   last_edited_time?: string;
   properties?: Record<string, unknown>;
 };
@@ -128,36 +131,6 @@ export async function getDatabase({
   });
 }
 
-export async function queryDatabaseByAppId({
-  token,
-  databaseId,
-  appId,
-}: {
-  token: string;
-  databaseId: string;
-  appId: string;
-}): Promise<NotionPage | null> {
-  const response = await requestNotion<{ results: Array<NotionPage> }>(
-    `/databases/${databaseId}/query`,
-    token,
-    {
-      method: "POST",
-      body: {
-        page_size: 1,
-        filter: {
-          property: "App ID",
-          rich_text: {
-            equals: appId,
-          },
-        },
-      },
-    },
-  );
-
-  const first = response.results?.[0];
-  return first ?? null;
-}
-
 export async function queryDatabase({
   token,
   databaseId,
@@ -192,39 +165,4 @@ export async function queryDatabase({
   }
 
   return results;
-}
-
-export async function createPage({
-  token,
-  databaseId,
-  properties,
-}: {
-  token: string;
-  databaseId: string;
-  properties: Record<string, NotionPropertyValue>;
-}): Promise<NotionPage> {
-  return requestNotion<NotionPage>("/pages", token, {
-    method: "POST",
-    body: {
-      parent: { database_id: databaseId },
-      properties,
-    },
-  });
-}
-
-export async function updatePage({
-  token,
-  pageId,
-  properties,
-}: {
-  token: string;
-  pageId: string;
-  properties: Record<string, NotionPropertyValue>;
-}): Promise<NotionPage> {
-  return requestNotion<NotionPage>(`/pages/${pageId}`, token, {
-    method: "PATCH",
-    body: {
-      properties,
-    },
-  });
 }

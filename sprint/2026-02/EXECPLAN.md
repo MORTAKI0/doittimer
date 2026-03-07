@@ -280,3 +280,4 @@ Checklist
 - [x] No DB or backend endpoint changes; UI only.
 | 2026-02-04 | DP-4: added import merge API (xlsx/zip parsing), validation/merge logic, and Playwright import E2E; added jszip + papaparse deps. |
 
+| 2026-03-07 | Notion integration direction changed from app->Notion export to Notion->app one-way import. Added encrypted per-user connection storage, server-only saved-token validation/import actions, imported record metadata/read-only enforcement, settings UI updates, migration 20260307_s4_notion_import_one_way.sql, and unit coverage in 	ests/unit/notion-import.test.ts. Verification: pnpm lint OK; pnpm typecheck OK; pnpm dev blocked in sandbox by Windows spawn EPERM. |

@@ -5,11 +5,13 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  connectNotion,
   disconnectNotion,
-  syncNotionNow,
+  runNotionImport,
+  saveNotionConnection,
+  validateNotionConnection,
   type NotionConnectionSummary,
   type NotionSyncSummary,
+  type NotionValidationSummary,
 } from "@/app/actions/notion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,25 +38,51 @@ export function NotionIntegrationCard({
 }: NotionIntegrationCardProps) {
   const router = useRouter();
   const [token, setToken] = React.useState("");
-  const [databaseId, setDatabaseId] = React.useState("");
+  const [databaseId, setDatabaseId] = React.useState(initialConnection.database_id ?? "");
   const [message, setMessage] = React.useState<string | null>(initialError ?? null);
   const [isError, setIsError] = React.useState(Boolean(initialError));
   const [isPending, startTransition] = React.useTransition();
   const [pendingAction, setPendingAction] = React.useState<
-    "connect" | "disconnect" | "sync" | null
+    "connect" | "validate" | "disconnect" | "sync" | null
   >(null);
+  const [validation, setValidation] = React.useState<NotionValidationSummary | null>(null);
   const [syncSummary, setSyncSummary] = React.useState<NotionSyncSummary | null>(null);
+
+  React.useEffect(() => {
+    setDatabaseId(initialConnection.database_id ?? "");
+  }, [initialConnection.database_id]);
 
   const statusLabel = initialConnection.connected
     ? initialConnection.last_status === "success"
       ? "Success"
       : initialConnection.last_status === "error"
         ? "Error"
-        : "Not synced"
+        : initialConnection.last_status === "running"
+          ? "Syncing"
+          : "Connected"
     : "Not connected";
 
-  const lastSynced = formatTimestamp(initialConnection.last_synced_at);
-  const errorDetails = initialConnection.last_error;
+  function handleValidate() {
+    setMessage(null);
+    setIsError(false);
+    setPendingAction("validate");
+
+    startTransition(async () => {
+      const result = await validateNotionConnection(token, databaseId);
+      if (!result.success) {
+        setValidation(null);
+        setIsError(true);
+        setMessage(result.error);
+        setPendingAction(null);
+        return;
+      }
+
+      setValidation(result.data);
+      setIsError(false);
+      setMessage("Notion database validated.");
+      setPendingAction(null);
+    });
+  }
 
   function handleConnect(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,18 +91,19 @@ export function NotionIntegrationCard({
     setPendingAction("connect");
 
     startTransition(async () => {
-      const result = await connectNotion(token, databaseId);
+      const result = await saveNotionConnection(token, databaseId);
       if (!result.success) {
         setIsError(true);
         setMessage(result.error);
         setPendingAction(null);
         return;
       }
+
       setToken("");
-      setDatabaseId("");
-      setIsError(false);
-      setMessage("Notion connected.");
+      setValidation(null);
       setSyncSummary(null);
+      setIsError(false);
+      setMessage("Notion connection saved.");
       setPendingAction(null);
       router.refresh();
     });
@@ -93,9 +122,13 @@ export function NotionIntegrationCard({
         setPendingAction(null);
         return;
       }
+
+      setToken("");
+      setDatabaseId("");
+      setValidation(null);
+      setSyncSummary(null);
       setIsError(false);
       setMessage("Notion disconnected.");
-      setSyncSummary(null);
       setPendingAction(null);
       router.refresh();
     });
@@ -107,16 +140,17 @@ export function NotionIntegrationCard({
     setPendingAction("sync");
 
     startTransition(async () => {
-      const result = await syncNotionNow();
+      const result = await runNotionImport();
       if (!result.success) {
         setIsError(true);
         setMessage(result.error);
         setPendingAction(null);
         return;
       }
+
       setSyncSummary(result.data);
       setIsError(false);
-      setMessage("Notion sync completed.");
+      setMessage("Notion import completed.");
       setPendingAction(null);
       router.refresh();
     });
@@ -131,7 +165,7 @@ export function NotionIntegrationCard({
         <div>
           <h2 className="text-lg font-semibold text-foreground">Notion</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Export projects and tasks to a Notion database.
+            Import projects and tasks from one Notion database. The token is saved securely on the server and reused for future syncs.
           </p>
         </div>
 
@@ -144,7 +178,7 @@ export function NotionIntegrationCard({
               id="notion-token"
               name="notion-token"
               type="password"
-              placeholder="secret_xxx"
+              placeholder={initialConnection.has_saved_token ? "Leave blank to keep saved token" : "secret_xxx"}
               value={token}
               onChange={(event) => setToken(event.target.value)}
               data-testid="notion-token"
@@ -167,16 +201,22 @@ export function NotionIntegrationCard({
               autoComplete="off"
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Required Notion properties: <span className="font-medium text-foreground">Name</span> and <span className="font-medium text-foreground">Project</span>. Optional: Status, Due Date, Notes.
+          </p>
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" data-testid="notion-connect" disabled={isPending}>
-              {isPending && pendingAction === "connect" ? "Connecting..." : "Connect"}
+            <Button type="button" variant="secondary" onClick={handleValidate} data-testid="notion-validate" disabled={isPending || (!token.trim() && !initialConnection.has_saved_token) || databaseId.trim().length === 0}>
+              {isPending && pendingAction === "validate" ? "Validating..." : "Validate"}
+            </Button>
+            <Button type="submit" data-testid="notion-connect" disabled={isPending || (!token.trim() && !initialConnection.has_saved_token) || databaseId.trim().length === 0}>
+              {isPending && pendingAction === "connect" ? "Saving..." : initialConnection.connected ? "Update connection" : "Connect"}
             </Button>
             <Button
               type="button"
               variant="secondary"
               onClick={handleDisconnect}
               data-testid="notion-disconnect"
-              disabled={isPending}
+              disabled={isPending || !initialConnection.connected}
             >
               {isPending && pendingAction === "disconnect" ? "Disconnecting..." : "Disconnect"}
             </Button>
@@ -185,7 +225,7 @@ export function NotionIntegrationCard({
               variant="secondary"
               onClick={handleSync}
               data-testid="notion-sync-now"
-              disabled={isPending}
+              disabled={isPending || !initialConnection.connected}
             >
               {isPending && pendingAction === "sync" ? "Syncing..." : "Sync now"}
             </Button>
@@ -196,26 +236,25 @@ export function NotionIntegrationCard({
           <p data-testid="notion-last-status">
             Status: <span className="font-medium text-foreground">{statusLabel}</span>
           </p>
-          <p className="mt-1">Last synced: {lastSynced}</p>
-          {errorDetails ? (
-            <p className="mt-2 text-sm text-red-600">{errorDetails}</p>
+          <p className="mt-1">Saved token: {initialConnection.has_saved_token ? "Yes" : "No"}</p>
+          <p className="mt-1">Database ID: {initialConnection.database_id ?? "Not saved"}</p>
+          <p className="mt-1">Last synced: {formatTimestamp(initialConnection.last_synced_at)}</p>
+          {initialConnection.last_error ? (
+            <p className="mt-2 text-sm text-red-600">{initialConnection.last_error}</p>
+          ) : null}
+          {validation ? (
+            <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+              <p>Validated database: {validation.database_title ?? validation.database_id}</p>
+              <p>Schema: fixed Notion import v1</p>
+            </div>
           ) : null}
           {syncSummary ? (
             <div className="mt-3 space-y-1 text-xs text-muted-foreground">
               <p>
-                Created: {syncSummary.createdProjects} projects, {syncSummary.createdTasks} tasks
+                Projects: +{syncSummary.createdProjects} created, {syncSummary.updatedProjects} updated, {syncSummary.archivedProjects} archived, {syncSummary.restoredProjects} restored
               </p>
               <p>
-                Updated: {syncSummary.updatedProjects} projects, {syncSummary.updatedTasks} tasks
-              </p>
-              <p>
-                Pulled: {syncSummary.pulledProjects} projects, {syncSummary.pulledTasks} tasks
-              </p>
-              <p>
-                Archived: {syncSummary.archivedProjects} projects, {syncSummary.archivedTasks} tasks
-              </p>
-              <p>
-                Restored: {syncSummary.restoredProjects} projects, {syncSummary.restoredTasks} tasks
+                Tasks: +{syncSummary.createdTasks} created, {syncSummary.updatedTasks} updated, {syncSummary.archivedTasks} archived, {syncSummary.restoredTasks} restored
               </p>
               <p>Warnings: {syncSummary.warnings}</p>
             </div>

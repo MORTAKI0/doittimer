@@ -11,9 +11,40 @@ export type ProjectRow = {
   name: string;
   archived_at: string | null;
   created_at: string;
+  source: string;
+  read_only: boolean;
 };
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
+
+const ERROR_READ_ONLY_PROJECT = "This project is managed in Notion. Edit it in Notion and sync again.";
+
+async function assertProjectWritable(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  projectId: string,
+) {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, read_only")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return { ok: false as const, error: "Project not found" };
+  }
+
+  if (data.read_only) {
+    return { ok: false as const, error: ERROR_READ_ONLY_PROJECT };
+  }
+
+  return { ok: true as const };
+}
 
 type GetProjectsOptions = {
   includeArchived?: boolean;
@@ -43,7 +74,7 @@ export async function createProject(name: string): Promise<ActionResult<ProjectR
     const { data, error } = await supabase
       .from("projects")
       .insert({ user_id: userData.user.id, name: parsed.data })
-      .select("id, name, archived_at, created_at")
+      .select("id, name, archived_at, created_at, source, read_only")
       .single();
 
     if (error || !data) {
@@ -91,7 +122,7 @@ export async function getProjects(
 
     let query = supabase
       .from("projects")
-      .select("id, name, archived_at, created_at")
+      .select("id, name, archived_at, created_at, source, read_only")
       .eq("user_id", userData.user.id);
 
     if (!includeArchived) {
@@ -158,12 +189,17 @@ export async function renameProject(
 
     userId = userData.user.id;
 
+    const writableProject = await assertProjectWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableProject.ok) {
+      return { success: false, error: writableProject.error };
+    }
+
     const { data, error } = await supabase
       .from("projects")
       .update({ name: parsedName.data })
       .eq("id", parsedId.data)
       .eq("user_id", userData.user.id)
-      .select("id, name, archived_at, created_at")
+      .select("id, name, archived_at, created_at, source, read_only")
       .maybeSingle();
 
     if (error) {
@@ -221,6 +257,11 @@ export async function setProjectArchived(
     }
 
     userId = userData.user.id;
+
+    const writableProject = await assertProjectWritable(supabase, userData.user.id, parsedId.data);
+    if (!writableProject.ok) {
+      return { success: false, error: writableProject.error };
+    }
     const archivedAt = archived ? new Date().toISOString() : null;
 
     const { data, error } = await supabase
@@ -228,7 +269,7 @@ export async function setProjectArchived(
       .update({ archived_at: archivedAt })
       .eq("id", parsedId.data)
       .eq("user_id", userData.user.id)
-      .select("id, name, archived_at, created_at")
+      .select("id, name, archived_at, created_at, source, read_only")
       .maybeSingle();
 
     if (error) {

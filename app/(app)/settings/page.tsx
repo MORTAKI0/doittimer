@@ -33,6 +33,10 @@ export default async function SettingsPage() {
     ? notionResult.data
     : {
       connected: false,
+      database_id: null,
+      workspace_name: null,
+      schema_version: null,
+      has_saved_token: false,
       last_synced_at: null,
       last_status: null,
       last_error: null,
