@@ -17,7 +17,7 @@ export default function SignupPage() {
       </header>
 
       <section className="mx-auto grid max-w-6xl gap-8 px-6 py-12 lg:grid-cols-[1fr_420px] lg:items-center">
-        <div className="animate-fadeInUp space-y-4">
+      <div className="animate-fadeIn space-y-4">
           <p className="text-overline">Start fresh</p>
           <h1 className="text-page-title">Build a calmer focus system.</h1>
           <p className="max-w-lg text-sm text-muted-foreground">Create your workspace and start with a clean task + focus loop that stays reliable across devices. <span className="font-semibold text-emerald-700">100% free.</span></p>
@@ -26,7 +26,7 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <div className="animate-fadeInUp stagger-2 space-y-3">
+      <div className="animate-fadeIn stagger-2 space-y-3">
           <SignupForm />
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}

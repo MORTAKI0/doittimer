@@ -63,7 +63,7 @@ export function Pagination({ currentPage, totalPages, className }: PaginationPro
         <div className={cn("flex items-center justify-center gap-2", className)}>
             {currentPage <= 1 ? (
                 <span
-                    className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 p-0 opacity-50 pointer-events-none")}
+                    className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 rounded-md border-[0.5px] p-0 opacity-50 pointer-events-none")}
                     aria-hidden="true"
                 >
                     &laquo;
@@ -71,7 +71,7 @@ export function Pagination({ currentPage, totalPages, className }: PaginationPro
             ) : (
                 <Link
                     href={createPageURL(currentPage - 1)}
-                    className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 p-0")}
+                    className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 rounded-md border-[0.5px] p-0")}
                     aria-label="Previous page"
                 >
                     <span>&laquo;</span>
@@ -92,7 +92,7 @@ export function Pagination({ currentPage, totalPages, className }: PaginationPro
                     return isCurrent ? (
                         <span
                             key={page}
-                            className={cn(buttonStyles({ variant: "primary", size: "sm" }), "h-8 w-8 p-0 pointer-events-none")}
+                            className={cn(buttonStyles({ variant: "primary", size: "sm" }), "h-8 w-8 rounded-md p-0 pointer-events-none")}
                             aria-current="page"
                         >
                             {page}
@@ -101,7 +101,7 @@ export function Pagination({ currentPage, totalPages, className }: PaginationPro
                         <Link
                             key={page}
                             href={createPageURL(page)}
-                            className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 p-0")}
+                            className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 rounded-md border-[0.5px] p-0")}
                         >
                             {page}
                         </Link>
@@ -111,7 +111,7 @@ export function Pagination({ currentPage, totalPages, className }: PaginationPro
 
             {currentPage >= totalPages ? (
                 <span
-                    className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 p-0 opacity-50 pointer-events-none")}
+                    className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 rounded-md border-[0.5px] p-0 opacity-50 pointer-events-none")}
                     aria-hidden="true"
                 >
                     &raquo;
@@ -119,7 +119,7 @@ export function Pagination({ currentPage, totalPages, className }: PaginationPro
             ) : (
                 <Link
                     href={createPageURL(currentPage + 1)}
-                    className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 p-0")}
+                    className={cn(buttonStyles({ variant: "secondary", size: "sm" }), "h-8 w-8 rounded-md border-[0.5px] p-0")}
                     aria-label="Next page"
                 >
                     <span>&raquo;</span>

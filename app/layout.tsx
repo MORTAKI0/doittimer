@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
+import { DevRuntimeDiagnostics } from "@/components/debug/DevRuntimeDiagnostics";
 import { ServiceWorkerRegister } from "@/components/layout/ServiceWorkerRegister";
 import { ToastProvider } from "@/components/ui/toast";
 import { sansFont } from "./font-sans.generated";
@@ -34,6 +35,7 @@ export default async function RootLayout({
         ].join(" ")}
       >
         <ToastProvider>{children}</ToastProvider>
+        <DevRuntimeDiagnostics />
         <ServiceWorkerRegister />
       </body>
     </html>

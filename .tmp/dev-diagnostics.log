@@ -1,0 +1,50 @@
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:31:46.867Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:31:46.873Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:31:46.884Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:31:46.887Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:31:46.889Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:32:02.402Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:32:02.404Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:32:02.410Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:32:02.412Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:32:02.413Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:32:15.739Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:32:15.746Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:32:15.827Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"app-layout:user","ts":"2026-03-16T15:32:15.831Z","hasUser":false,"userId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:32:15.868Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:32:15.869Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:32:15.933Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"app-layout:user","ts":"2026-03-16T15:32:15.935Z","hasUser":false,"userId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:32:16.197Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:32:16.199Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:32:16.250Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"app-layout:user","ts":"2026-03-16T15:32:16.252Z","hasUser":false,"userId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:32:18.291Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:32:18.293Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:32:18.298Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:32:18.300Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:32:18.301Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:32:34.293Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:32:34.295Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:32:34.299Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:32:34.300Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:32:34.301Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:32:42.009Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:32:42.011Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:32:42.919Z","hasUser":false,"error":"Invalid Refresh Token: Refresh Token Not Found"}
+{"event":"app-layout:user","ts":"2026-03-16T15:32:42.921Z","hasUser":false,"userId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:32:50.330Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:32:50.332Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:32:50.334Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:32:50.336Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:32:50.338Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:33:06.289Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:33:06.291Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:33:06.310Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:33:06.312Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:33:06.314Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:33:34.730Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:33:34.732Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:33:35.168Z","hasUser":false,"error":"Invalid Refresh Token: Refresh Token Not Found"}
+{"event":"app-layout:user","ts":"2026-03-16T15:33:35.169Z","hasUser":false,"userId":null}

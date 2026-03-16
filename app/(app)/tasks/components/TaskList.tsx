@@ -9,7 +9,7 @@ import {
   moveTaskQueueDown,
   moveTaskQueueUp,
   removeTaskFromQueue,
-  TaskQueueRow,
+  type TaskQueueRow,
 } from "@/app/actions/queue";
 import {
   deleteTask,
@@ -19,21 +19,25 @@ import {
   updateTaskPomodoroOverrides,
   updateTaskProject,
   updateTaskTitle,
-  TaskPomodoroOverrides,
-  TaskRow,
+  type TaskPomodoroOverrides,
+  type TaskRow,
 } from "@/app/actions/tasks";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { IconPencil, IconTrash } from "@/components/ui/icons";
+import { IconCheck, IconPencil, IconTrash } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
+import { mergeTaskPresentationMeta, saveTaskPresentationMeta } from "@/lib/tasks/presentation";
+import type { TaskPresentationMeta, TaskPriority } from "@/lib/tasks/types";
+import { DEFAULT_TASK_PRIORITY } from "@/lib/tasks/types";
 import {
   pomodoroPresets,
   presetToOverrides,
   type PomodoroPreset,
 } from "@/lib/pomodoro/presets";
+import { DatePickerPopover } from "./DatePickerPopover";
+import { InlineTaskComposer } from "./InlineTaskComposer";
+import { PriorityPicker } from "./PriorityPicker";
 
 type TaskListProps = {
   tasks: TaskRow[];
@@ -42,7 +46,15 @@ type TaskListProps = {
   queueItems?: TaskQueueRow[];
   currentRange?: "all" | "day" | "week";
   currentDate?: string;
+  showQueueSection?: boolean;
+  showListHeader?: boolean;
+  allowInlineCreate?: boolean;
+  inlineCreateDefaultScheduledFor?: string | null;
+  inlineCreateDefaultProjectId?: string | null;
+  inlineCreateAutoOpen?: boolean;
 };
+
+type TaskItem = TaskRow & TaskPresentationMeta;
 
 const ERROR_MAP: Record<string, string> = {
   "Le titre est requis.": "Title is required.",
@@ -66,6 +78,29 @@ const ERROR_MAP: Record<string, string> = {
   "This task is managed in Notion. Edit it in Notion and sync again.": "This task is managed in Notion. Edit it in Notion and sync again.",
 };
 
+const PRIORITY_STYLES: Record<TaskPriority, { border: string; hover: string; fill: string }> = {
+  1: {
+    border: "border-[var(--priority-1)]",
+    hover: "hover:bg-[color-mix(in_oklab,var(--priority-1)_15%,transparent)]",
+    fill: "bg-[var(--priority-1)] text-white",
+  },
+  2: {
+    border: "border-[var(--priority-2)]",
+    hover: "hover:bg-[color-mix(in_oklab,var(--priority-2)_15%,transparent)]",
+    fill: "bg-[var(--priority-2)] text-white",
+  },
+  3: {
+    border: "border-[var(--priority-3)]",
+    hover: "hover:bg-[color-mix(in_oklab,var(--priority-3)_15%,transparent)]",
+    fill: "bg-[var(--priority-3)] text-white",
+  },
+  4: {
+    border: "border-[var(--priority-4)]",
+    hover: "hover:bg-[color-mix(in_oklab,var(--priority-4)_15%,transparent)]",
+    fill: "bg-[var(--priority-4)] text-white",
+  },
+};
+
 function toEnglishError(message: string) {
   return ERROR_MAP[message] ?? message;
 }
@@ -78,6 +113,38 @@ function todayYYYYMMDD(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function hydrateTask(task: TaskRow): TaskItem {
+  return mergeTaskPresentationMeta(task);
+}
+
+function formatDueDateLabel(value: string | null) {
+  if (!value) return null;
+
+  const dueDate = new Date(`${value}T00:00:00`);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const due = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+
+  if (diffDays < 0) {
+    return {
+      label: `⚠ ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(dueDate)}`,
+      className: "text-due-overdue",
+    };
+  }
+  if (diffDays === 0) return { label: "Today", className: "text-due-today" };
+  if (diffDays === 1) return { label: "Tomorrow", className: "text-due-upcoming" };
+
+  return {
+    label: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(dueDate),
+    className: "text-due-upcoming",
+  };
+}
+
+function isManagedInNotion(task: TaskRow) {
+  return task.read_only || task.source === "notion";
+}
+
 export function TaskList({
   tasks,
   projects = [],
@@ -85,12 +152,21 @@ export function TaskList({
   queueItems = [],
   currentRange = "all",
   currentDate = "",
+  showQueueSection = true,
+  showListHeader = true,
+  allowInlineCreate = true,
+  inlineCreateDefaultScheduledFor = null,
+  inlineCreateDefaultProjectId = null,
+  inlineCreateAutoOpen = false,
 }: TaskListProps) {
   const router = useRouter();
   const [queue, setQueue] = React.useState<TaskQueueRow[]>(queueItems);
-  const [items, setItems] = React.useState<TaskRow[]>(tasks);
+  const [items, setItems] = React.useState<TaskItem[]>(() => tasks.map(hydrateTask));
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftTitle, setDraftTitle] = React.useState("");
+  const [draftDescription, setDraftDescription] = React.useState("");
+  const [draftPriority, setDraftPriority] = React.useState<TaskPriority>(DEFAULT_TASK_PRIORITY);
+  const [draftScheduledFor, setDraftScheduledFor] = React.useState<string | null>(null);
   const [draftProjectId, setDraftProjectId] = React.useState("");
   const [useCustomPomodoro, setUseCustomPomodoro] = React.useState(false);
   const [draftPomodoroWork, setDraftPomodoroWork] = React.useState("");
@@ -103,10 +179,9 @@ export function TaskList({
   const [queueError, setQueueError] = React.useState<string | null>(null);
   const [queueOpen, setQueueOpen] = React.useState(true);
   const MAX_QUEUE_ITEMS = 7;
-  const canSetToFilterDate = currentRange === "day" && currentDate.trim() !== "";
 
   React.useEffect(() => {
-    setItems(tasks);
+    setItems(tasks.map(hydrateTask));
   }, [tasks]);
 
   React.useEffect(() => {
@@ -125,15 +200,19 @@ export function TaskList({
     setQueuePendingIds((prev) => ({ ...prev, [id]: value }));
   }
 
-  function startEditing(task: TaskRow) {
+  function startEditing(task: TaskItem) {
     const hasOverrides = [
       task.pomodoro_work_minutes,
       task.pomodoro_short_break_minutes,
       task.pomodoro_long_break_minutes,
       task.pomodoro_long_break_every,
     ].some((value) => value != null);
+
     setEditingId(task.id);
     setDraftTitle(task.title);
+    setDraftDescription(task.description);
+    setDraftPriority(task.priority);
+    setDraftScheduledFor(task.scheduled_for ?? null);
     setDraftProjectId(task.project_id ?? "");
     setUseCustomPomodoro(hasOverrides);
     setDraftPomodoroWork(typeof task.pomodoro_work_minutes === "number" ? String(task.pomodoro_work_minutes) : "");
@@ -144,11 +223,12 @@ export function TaskList({
   }
 
   function cancelEditing() {
-    if (editingId) {
-      setError(editingId, null);
-    }
+    if (editingId) setError(editingId, null);
     setEditingId(null);
     setDraftTitle("");
+    setDraftDescription("");
+    setDraftPriority(DEFAULT_TASK_PRIORITY);
+    setDraftScheduledFor(null);
     setDraftProjectId("");
     setUseCustomPomodoro(false);
     setDraftPomodoroWork("");
@@ -168,11 +248,7 @@ export function TaskList({
     return value == null ? "" : String(value);
   }
 
-  function isManagedInNotion(task: TaskRow) {
-    return task.read_only || task.source === "notion";
-  }
-
-  async function handleToggle(task: TaskRow) {
+  async function handleToggle(task: TaskItem) {
     if (pendingIds[task.id]) return;
     const nextCompleted = !task.completed;
     const previousCompleted = task.completed;
@@ -187,49 +263,26 @@ export function TaskList({
       setItems((prev) => prev.map((item) => (item.id === task.id ? { ...item, completed: previousCompleted } : item)));
       setError(task.id, toEnglishError(result.error));
     } else {
+      setItems((prev) => prev.map((item) => (item.id === task.id ? hydrateTask(result.data) : item)));
       router.refresh();
     }
 
     setPending(task.id, false);
   }
 
-  async function handleSetScheduledFor(task: TaskRow, scheduledFor: string | null) {
+  async function handleResetPomodoro(task: TaskItem) {
     if (pendingIds[task.id]) return;
-    const previousScheduledFor = task.scheduled_for ?? null;
-    if (previousScheduledFor === scheduledFor) return;
-
-    setPending(task.id, true);
-    setError(task.id, null);
-    setItems((prev) => prev.map((item) => (item.id === task.id ? { ...item, scheduled_for: scheduledFor } : item)));
-
-    const result = await setTaskScheduledFor(task.id, scheduledFor);
-
-    if (!result.success) {
-      setItems((prev) => prev.map((item) => (item.id === task.id ? { ...item, scheduled_for: previousScheduledFor } : item)));
-      setError(task.id, toEnglishError(result.error));
-      setPending(task.id, false);
-      return;
-    }
-
-    setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
-    setPending(task.id, false);
-  }
-
-  async function handleResetPomodoro(task: TaskRow) {
-    if (pendingIds[task.id]) return;
-
     setPending(task.id, true);
     setError(task.id, null);
 
     const result = await updateTaskPomodoroOverrides(task.id, null);
-
     if (!result.success) {
       setError(task.id, toEnglishError(result.error));
       setPending(task.id, false);
       return;
     }
 
-    setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
+    setItems((prev) => prev.map((item) => (item.id === task.id ? hydrateTask(result.data) : item)));
     setUseCustomPomodoro(false);
     setDraftPomodoroWork("");
     setDraftPomodoroShort("");
@@ -239,7 +292,7 @@ export function TaskList({
     router.refresh();
   }
 
-  async function handleApplyPomodoroPreset(task: TaskRow, preset: PomodoroPreset) {
+  async function handleApplyPomodoroPreset(task: TaskItem, preset: PomodoroPreset) {
     if (pendingIds[task.id]) return;
 
     const overrides = presetToOverrides(preset);
@@ -250,14 +303,7 @@ export function TaskList({
     setDraftPomodoroEvery(formatDraftValue(overrides.pomodoro_long_break_every));
     setError(task.id, null);
 
-    const trimmedTitle = draftTitle.trim();
-    const normalizedProjectId = draftProjectId.trim() !== "" ? draftProjectId : null;
-    const isDirtyNonPomodoro = trimmedTitle !== task.title || normalizedProjectId !== (task.project_id ?? null);
-
-    if (isDirtyNonPomodoro) return;
-
     setPending(task.id, true);
-
     const result = await updateTaskPomodoroOverrides(task.id, {
       workMinutes: overrides.pomodoro_work_minutes,
       shortBreakMinutes: overrides.pomodoro_short_break_minutes,
@@ -271,14 +317,15 @@ export function TaskList({
       return;
     }
 
-    setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
+    setItems((prev) => prev.map((item) => (item.id === task.id ? hydrateTask(result.data) : item)));
     setPending(task.id, false);
     router.refresh();
   }
 
-  async function handleSave(task: TaskRow) {
+  async function handleSave(task: TaskItem) {
     if (pendingIds[task.id]) return;
     const trimmedTitle = draftTitle.trim();
+    const trimmedDescription = draftDescription.trim();
     const normalizedProjectId = draftProjectId.trim() !== "" ? draftProjectId : null;
 
     if (!trimmedTitle) {
@@ -288,10 +335,42 @@ export function TaskList({
 
     setPending(task.id, true);
     setError(task.id, null);
-    let updated = task;
+    let updated: TaskRow = task;
+    let shouldRefresh = false;
 
-    const titleChanged = trimmedTitle !== task.title;
-    const projectChanged = normalizedProjectId !== (task.project_id ?? null);
+    if (trimmedTitle !== task.title) {
+      const result = await updateTaskTitle(task.id, trimmedTitle);
+      if (!result.success) {
+        setError(task.id, toEnglishError(result.error));
+        setPending(task.id, false);
+        return;
+      }
+      updated = result.data;
+      shouldRefresh = true;
+    }
+
+    if (normalizedProjectId !== (task.project_id ?? null)) {
+      const result = await updateTaskProject(task.id, normalizedProjectId);
+      if (!result.success) {
+        setError(task.id, toEnglishError(result.error));
+        setPending(task.id, false);
+        return;
+      }
+      updated = result.data;
+      shouldRefresh = true;
+    }
+
+    if ((draftScheduledFor ?? null) !== (task.scheduled_for ?? null)) {
+      const result = await setTaskScheduledFor(task.id, draftScheduledFor ?? null);
+      if (!result.success) {
+        setError(task.id, toEnglishError(result.error));
+        setPending(task.id, false);
+        return;
+      }
+      updated = result.data;
+      shouldRefresh = true;
+    }
+
     const currentOverrides: TaskPomodoroOverrides = {
       workMinutes: task.pomodoro_work_minutes ?? null,
       shortBreakMinutes: task.pomodoro_short_break_minutes ?? null,
@@ -300,38 +379,18 @@ export function TaskList({
     };
     const nextOverrides: TaskPomodoroOverrides = useCustomPomodoro
       ? {
-        workMinutes: parseDraftNumber(draftPomodoroWork),
-        shortBreakMinutes: parseDraftNumber(draftPomodoroShort),
-        longBreakMinutes: parseDraftNumber(draftPomodoroLong),
-        longBreakEvery: parseDraftNumber(draftPomodoroEvery),
-      }
+          workMinutes: parseDraftNumber(draftPomodoroWork),
+          shortBreakMinutes: parseDraftNumber(draftPomodoroShort),
+          longBreakMinutes: parseDraftNumber(draftPomodoroLong),
+          longBreakEvery: parseDraftNumber(draftPomodoroEvery),
+        }
       : { workMinutes: null, shortBreakMinutes: null, longBreakMinutes: null, longBreakEvery: null };
 
     const overridesChanged =
-      currentOverrides.workMinutes !== nextOverrides.workMinutes
-      || currentOverrides.shortBreakMinutes !== nextOverrides.shortBreakMinutes
-      || currentOverrides.longBreakMinutes !== nextOverrides.longBreakMinutes
-      || currentOverrides.longBreakEvery !== nextOverrides.longBreakEvery;
-
-    if (titleChanged) {
-      const result = await updateTaskTitle(task.id, trimmedTitle);
-      if (!result.success) {
-        setError(task.id, toEnglishError(result.error));
-        setPending(task.id, false);
-        return;
-      }
-      updated = result.data;
-    }
-
-    if (projectChanged) {
-      const result = await updateTaskProject(task.id, normalizedProjectId);
-      if (!result.success) {
-        setError(task.id, toEnglishError(result.error));
-        setPending(task.id, false);
-        return;
-      }
-      updated = result.data;
-    }
+      currentOverrides.workMinutes !== nextOverrides.workMinutes ||
+      currentOverrides.shortBreakMinutes !== nextOverrides.shortBreakMinutes ||
+      currentOverrides.longBreakMinutes !== nextOverrides.longBreakMinutes ||
+      currentOverrides.longBreakEvery !== nextOverrides.longBreakEvery;
 
     if (overridesChanged) {
       const result = await updateTaskPomodoroOverrides(task.id, useCustomPomodoro ? nextOverrides : null);
@@ -341,46 +400,61 @@ export function TaskList({
         return;
       }
       updated = result.data;
+      shouldRefresh = true;
     }
 
-    setItems((prev) => prev.map((item) => (item.id === task.id ? updated : item)));
+    saveTaskPresentationMeta(task.id, {
+      priority: draftPriority,
+      description: trimmedDescription,
+      sectionName: task.sectionName,
+    });
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === task.id
+          ? hydrateTask({
+              ...updated,
+              priority: draftPriority,
+              description: trimmedDescription,
+              section_name: task.sectionName,
+            })
+          : item,
+      ),
+    );
+
     cancelEditing();
     setPending(task.id, false);
-    router.refresh();
+    if (shouldRefresh) router.refresh();
   }
 
-  async function handleDelete(task: TaskRow) {
+  async function handleDelete(task: TaskItem) {
     if (pendingIds[task.id]) return;
-    const confirmed = window.confirm("Delete this task?");
-    if (!confirmed) return;
+    if (!window.confirm("Delete this task?")) return;
 
     setPending(task.id, true);
     setError(task.id, null);
 
     const result = await deleteTask(task.id);
-
     if (!result.success) {
       setError(task.id, toEnglishError(result.error));
     } else {
-      setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
-      if (editingId === task.id) cancelEditing();
+      setItems((prev) => prev.map((item) => (item.id === task.id ? hydrateTask(result.data) : item)));
       router.refresh();
     }
 
     setPending(task.id, false);
   }
 
-  async function handleRestore(task: TaskRow) {
+  async function handleRestore(task: TaskItem) {
     if (pendingIds[task.id]) return;
     setPending(task.id, true);
     setError(task.id, null);
 
     const result = await restoreTask(task.id);
-
     if (!result.success) {
       setError(task.id, toEnglishError(result.error));
     } else {
-      setItems((prev) => prev.map((item) => (item.id === task.id ? result.data : item)));
+      setItems((prev) => prev.map((item) => (item.id === task.id ? hydrateTask(result.data) : item)));
       router.refresh();
     }
 
@@ -396,7 +470,7 @@ export function TaskList({
     setQueue(result.data);
   }
 
-  async function handleQueueAdd(task: TaskRow) {
+  async function handleQueueAdd(task: TaskItem) {
     if (queuePendingIds[task.id]) return;
     setQueuePending(task.id, true);
     setQueueError(null);
@@ -407,6 +481,7 @@ export function TaskList({
       setQueuePending(task.id, false);
       return;
     }
+
     setQueue(result.data);
     setQueuePending(task.id, false);
     router.refresh();
@@ -423,6 +498,7 @@ export function TaskList({
       setQueuePending(taskId, false);
       return;
     }
+
     setQueue(result.data);
     setQueuePending(taskId, false);
     router.refresh();
@@ -439,6 +515,7 @@ export function TaskList({
       setQueuePending(taskId, false);
       return;
     }
+
     setQueue(result.data);
     setQueuePending(taskId, false);
     router.refresh();
@@ -455,191 +532,153 @@ export function TaskList({
       setQueuePending(taskId, false);
       return;
     }
+
     setQueue(result.data);
     setQueuePending(taskId, false);
     router.refresh();
   }
 
-  const projectLabelById = React.useMemo(() => {
-    const entries = (projects ?? []).map((project) => [project.id, project.name] as const);
-    return new Map(entries);
-  }, [projects]);
-
-  const visibleItems = items;
+  const projectLabelById = React.useMemo(() => new Map(projects.map((project) => [project.id, project.name] as const)), [projects]);
   const queueIds = new Set(queue.map((item) => item.task_id));
   const queueIsFull = queue.length >= MAX_QUEUE_ITEMS;
+  const visibleItems = items;
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-border bg-muted/20 p-4" data-testid="today-queue">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Today Queue</h2>
-            <Badge variant="warning">{queue.length}/{MAX_QUEUE_ITEMS}</Badge>
+      {showQueueSection ? (
+        <section className="rounded-md border-[0.5px] border-border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-foreground">Today Queue</h2>
+              <span className="text-xs text-muted-foreground">{queue.length}/{MAX_QUEUE_ITEMS}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" type="button" variant="secondary" onClick={() => setQueueOpen((prev) => !prev)}>
+                {queueOpen ? "Collapse" : "Expand"}
+              </Button>
+              <Button size="sm" type="button" variant="secondary" onClick={handleQueueRefresh}>
+                Refresh
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" type="button" variant="secondary" onClick={() => setQueueOpen((v) => !v)}>
-              {queueOpen ? "Collapse" : "Expand"}
-            </Button>
-            <Button size="sm" type="button" variant="secondary" onClick={handleQueueRefresh}>Refresh</Button>
-          </div>
-        </div>
-        {queueError ? <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{queueError}</p> : null}
 
-        {queueOpen ? (
-          queue.length === 0 ? (
-            <p className="mt-3 rounded-xl border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
-              Queue is empty. Add tasks below to prioritize your day.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {queue.map((item, index) => {
-                const isPending = Boolean(queuePendingIds[item.task_id]);
-                return (
-                  <li key={item.task_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3 transition-all duration-200 hover:border-emerald-200 hover:shadow-sm">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {index + 1}. {item.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Task queue order</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        type="button"
-                        disabled={index === 0 || isPending}
-                        onClick={() => handleQueueMoveUp(item.task_id)}
-                        data-testid={`queue-move-up-${item.task_id}`}
-                      >
-                        Up
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        type="button"
-                        disabled={index === queue.length - 1 || isPending}
-                        onClick={() => handleQueueMoveDown(item.task_id)}
-                        data-testid={`queue-move-down-${item.task_id}`}
-                      >
-                        Down
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => handleQueueRemove(item.task_id)}
-                        data-testid={`queue-remove-${item.task_id}`}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )
-        ) : null}
-      </section>
+          {queueError ? <p className="mt-3 text-sm text-red-600">{queueError}</p> : null}
+
+          {queueOpen ? (
+            queue.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">Queue is empty. Add tasks below to prioritize your day.</p>
+            ) : (
+              <ul className="mt-3 border-t-[0.5px] border-border">
+                {queue.map((item, index) => {
+                  const isPending = Boolean(queuePendingIds[item.task_id]);
+                  return (
+                    <li key={item.task_id} className="task-row flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="task-title truncate">{item.title}</p>
+                        <p className="task-meta">Position {index + 1}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="secondary" type="button" disabled={index === 0 || isPending} onClick={() => void handleQueueMoveUp(item.task_id)}>
+                          Up
+                        </Button>
+                        <Button size="sm" variant="secondary" type="button" disabled={index === queue.length - 1 || isPending} onClick={() => void handleQueueMoveDown(item.task_id)}>
+                          Down
+                        </Button>
+                        <Button size="sm" variant="danger" type="button" disabled={isPending} onClick={() => void handleQueueRemove(item.task_id)}>
+                          Remove
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Your Tasks</h2>
-          <p className="text-xs text-muted-foreground">{visibleItems.filter((t) => t.completed).length}/{visibleItems.length} completed</p>
-        </div>
+        {showListHeader ? (
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Your Tasks</h2>
+            <p className="text-xs text-muted-foreground">
+              {visibleItems.filter((task) => task.completed).length}/{visibleItems.length} completed
+            </p>
+          </div>
+        ) : null}
 
-        <ul className="space-y-2">
+        <ul className="border-t-[0.5px] border-border">
           {visibleItems.map((task) => {
             const isEditing = editingId === task.id;
             const isPending = Boolean(pendingIds[task.id]);
+            const queuePending = Boolean(queuePendingIds[task.id]);
             const errorMessage = errorsById[task.id];
             const projectLabel = task.project_id ? projectLabelById.get(task.project_id) ?? "Project archived" : null;
             const stats = pomodoroStatsByTaskId[task.id];
+            const duePresentation = formatDueDateLabel(task.scheduled_for ?? null);
             const isArchived = task.archived_at != null;
             const isManaged = isManagedInNotion(task);
+            const priorityStyles = PRIORITY_STYLES[task.priority];
+            const hasDescription = task.description.trim().length > 0;
+            const showMetadata = Boolean(projectLabel) || Boolean(task.sectionName) || Boolean(stats && stats.pomodoros_today > 0) || isArchived;
 
             return (
-              <li
-                key={task.id}
-                className={[
-                  "rounded-xl border border-border bg-card px-4 py-3 transition-all duration-200",
-                  isArchived ? "border-dashed opacity-80" : "card-hover-lift hover:border-emerald-200",
-                ].join(" ")}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <li key={task.id} className={["task-row", isArchived ? "opacity-80" : ""].join(" ")}>
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-3">
-                      <span className={[
-                        "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full",
-                        isArchived ? "bg-slate-400" : task.completed ? "bg-emerald-500" : "bg-blue-500",
-                      ].join(" ")} aria-hidden="true" />
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={() => handleToggle(task)}
-                        disabled={isPending || isEditing || isArchived || isManaged}
-                        aria-label={`Mark ${task.title} as completed`}
-                        className="mt-1 h-4 w-4 rounded border-border text-emerald-600 focus-ring"
-                      />
-                      <div className="min-w-0">
-                        <p className={[
-                          "truncate text-sm font-semibold",
-                          task.completed ? "text-muted-foreground line-through" : "text-foreground",
-                        ].join(" ")}>{task.title}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          {projectLabel ? <Badge variant="neutral">{projectLabel}</Badge> : null}
-                          {task.scheduled_for ? <Badge variant="neutral">Due {task.scheduled_for}</Badge> : null}
-                          {isArchived ? <Badge variant="neutral">Archived</Badge> : null}
-                          {isManaged ? <Badge variant="warning">Managed in Notion</Badge> : null}
-                          {stats ? <Badge variant="neutral">Pomodoro {stats.pomodoros_today}/{stats.pomodoros_total}</Badge> : null}
-                        </div>
-                      </div>
-                    </div>
+                    <div className="flex items-start gap-[10px]">
+                      <button
+                        type="button"
+                        className={[
+                          "focus-ring ui-hover mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                          task.completed ? priorityStyles.fill : `${priorityStyles.border} ${priorityStyles.hover}`,
+                        ].join(" ")}
+                        disabled={isPending || isArchived || isManaged}
+                        onClick={() => void handleToggle(task)}
+                        aria-label={task.completed ? `Mark ${task.title} as active` : `Mark ${task.title} as completed`}
+                      >
+                        {task.completed ? <IconCheck className="h-3 w-3" aria-hidden="true" /> : null}
+                      </button>
 
-                    {!isArchived ? (
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <label className="sr-only" htmlFor={`task-scheduled-for-${task.id}`}>Scheduled date for {task.title}</label>
-                        <input
-                          id={`task-scheduled-for-${task.id}`}
-                          type="date"
-                          value={task.scheduled_for ?? ""}
-                          disabled={isPending || isEditing || isManaged}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            void handleSetScheduledFor(task, value === "" ? null : value);
-                          }}
-                          className="h-9 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-ring"
-                          data-testid={`task-scheduled-for-${task.id}`}
-                        />
-                        {canSetToFilterDate ? (
-                          <Button
-                            size="sm"
-                            type="button"
-                            variant="secondary"
-                            disabled={isPending || isEditing || isManaged || task.scheduled_for === currentDate}
-                            onClick={() => void handleSetScheduledFor(task, currentDate)}
-                            data-testid={`task-scheduled-filter-date-${task.id}`}
-                          >
-                            Set to filter date
-                          </Button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          {queueIds.has(task.id) ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-secondary)]" aria-hidden="true" /> : null}
+                          <p className={["task-title truncate", task.completed ? "task-title-completed" : ""].join(" ")}>{task.title}</p>
+                          {hasDescription ? <span className="shrink-0 text-xs text-muted-foreground">≡</span> : null}
+                          {isManaged ? <span className="shrink-0 text-xs text-muted-foreground">🔗</span> : null}
+                        </div>
+                        {showMetadata ? (
+                          <div className="task-meta flex flex-wrap items-center gap-2">
+                            {projectLabel ? <span>{projectLabel}</span> : null}
+                            {projectLabel && task.sectionName ? <span aria-hidden="true">·</span> : null}
+                            {task.sectionName ? <span>{task.sectionName}</span> : null}
+                            {stats && stats.pomodoros_today > 0 ? (
+                              <>
+                                {(projectLabel || task.sectionName) ? <span aria-hidden="true">·</span> : null}
+                                <span className="text-[11px]">🍅 {stats.pomodoros_today}</span>
+                              </>
+                            ) : null}
+                            {isArchived ? <span>Archived</span> : null}
+                          </div>
                         ) : null}
-                        <Button size="sm" type="button" variant="secondary" disabled={isPending || isEditing || isManaged} onClick={() => void handleSetScheduledFor(task, todayYYYYMMDD())} data-testid={`task-scheduled-today-${task.id}`}>Today</Button>
-                        <Button size="sm" type="button" variant="secondary" disabled={isPending || isEditing || isManaged || !task.scheduled_for} onClick={() => void handleSetScheduledFor(task, null)} data-testid={`task-scheduled-clear-${task.id}`}>Clear</Button>
                       </div>
-                    ) : null}
+
+                      {duePresentation ? <span className={["task-date-chip shrink-0", duePresentation.className].join(" ")}>{duePresentation.label}</span> : null}
+                    </div>
                   </div>
 
                   {!isEditing ? (
                     <div className="flex shrink-0 items-center gap-2">
                       {isArchived ? (
                         !isManaged ? (
-                          <Button size="sm" type="button" variant="secondary" onClick={() => handleRestore(task)} disabled={isPending} data-testid="task-restore">Restore</Button>
+                          <Button size="sm" type="button" variant="secondary" onClick={() => void handleRestore(task)} disabled={isPending}>
+                            Restore
+                          </Button>
                         ) : null
                       ) : (
                         <>
-                          <Button size="sm" type="button" variant="secondary" onClick={() => handleQueueAdd(task)} disabled={queueIds.has(task.id) || queueIsFull || isPending} data-testid={`queue-add-${task.id}`}>
-                            Add queue
+                          <Button size="sm" type="button" variant="secondary" onClick={() => void handleQueueAdd(task)} disabled={queueIds.has(task.id) || queueIsFull || isPending || queuePending}>
+                            Add to queue
                           </Button>
                           {!isManaged ? (
                             <>
@@ -649,7 +688,7 @@ export function TaskList({
                                 </IconButton>
                               </Tooltip>
                               <Tooltip label="Archive this task">
-                                <IconButton type="button" variant="danger" onClick={() => handleDelete(task)} disabled={isPending} aria-label="Delete task">
+                                <IconButton type="button" variant="danger" onClick={() => void handleDelete(task)} disabled={isPending} aria-label="Archive task">
                                   <IconTrash className="h-4 w-4" aria-hidden="true" />
                                 </IconButton>
                               </Tooltip>
@@ -662,52 +701,89 @@ export function TaskList({
                 </div>
 
                 {isEditing ? (
-                  <div className="mt-3 rounded-xl border border-border/70 bg-muted/20 p-3">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} maxLength={500} disabled={isPending} aria-label="Edit task title" />
-                      <Select value={draftProjectId} onChange={(event) => setDraftProjectId(event.target.value)} disabled={isPending}>
-                        <option value="">No project</option>
-                        {projects.map((project) => (
-                          <option key={project.id} value={project.id}>{project.name}</option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <input type="checkbox" checked={useCustomPomodoro} onChange={(event) => setUseCustomPomodoro(event.target.checked)} disabled={isPending} className="h-4 w-4 rounded border-border text-emerald-600" data-testid="task-pomodoro-toggle" />
-                        Use custom Pomodoro
-                      </label>
-                      <div role="group" aria-label="Pomodoro presets" className="flex flex-wrap gap-2">
-                        {pomodoroPresets.map((preset) => (
-                          <Button key={preset.id} size="sm" type="button" variant="secondary" onClick={() => handleApplyPomodoroPreset(task, preset)} disabled={isPending} aria-label={`Apply ${preset.label} preset`}>
-                            {preset.label}
-                          </Button>
-                        ))}
-                      </div>
-                      {useCustomPomodoro ? (
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          <Input type="number" min={1} max={240} step={1} value={draftPomodoroWork} onChange={(event) => setDraftPomodoroWork(event.target.value)} disabled={isPending} placeholder="Work minutes" data-testid="task-pomodoro-work" />
-                          <Input type="number" min={1} max={60} step={1} value={draftPomodoroShort} onChange={(event) => setDraftPomodoroShort(event.target.value)} disabled={isPending} placeholder="Short break" data-testid="task-pomodoro-short" />
-                          <Input type="number" min={1} max={120} step={1} value={draftPomodoroLong} onChange={(event) => setDraftPomodoroLong(event.target.value)} disabled={isPending} placeholder="Long break" data-testid="task-pomodoro-long" />
-                          <Input type="number" min={1} max={12} step={1} value={draftPomodoroEvery} onChange={(event) => setDraftPomodoroEvery(event.target.value)} disabled={isPending} placeholder="Long break every" data-testid="task-pomodoro-every" />
-                        </div>
-                      ) : null}
+                  <div className="mt-3 rounded-md border-[0.5px] border-border bg-card p-3">
+                    <div className="space-y-3">
+                      <Input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} maxLength={500} disabled={isPending} aria-label="Task title" />
+                      <Input value={draftDescription} onChange={(event) => setDraftDescription(event.target.value)} maxLength={500} disabled={isPending} aria-label="Task description" placeholder="Description" />
                       <div className="flex flex-wrap gap-2">
-                        {useCustomPomodoro ? <Button size="sm" type="button" variant="secondary" onClick={() => handleResetPomodoro(task)} disabled={isPending} data-testid="task-pomodoro-reset">Reset defaults</Button> : null}
-                        <Button size="sm" type="button" onClick={() => handleSave(task)} disabled={isPending}>Save</Button>
-                        <Button size="sm" type="button" variant="secondary" onClick={cancelEditing} disabled={isPending}>Cancel</Button>
+                        <DatePickerPopover value={draftScheduledFor} onSelect={setDraftScheduledFor} />
+                        <PriorityPicker value={draftPriority} onSelect={setDraftPriority} />
+                        <label className="focus-ring ui-hover inline-flex h-9 items-center rounded-md border-[0.5px] border-border bg-background px-3 text-sm text-foreground">
+                          <span className="mr-2" aria-hidden="true">📁</span>
+                          <select value={draftProjectId} onChange={(event) => setDraftProjectId(event.target.value)} className="bg-transparent outline-none" disabled={isPending}>
+                            <option value="">No project</option>
+                            {projects.map((project) => (
+                              <option key={project.id} value={project.id}>
+                                {project.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={useCustomPomodoro}
+                            onChange={(event) => setUseCustomPomodoro(event.target.checked)}
+                            disabled={isPending}
+                            className="h-4 w-4 rounded-md border-border text-emerald-600"
+                          />
+                          Use custom Pomodoro
+                        </label>
+                        <div role="group" aria-label="Pomodoro presets" className="flex flex-wrap gap-2">
+                          {pomodoroPresets.map((preset) => (
+                            <Button key={preset.id} size="sm" type="button" variant="secondary" onClick={() => void handleApplyPomodoroPreset(task, preset)} disabled={isPending}>
+                              {preset.label}
+                            </Button>
+                          ))}
+                        </div>
+                        {useCustomPomodoro ? (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <Input type="number" min={1} max={240} step={1} value={draftPomodoroWork} onChange={(event) => setDraftPomodoroWork(event.target.value)} disabled={isPending} placeholder="Work minutes" />
+                            <Input type="number" min={1} max={60} step={1} value={draftPomodoroShort} onChange={(event) => setDraftPomodoroShort(event.target.value)} disabled={isPending} placeholder="Short break" />
+                            <Input type="number" min={1} max={120} step={1} value={draftPomodoroLong} onChange={(event) => setDraftPomodoroLong(event.target.value)} disabled={isPending} placeholder="Long break" />
+                            <Input type="number" min={1} max={12} step={1} value={draftPomodoroEvery} onChange={(event) => setDraftPomodoroEvery(event.target.value)} disabled={isPending} placeholder="Long break every" />
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {useCustomPomodoro ? (
+                          <Button size="sm" type="button" variant="secondary" onClick={() => void handleResetPomodoro(task)} disabled={isPending}>
+                            Reset defaults
+                          </Button>
+                        ) : null}
+                        <Button size="sm" type="button" onClick={() => void handleSave(task)} disabled={isPending}>
+                          Save
+                        </Button>
+                        <Button size="sm" type="button" variant="secondary" onClick={cancelEditing} disabled={isPending}>
+                          Cancel
+                        </Button>
                       </div>
                     </div>
                   </div>
                 ) : null}
 
-                {errorMessage ? <p className="mt-2 text-sm text-red-600" role="alert">{toEnglishError(errorMessage)}</p> : null}
+                {errorMessage ? <p className="mt-2 text-sm text-red-600">{toEnglishError(errorMessage)}</p> : null}
               </li>
             );
           })}
         </ul>
+
+        {allowInlineCreate ? (
+          <InlineTaskComposer
+            projects={projects}
+            defaultScheduledFor={inlineCreateDefaultScheduledFor ?? (currentRange === "day" && currentDate ? currentDate : null)}
+            defaultProjectId={inlineCreateDefaultProjectId}
+            autoOpenFromQuery={inlineCreateAutoOpen}
+            onCreated={(task, meta) => {
+              setItems((prev) => [hydrateTask({ ...task, ...meta }), ...prev]);
+              router.refresh();
+            }}
+          />
+        ) : null}
       </section>
     </div>
   );
 }
-

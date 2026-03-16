@@ -3,18 +3,26 @@
 import * as React from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
+import type { ProjectRow } from "@/app/actions/projects";
+import {
+  getClientRuntimeSnapshot,
+  logClientDiagnostic,
+} from "@/lib/debug/devDiagnostics";
 import { Brand } from "@/components/layout/Brand";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { Badge } from "@/components/ui/badge";
 import {
   CommandPalette,
   type CommandAction,
 } from "@/components/ui/command-palette";
 import {
+  IconArchive,
+  IconCalendar,
   IconDashboard,
+  IconFilter,
   IconFocus,
+  IconInbox,
   IconSettings,
   IconTasks,
 } from "@/components/ui/icons";
@@ -27,22 +35,30 @@ const GlobalRunningSessionWidget = dynamic(
   { ssr: false },
 );
 
-const CORE_LINKS = [
-  { href: "/dashboard", label: "Dashboard", Icon: IconDashboard },
-  { href: "/tasks", label: "Tasks", Icon: IconTasks },
-  { href: "/focus", label: "Focus", Icon: IconFocus },
+const PRIMARY_LINKS = [
+  { href: "/inbox", label: "Inbox", Icon: IconInbox, countKey: "inbox" as const },
+  { href: "/today", label: "Today", Icon: IconCalendar, countKey: "today" as const },
+  { href: "/upcoming", label: "Upcoming", Icon: IconCalendar },
+  { href: "/filters-labels", label: "Filters & Labels", Icon: IconFilter },
+  { href: "/completed", label: "Completed", Icon: IconArchive },
 ] as const;
 
-const SETTINGS_LINKS = [
+const SECONDARY_LINKS = [
+  { href: "/focus", label: "Focus", Icon: IconFocus },
+  { href: "/dashboard", label: "Dashboard", Icon: IconDashboard },
+] as const;
+
+const MOBILE_LINKS = [
+  { href: "/today", label: "Today", Icon: IconCalendar },
+  { href: "/tasks", label: "Tasks", Icon: IconTasks },
+  { href: "/focus", label: "Focus", Icon: IconFocus },
+  { href: "/dashboard", label: "Dashboard", Icon: IconDashboard },
   { href: "/settings", label: "Settings", Icon: IconSettings },
 ] as const;
 
-const NAV_LINKS = [...CORE_LINKS, ...SETTINGS_LINKS] as const;
-
 function UserAvatar({ email }: { email: string | null }) {
-  const initials = email
-    ? email.slice(0, 2).toUpperCase()
-    : "U";
+  const initials = email ? email.slice(0, 2).toUpperCase() : "U";
+
   return (
     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-800">
       {initials}
@@ -56,9 +72,26 @@ type AppShellNavProps = {
   userId: string;
   userEmail: string | null;
   queueCount: number;
+  inboxCount: number;
+  todayCount: number;
+  projects: ProjectRow[];
+  projectCounts: Record<string, number>;
   hasActiveFocus: boolean;
   activeSession: { id: string; started_at: string } | null;
 };
+
+function isRouteActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function logNavClick(label: string, href: string, pathname: string) {
+  logClientDiagnostic("nav:click", {
+    label,
+    href,
+    pathnameBeforeClick: pathname,
+    ...getClientRuntimeSnapshot(),
+  });
+}
 
 export function AppShellNav({
   children,
@@ -66,130 +99,157 @@ export function AppShellNav({
   userId,
   userEmail,
   queueCount,
+  inboxCount,
+  todayCount,
+  projects,
+  projectCounts,
   hasActiveFocus,
   activeSession,
 }: AppShellNavProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeProjects = projects.filter((project) => !project.archived_at);
+  const activeProjectId = searchParams.get("project");
+  const settingsActive = isRouteActive(pathname, "/settings");
 
   const commandActions: CommandAction[] = [
-    {
-      id: "nav-dashboard",
-      label: "Go to Dashboard",
-      href: "/dashboard",
-      hint: "Navigation",
-    },
-    {
-      id: "nav-tasks",
-      label: "Go to Tasks",
-      href: "/tasks",
-      hint: "Navigation",
-    },
-    {
-      id: "nav-focus",
-      label: "Go to Focus",
-      href: "/focus",
-      hint: "Navigation",
-    },
-    {
-      id: "nav-settings",
-      label: "Go to Settings",
-      href: "/settings",
-      hint: "Navigation",
-    },
-    {
-      id: "quick-create-task",
-      label: "Create task",
-      href: "/tasks?compose=1",
-      hint: "Quick action",
-    },
-    {
-      id: "quick-start-focus",
-      label: "Start focus",
-      href: "/focus",
-      hint: "Quick action",
-    },
-    {
-      id: "quick-scheduled",
-      label: "Scheduled today",
-      href: "/tasks?range=day",
-      hint: "Quick action",
-    },
+    { id: "nav-inbox", label: "Go to Inbox", href: "/inbox", hint: "Navigation" },
+    { id: "nav-today", label: "Go to Today", href: "/today", hint: "Navigation" },
+    { id: "nav-upcoming", label: "Go to Upcoming", href: "/upcoming", hint: "Navigation" },
+    { id: "nav-tasks", label: "Go to Tasks", href: "/tasks", hint: "Navigation" },
+    { id: "nav-focus", label: "Go to Focus", href: "/focus", hint: "Navigation" },
+    { id: "nav-dashboard", label: "Go to Dashboard", href: "/dashboard", hint: "Navigation" },
+    { id: "nav-filters", label: "Go to Filters & Labels", href: "/filters-labels", hint: "Navigation" },
+    { id: "nav-completed", label: "Go to Completed", href: "/completed", hint: "Navigation" },
+    { id: "nav-settings", label: "Go to Settings", href: "/settings", hint: "Navigation" },
+    { id: "quick-create-task", label: "Create task", href: "/tasks?compose=1", hint: "Quick action" },
+    { id: "quick-start-focus", label: "Start focus", href: "/focus", hint: "Quick action" },
   ];
 
   return (
     <div className="bg-background text-foreground min-h-dvh">
       <CommandPalette actions={commandActions} />
       <GlobalRunningSessionWidget activeSession={activeSession} userId={userId} />
-      <div className="mx-auto grid min-h-dvh w-full max-w-[1680px] grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] 2xl:px-6">
-        <aside className="border-border/80 bg-muted/20 hidden border-r lg:block">
-          <div className="sticky top-0 flex h-dvh flex-col px-4 py-6">
+      <div className="mx-auto grid min-h-dvh w-full max-w-[1680px] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] 2xl:px-6">
+        <aside className="app-sidebar hidden lg:block">
+          <div className="sticky top-0 flex h-dvh flex-col px-3 py-5">
             <div className="flex items-center justify-between">
               <Brand />
-              <span className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/50 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-md border-[0.5px] border-border bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground">
                 ⌘K
               </span>
             </div>
-            <nav className="mt-8 space-y-1" aria-label="Main navigation">
-              <p className="text-overline mb-2 px-3">Core</p>
-              {CORE_LINKS.map((link) => {
-                const isActive =
-                  pathname === link.href ||
-                  pathname.startsWith(`${link.href}/`);
+
+            <div className="mt-6">
+              <Link
+                href="/tasks?compose=1"
+                className="nav-action-link focus-ring"
+                onClick={() => logNavClick("Add task", "/tasks?compose=1", pathname)}
+              >
+                <span className="nav-action-icon text-base leading-none text-current" aria-hidden="true">
+                  +
+                </span>
+                <span>Add task</span>
+              </Link>
+            </div>
+
+            <hr className="sidebar-divider" />
+
+            <nav className="space-y-1" aria-label="Main navigation">
+              {PRIMARY_LINKS.map((link) => {
+                const isActive = isRouteActive(pathname, link.href);
+                const count = "countKey" in link
+                  ? link.countKey === "inbox"
+                    ? inboxCount
+                    : todayCount
+                  : null;
+
                 return (
                   <Link
                     key={link.href}
                     href={link.href}
                     aria-current={isActive ? "page" : undefined}
-                    className={[
-                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all duration-200",
-                      isActive
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm"
-                        : "text-muted-foreground border-transparent hover:border-border hover:bg-card hover:text-foreground hover:translate-x-0.5",
-                    ].join(" ")}
+                    className={["nav-link focus-ring", isActive ? "nav-link-active" : ""].join(" ")}
+                    onClick={() => logNavClick(link.label, link.href, pathname)}
                   >
                     <link.Icon className="h-4 w-4" aria-hidden="true" />
                     <span>{link.label}</span>
-                    {link.href === "/tasks" && queueCount > 0 ? (
-                      <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-700">
-                        {Math.min(queueCount, 99)}
-                      </span>
+                    {typeof count === "number" ? <span className="nav-link-count">{count}</span> : null}
+                  </Link>
+                );
+              })}
+
+              <hr className="sidebar-divider" />
+
+              {SECONDARY_LINKS.map((link) => {
+                const isActive = isRouteActive(pathname, link.href);
+
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={["nav-link focus-ring", isActive ? "nav-link-active" : ""].join(" ")}
+                    onClick={() => logNavClick(link.label, link.href, pathname)}
+                  >
+                    <link.Icon className="h-4 w-4" aria-hidden="true" />
+                    <span>{link.label}</span>
+                    {link.href === "/focus" && queueCount > 0 ? (
+                      <span className="nav-link-count">{Math.min(queueCount, 99)}</span>
                     ) : null}
                   </Link>
                 );
               })}
 
-              <div className="my-3 border-t border-border/50" />
-              <p className="text-overline mb-2 px-3">Workspace</p>
-              {SETTINGS_LINKS.map((link) => {
-                const isActive =
-                  pathname === link.href ||
-                  pathname.startsWith(`${link.href}/`);
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={[
-                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all duration-200",
-                      isActive
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm"
-                        : "text-muted-foreground border-transparent hover:border-border hover:bg-card hover:text-foreground hover:translate-x-0.5",
-                    ].join(" ")}
-                  >
-                    <link.Icon className="h-4 w-4" aria-hidden="true" />
-                    <span>{link.label}</span>
-                  </Link>
-                );
-              })}
+              <hr className="sidebar-divider" />
+
+              <div className="space-y-1">
+                <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  My Projects
+                </p>
+                {activeProjects.map((project) => {
+                  const href = `/tasks?project=${project.id}`;
+                  const isActive = pathname === "/tasks" && activeProjectId === project.id;
+                  const count = projectCounts[project.id] ?? 0;
+
+                  return (
+                    <Link
+                      key={project.id}
+                      href={href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={["nav-link focus-ring", isActive ? "nav-link-active" : ""].join(" ")}
+                      onClick={() => logNavClick(project.name, href, pathname)}
+                    >
+                      <span className="text-base leading-none text-muted-foreground" aria-hidden="true">
+                        #
+                      </span>
+                      <span className="truncate">{project.name}</span>
+                      {count > 0 ? <span className="nav-link-count">{count}</span> : null}
+                    </Link>
+                  );
+                })}
+                <Link
+                  href="/tasks#projects-panel"
+                  className="nav-action-link focus-ring"
+                  onClick={() => logNavClick("Add project", "/tasks#projects-panel", pathname)}
+                >
+                  <span className="nav-action-icon text-base leading-none text-current" aria-hidden="true">
+                    +
+                  </span>
+                  <span>Add project</span>
+                </Link>
+              </div>
             </nav>
+
             <div className="mt-auto space-y-3">
               {hasActiveFocus ? (
                 <Link
                   href="/focus"
-                  className="animate-fadeIn block rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900 shadow-sm"
+                  className="sidebar-focus-indicator focus-ring ui-hover animate-fadeIn block"
+                  onClick={() => logNavClick("Focus running", "/focus", pathname)}
                 >
                   <div className="flex items-center gap-2 font-semibold">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                    <span className="animate-pulse-soft h-2 w-2 rounded-full bg-[var(--ring)]" />
                     Focus running
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-2">
@@ -198,11 +258,22 @@ export function AppShellNav({
                   </div>
                 </Link>
               ) : null}
-              <div className="border-border bg-card flex items-center gap-2 rounded-xl border px-3 py-2">
-                <UserAvatar email={userEmail} />
-                <p className="text-muted-foreground flex-1 truncate text-xs">
-                  {userEmail ?? "Signed in"}
-                </p>
+
+              <div className="flex items-center gap-2 rounded-md border-[0.5px] border-border bg-card px-3 py-2">
+                <Link
+                  href="/settings"
+                  aria-label="Open settings"
+                  className={[
+                    "focus-ring ui-hover flex min-w-0 flex-1 items-center gap-2 rounded-md",
+                    settingsActive ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]" : "",
+                  ].join(" ")}
+                  onClick={() => logNavClick("Settings", "/settings", pathname)}
+                >
+                  <UserAvatar email={userEmail} />
+                  <p className="truncate text-xs text-muted-foreground">
+                    {userEmail ?? "Signed in"}
+                  </p>
+                </Link>
                 <ThemeToggle initialTheme={initialTheme} />
               </div>
             </div>
@@ -214,12 +285,23 @@ export function AppShellNav({
             <div className="flex items-center justify-between gap-3 px-4 py-3">
               <Brand />
               <div className="flex items-center gap-2">
+                <Link
+                  href="/tasks?compose=1"
+                  className="nav-action-link focus-ring min-h-0 px-3 py-2 text-sm"
+                  onClick={() => logNavClick("Add task mobile", "/tasks?compose=1", pathname)}
+                >
+                  <span className="nav-action-icon text-base leading-none text-current" aria-hidden="true">
+                    +
+                  </span>
+                  <span>Add task</span>
+                </Link>
                 {hasActiveFocus ? (
                   <Link
                     href="/focus"
-                    className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800"
+                    className="inline-flex items-center gap-1 rounded-md bg-[var(--nav-active-bg)] px-2 py-1 text-xs text-[var(--nav-active-text)]"
+                    onClick={() => logNavClick("Running mobile", "/focus", pathname)}
                   >
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                    <span className="animate-pulse-soft h-1.5 w-1.5 rounded-full bg-[var(--ring)]" />
                     Running
                   </Link>
                 ) : null}
@@ -232,37 +314,26 @@ export function AppShellNav({
             {children}
           </main>
 
-          <nav
-            className="border-border bg-card/95 fixed inset-x-3 bottom-3 z-40 rounded-2xl border p-1 shadow-[var(--shadow-lift)] backdrop-blur lg:hidden"
-            aria-label="Bottom navigation"
-          >
-            <ul className="grid grid-cols-4 gap-1">
-              {NAV_LINKS.map((link) => {
-                const isActive =
-                  pathname === link.href ||
-                  pathname.startsWith(`${link.href}/`);
+          <nav className="fixed inset-x-3 bottom-3 z-40 rounded-xl border border-border bg-card/95 p-1 shadow-[var(--shadow-lift)] backdrop-blur lg:hidden" aria-label="Bottom navigation">
+            <ul className="grid grid-cols-5 gap-1">
+              {MOBILE_LINKS.map((link) => {
+                const isActive = isRouteActive(pathname, link.href);
+
                 return (
                   <li key={link.href}>
                     <Link
                       href={link.href}
                       aria-current={isActive ? "page" : undefined}
                       className={[
-                        "relative flex flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors",
+                        "ui-hover relative flex min-h-[40px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2 text-[10px] font-medium",
                         isActive
-                          ? "bg-emerald-50 text-emerald-800"
+                          ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       ].join(" ")}
+                      onClick={() => logNavClick(`mobile:${link.label}`, link.href, pathname)}
                     >
                       <link.Icon className="h-4 w-4" aria-hidden="true" />
                       {link.label}
-                      {link.href === "/tasks" && queueCount > 0 ? (
-                        <Badge
-                          className="absolute -top-1 -right-1 px-1.5 py-0 text-[10px]"
-                          variant="accent"
-                        >
-                          {Math.min(queueCount, 9)}
-                        </Badge>
-                      ) : null}
                     </Link>
                   </li>
                 );
@@ -274,4 +345,3 @@ export function AppShellNav({
     </div>
   );
 }
-

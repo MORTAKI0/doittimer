@@ -1,0 +1,681 @@
+{
+  prefix: '[doittimer]',
+  scope: 'actions.dashboard.getDashboardSummary.auth',
+  reqId: null,
+  userId: null,
+  code: 'auth_required',
+  message: 'You must be signed in to continue.',
+  retryable: false,
+  severity: 'info',
+  context: { range: 'today', from: null, to: null },
+  meta: { supabaseMessage: 'Auth session missing!', status: 400 }
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
+    at ignore-listed frames {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+⨯ Error: ENOENT: no such file or directory, open 'C:\Users\abmor\Desktop\doittimer\.next\dev\server\app\(app)\today\page\build-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\abmor\\Desktop\\doittimer\\.next\\dev\\server\\app\\(app)\\today\\page\\build-manifest.json'
+}
+
+thread 'tokio-runtime-worker' (18824) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for <FileSource as Asset>::content (TaskId 143))
+
+Caused by:
+    0: Looking up data for TaskId 143 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+⨯ Error: ENOENT: no such file or directory, open 'C:\Users\abmor\Desktop\doittimer\.next\dev\server\app\(app)\today\page\build-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\abmor\\Desktop\\doittimer\\.next\\dev\\server\\app\\(app)\\today\\page\\build-manifest.json'
+}
+
+thread 'tokio-runtime-worker' (9648) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for server_path (TaskId 232206))
+
+Caused by:
+    0: Looking up data for TaskId 232206 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9720) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for server_path (TaskId 232206))
+
+Caused by:
+    0: Looking up data for TaskId 232206 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (30092) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (23456) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (31976) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (34324) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (30092) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18824) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for <DiskFileSystem as FileSystem>::write (TaskId 232716))
+
+Caused by:
+    0: Looking up data for TaskId 232716 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9648) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for server_path (TaskId 232206))
+
+Caused by:
+    0: Looking up data for TaskId 232206 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (34324) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for ChunkGroupResult::concatenate (TaskId 230848))
+
+Caused by:
+    0: Looking up data for TaskId 230848 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (29844) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for ChunkGroupResult::concatenate (TaskId 230848))
+
+Caused by:
+    0: Looking up data for TaskId 230848 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (33660) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9720) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9720) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (29844) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for VisitedModules::from_graph (TaskId 229975))
+
+Caused by:
+    0: Looking up data for TaskId 229975 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (23456) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for VisitedModules::from_graph (TaskId 229975))
+
+Caused by:
+    0: Looking up data for TaskId 229975 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18448) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for VisitedModules::from_graph (TaskId 229975))
+
+Caused by:
+    0: Looking up data for TaskId 229975 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (29844) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for AssetIdent::new_inner (TaskId 229617))
+
+Caused by:
+    0: Looking up data for TaskId 229617 from database failed
+    1: Unable to open static sorted file referenced from 00001300.meta
+    2: Unable to open static sorted file 00001294.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (35308) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for AssetIdent::new_inner (TaskId 229617))
+
+Caused by:
+    0: Looking up data for TaskId 229617 from database failed
+    1: Unable to open static sorted file referenced from 00001300.meta
+    2: Unable to open static sorted file 00001294.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (30092) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\mod.rs:1354:30:
+Failed to lookup task id: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "ChunkGroupResult::output_assets_with_referenced", global_name: "turbopack-core@turbopack_core::chunk::chunking_context::ChunkGroupResult::output_assets_with_referenced", .. }, this: Some(RawVc::TaskCell(230810, "turbopack_core::chunk::chunking_context::ChunkGroupResult#0")), arg: () } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001302.meta
+    1: Unable to open static sorted file 00001296.sst
+    2: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (8012) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for AssetIdent::new_inner (TaskId 229617))
+
+Caused by:
+    0: Looking up data for TaskId 229617 from database failed
+    1: Unable to open static sorted file referenced from 00001300.meta
+    2: Unable to open static sorted file 00001294.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (8012) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for OutputAssetsWithReferenced::all_assets (TaskId 230972))
+
+Caused by:
+    0: Looking up data for TaskId 230972 from database failed
+    1: Unable to open static sorted file referenced from 00001300.meta
+    2: Unable to open static sorted file 00001294.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (30092) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for ChunkGroupResult::concatenate (TaskId 230848))
+
+Caused by:
+    0: Looking up data for TaskId 230848 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (23456) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\mod.rs:1354:30:
+Failed to lookup task id: Looking up task id for CachedTaskType { native_fn: NativeFunction { name: "ModuleBatch::new", global_name: "turbopack-core@turbopack_core::module_graph::module_batch::ModuleBatch::new", .. }, this: None, arg: ([Vc(RawVc::TaskCell(71397, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(71995, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(66011, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(66013, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(68579, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(76730, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(66016, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(60596, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(63442, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(63438, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(60662, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(54072, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(81391, "turbopack_ecmascript::EcmascriptModuleAsset#0")), Vc(RawVc::TaskCell(81326, "turbopack_ecmascript::EcmascriptModuleAsset#0"))], Some(RoaringBitmapWrapper(RoaringBitmap<[9]>))) } from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001302.meta
+    1: Unable to open static sorted file 00001296.sst
+    2: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9648) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for chunk_items_with_info_with_type (TaskId 231531))
+
+Caused by:
+    0: Looking up data for TaskId 231531 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9720) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9648) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for batch_chunk_items_with_info_with_type (TaskId 230414))
+
+Caused by:
+    0: Looking up data for TaskId 230414 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9720) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18448) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for chunk_items_with_info_with_type (TaskId 230426))
+
+Caused by:
+    0: Looking up data for TaskId 230426 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (31976) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (29844) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (8012) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (30092) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for chunk_items_with_info_with_type (TaskId 230511))
+
+Caused by:
+    0: Looking up data for TaskId 230511 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18448) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18824) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (31976) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9720) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (35308) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for <EcmascriptModuleAsset as EcmascriptParsable>::failsafe_parse (TaskId 99807))
+
+Caused by:
+    0: Looking up data for TaskId 99807 from database failed
+    1: Unable to open static sorted file referenced from 00001300.meta
+    2: Unable to open static sorted file 00001294.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (33660) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (34324) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\mod.rs:963:22:
+Failed to lookup task type: Looking up task type for TaskId 230477 from database failed
+
+Caused by:
+    0: Unable to open static sorted file referenced from 00001301.meta
+    1: Unable to open static sorted file 00001297.sst
+    2: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (8012) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (30092) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (29844) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18448) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9648) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18824) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (31976) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (23456) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9720) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (35308) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (33660) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (34324) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (29844) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18448) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (8012) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for ChunkItemBatchWithAsyncModuleInfo::from_module_batch (TaskId 230351))
+
+Caused by:
+    0: Looking up data for TaskId 230351 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (30092) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (18824) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001309.meta
+    2: Unable to open static sorted file 00001304.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (31976) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (23456) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9720) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (9648) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (35308) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (33660) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)
+
+thread 'tokio-runtime-worker' (34324) panicked at C:\actions-runner\_work\next.js\next.js\turbopack\crates\turbo-tasks-backend\src\backend\operation\mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for compute_async_module_info_single (TaskId 230333))
+
+Caused by:
+    0: Looking up data for TaskId 230333 from database failed
+    1: Unable to open static sorted file referenced from 00001310.meta
+    2: Unable to open static sorted file 00001303.sst
+    3: The system cannot find the path specified. (os error 3)

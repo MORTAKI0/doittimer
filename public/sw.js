@@ -1,4 +1,4 @@
-const CACHE_VERSION = "doittimer-static-v2";
+const CACHE_VERSION = "doittimer-static-v3";
 const PRECACHE_URLS = [
   "/offline",
   "/manifest.webmanifest",
@@ -6,7 +6,21 @@ const PRECACHE_URLS = [
   "/apple-touch-icon.png",
 ];
 
+function broadcast(type, payload) {
+  self.clients.matchAll({ includeUncontrolled: true, type: "window" }).then((clients) => {
+    for (const client of clients) {
+      client.postMessage({
+        type: "doittimer:sw-log",
+        event: type,
+        ts: new Date().toISOString(),
+        ...payload,
+      });
+    }
+  }).catch(() => undefined);
+}
+
 self.addEventListener("install", (event) => {
+  broadcast("install", { cacheVersion: CACHE_VERSION });
   event.waitUntil(
     caches
       .open(CACHE_VERSION)
@@ -17,13 +31,15 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  broadcast("activate:start", { cacheVersion: CACHE_VERSION });
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
         Promise.all(keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key))),
       )
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
+      .then(() => broadcast("activate:complete", { cacheVersion: CACHE_VERSION })),
   );
 });
 
@@ -44,19 +60,28 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
-  if (url.pathname.startsWith("/api/")) {
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/_next/")) {
     return;
   }
 
   if (request.mode === "navigate") {
+    broadcast("fetch:navigate", { pathname: url.pathname, search: url.search });
     event.respondWith(
-      fetch(request).catch(() => caches.match("/offline")),
+      fetch(request, { cache: "no-store" }).catch(async () => {
+        broadcast("fetch:navigate:fallback", { pathname: url.pathname, search: url.search });
+        const offlineResponse = await caches.match("/offline");
+        return offlineResponse ?? Response.error();
+      }),
     );
     return;
   }
 
   if (isStaticAsset(url)) {
+    broadcast("fetch:static", { pathname: url.pathname, search: url.search });
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;

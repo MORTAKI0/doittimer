@@ -165,7 +165,7 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
   const hasArchived = items.some((item) => isArchived(item));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 rounded-md border-[0.5px] border-border bg-card p-4" id="projects-panel">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-foreground">Projects</h2>
         <p className="text-sm text-muted-foreground">
@@ -193,11 +193,7 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
         </Button>
       </form>
 
-      {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </p>
-      ) : null}
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       {hasArchived ? (
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -212,13 +208,13 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
       ) : null}
 
       {visibleItems.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+        <p className="border-t-[0.5px] border-border pt-4 text-sm text-muted-foreground">
           {showArchived
             ? "No archived projects."
             : "No projects yet. Create one to get started."}
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="border-t-[0.5px] border-border">
           {visibleItems.map((project) => {
             const rowError = errorsById[project.id];
             const isEditing = editingId === project.id;
@@ -229,7 +225,7 @@ export function ProjectsPanel({ initialProjects, initialError }: ProjectsPanelPr
             return (
               <div
                 key={project.id}
-                className="rounded-xl border border-border bg-card px-3 py-2.5"
+                className="task-row"
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2 text-sm font-medium text-foreground">

@@ -127,7 +127,7 @@ export default async function FocusPage(props: FocusPageProps) {
   return (
     <div className="space-y-6">
       <FocusRealtimeSync userId={user?.id ?? null} />
-      <div className="animate-fadeInUp space-y-1">
+      <div className="animate-fadeIn space-y-1">
         <p className="text-overline">Deep work</p>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-page-title text-foreground">Focus</h1>
@@ -146,7 +146,7 @@ export default async function FocusPage(props: FocusPageProps) {
         </p>
       ) : null}
 
-      <Card className="animate-fadeInUp stagger-2 space-y-3">
+      <Card className="animate-fadeIn stagger-2 space-y-3">
         <CardHeader>
           <CardTitle>Session controls</CardTitle>
           <CardDescription>

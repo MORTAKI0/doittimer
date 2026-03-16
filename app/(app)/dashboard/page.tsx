@@ -371,7 +371,7 @@ export default async function DashboardPage(props: {
   return (
     <div className="space-y-8">
       <section className="grid gap-5 2xl:grid-cols-[minmax(0,1.75fr)_400px] xl:grid-cols-[minmax(0,1.55fr)_380px]">
-        <Card variant="accent" className="animate-fadeInUp space-y-6 p-6 lg:p-7">
+        <Card variant="accent" className="animate-fadeIn space-y-6 p-6 lg:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-2xl space-y-3">
               <Badge variant="accent" className="border-emerald-200/80 bg-white/65 text-emerald-800">
@@ -408,7 +408,7 @@ export default async function DashboardPage(props: {
           </div>
         </Card>
 
-        <Card className="animate-fadeInUp space-y-4 rounded-[1.75rem] p-6">
+        <Card className="animate-fadeIn space-y-4 rounded-[1.75rem] p-6">
           <CardHeader className="space-y-2">
             <CardTitle>Reporting range</CardTitle>
             <CardDescription>
@@ -444,7 +444,7 @@ export default async function DashboardPage(props: {
         month={formatHoursMinutes(workTotals.monthSeconds)}
       />
 
-      <section className="animate-fadeInUp stagger-2 grid gap-4 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
+      <section className="animate-fadeIn stagger-2 grid gap-4 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
         <div className="card-hover-lift xl:col-span-1">
           <KpiCard
             variant="accent"
@@ -493,7 +493,7 @@ export default async function DashboardPage(props: {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,0.9fr)] 2xl:grid-cols-[minmax(0,1.85fr)_380px]">
-        <Card className="animate-fadeInUp stagger-3 space-y-6 rounded-[1.75rem] p-6">
+        <Card className="animate-fadeIn stagger-3 space-y-6 rounded-[1.75rem] p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-2">
               <p className="text-overline">Execution board</p>
@@ -561,7 +561,7 @@ export default async function DashboardPage(props: {
           </div>
         </Card>
 
-        <Card className="animate-fadeInUp stagger-3 space-y-5 rounded-[1.75rem] p-6">
+        <Card className="animate-fadeIn stagger-3 space-y-5 rounded-[1.75rem] p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">
               <p className="text-overline">Focus handoff</p>
@@ -613,7 +613,7 @@ export default async function DashboardPage(props: {
         />
       </section>
 
-      <Card className="animate-fadeInUp stagger-3 space-y-5 rounded-[1.75rem] p-6">
+      <Card className="animate-fadeIn stagger-3 space-y-5 rounded-[1.75rem] p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-overline">Trends</p>

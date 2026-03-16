@@ -87,13 +87,13 @@ export function Drawer({ title, open, onClose, children }: DrawerProps) {
         className="absolute inset-0 bg-black/35"
         onClick={onClose}
       />
-      <div ref={dialogRef} tabIndex={-1} className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-[var(--shadow-lift)]">
+      <div ref={dialogRef} tabIndex={-1} className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-md border border-border bg-card p-5 shadow-[var(--shadow-lift)]">
         <div className="mb-4 flex items-center justify-between gap-2">
           <h2 className="text-section-title">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted focus-ring"
+            className="focus-ring ui-hover inline-flex h-9 w-9 items-center justify-center rounded-md border-[0.5px] border-border text-muted-foreground hover:bg-muted"
           >
             <span aria-hidden="true">x</span>
             <span className="sr-only">Close</span>

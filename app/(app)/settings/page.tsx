@@ -45,8 +45,8 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="animate-fadeInUp space-y-1">
-        <p className="text-overline">Workspace</p>
+      <div className="animate-fadeIn space-y-1">
+        <p className="page-section-label">Workspace</p>
         <h1 className="text-page-title text-foreground">Settings</h1>
         <p className="text-sm text-muted-foreground">
           Manage your account, preferences, and integrations.
@@ -54,9 +54,9 @@ export default async function SettingsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card variant="accent" className="animate-fadeInUp stagger-1 space-y-3 p-6">
-          <p className="text-overline">Profile</p>
-          <div className="flex items-center gap-4 rounded-xl bg-muted/30 p-4">
+        <Card variant="accent" className="animate-fadeIn stagger-1 space-y-3 p-6">
+          <p className="page-section-label">Profile</p>
+          <div className="flex items-center gap-4 rounded-md bg-muted/30 p-4">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-800">
               {email ? email.slice(0, 2).toUpperCase() : "U"}
             </span>
@@ -70,10 +70,10 @@ export default async function SettingsPage() {
           </form>
         </Card>
 
-        <Card className="animate-fadeInUp stagger-2 space-y-3 p-6">
-          <p className="text-overline">Theme</p>
+        <Card className="animate-fadeIn stagger-2 space-y-3 p-6">
+          <p className="page-section-label">Theme</p>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-lg" aria-hidden="true">🌙</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-lg" aria-hidden="true">🌙</span>
             <div>
               <p className="text-sm font-medium text-foreground">Dark mode active</p>
               <p className="text-xs text-muted-foreground">Toggle via the sidebar ☀️ / 🌙 button.</p>
@@ -82,9 +82,9 @@ export default async function SettingsPage() {
         </Card>
       </div>
 
-      <Card className="animate-fadeInUp stagger-3 space-y-4 p-6">
+      <Card className="animate-fadeIn stagger-3 space-y-4 p-6">
         <div>
-          <p className="text-overline">Focus Defaults</p>
+          <p className="page-section-label">Focus Defaults</p>
           <p className="mt-2 text-sm text-muted-foreground">Auto-save is enabled. You can also click Save now as fallback.</p>
         </div>
         <SettingsForm
@@ -99,10 +99,10 @@ export default async function SettingsPage() {
         />
       </Card>
 
-      <div className="animate-fadeInUp stagger-4">
+      <div className="animate-fadeIn stagger-4">
         <DataManagementCard />
       </div>
-      <div className="animate-fadeInUp stagger-5">
+      <div className="animate-fadeIn stagger-5">
         <NotionIntegrationCard initialConnection={notionConnection} initialError={notionError} />
       </div>
     </div>
