@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { logClientDiagnostic } from "@/lib/debug/devDiagnostics";
 import { Input } from "@/components/ui/input";
 
 export type CommandAction = {
@@ -36,12 +37,17 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
 /** Opens a keyboard-driven command dialog with focus trapping and scroll lock. */
 export function CommandPalette({ actions }: CommandPaletteProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const dialogRef = React.useRef<HTMLDivElement | null>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const previousOverflowRef = React.useRef<string | null>(null);
+
+  // Stabilise searchParams into a primitive so it can safely appear in
+  // dependency arrays without triggering infinite re-render loops.
+  const searchParamsKey = searchParams.toString();
 
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -62,6 +68,11 @@ export function CommandPalette({ actions }: CommandPaletteProps) {
   React.useEffect(() => {
     if (!open) setQuery("");
   }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setOpen(false);
+  }, [open, pathname, searchParamsKey]);
 
   React.useEffect(() => {
     if (!open || !dialogRef.current) return;
@@ -127,7 +138,7 @@ export function CommandPalette({ actions }: CommandPaletteProps) {
         onClick={() => setOpen(false)}
         aria-label="Close command palette"
       />
-      <div ref={dialogRef} tabIndex={-1} className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)]">
+      <div ref={dialogRef} tabIndex={-1} className="relative w-full max-w-xl overflow-hidden rounded-md border border-border bg-card shadow-[var(--shadow-lift)]">
         <div className="border-b border-border p-3">
           <Input
             autoFocus
@@ -144,14 +155,26 @@ export function CommandPalette({ actions }: CommandPaletteProps) {
             filtered.map((action) => {
               const isActive = Boolean(action.href && (pathname === action.href || pathname.startsWith(`${action.href}/`)));
               const className = [
-                "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted",
-                isActive ? "bg-emerald-50 text-emerald-900" : "",
+                "nav-link ui-hover w-full justify-between px-3 py-2 text-left text-sm text-foreground",
+                isActive ? "nav-link-active" : "",
               ].join(" ");
 
               if (action.href) {
                 return (
                   <li key={action.id}>
-                    <Link href={action.href} className={className} onClick={() => setOpen(false)}>
+                    <Link
+                      href={action.href}
+                      className={className}
+                      onClick={() => {
+                        logClientDiagnostic("command-palette:click", {
+                          id: action.id,
+                          label: action.label,
+                          href: action.href,
+                          pathnameBeforeClick: pathname,
+                        });
+                        setOpen(false);
+                      }}
+                    >
                       <span>{action.label}</span>
                       {action.hint ? <span className="text-xs text-muted-foreground">{action.hint}</span> : null}
                     </Link>
@@ -165,6 +188,11 @@ export function CommandPalette({ actions }: CommandPaletteProps) {
                     type="button"
                     className={className}
                     onClick={() => {
+                      logClientDiagnostic("command-palette:run", {
+                        id: action.id,
+                        label: action.label,
+                        pathnameBeforeRun: pathname,
+                      });
                       action.run?.();
                       setOpen(false);
                       router.refresh();

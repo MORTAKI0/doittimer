@@ -49,7 +49,7 @@ export function MarketingLanding() {
           <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-gradient-to-br from-emerald-500/[0.07] via-teal-500/[0.04] to-transparent blur-3xl" />
         </div>
         <div className="grid items-center gap-12 lg:grid-cols-2">
-          <div className="animate-fadeInUp space-y-6">
+      <div className="animate-fadeIn space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1 text-xs font-semibold text-emerald-700">
               <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
               Free &middot; No credit card required
@@ -76,7 +76,7 @@ export function MarketingLanding() {
               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">Running</span>
             </div>
 
-            <div className="animate-floatSoft flex justify-center">
+      <div className="flex justify-center">
               <div className="card-hover-lift w-full max-w-xs rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
                 <ProgressRing value={0.33} size={200}>
                   <p className="numeric-tabular text-center text-4xl font-semibold tracking-tight text-foreground">00:25:00</p>
@@ -97,7 +97,7 @@ export function MarketingLanding() {
           <h2 className="text-section-title text-foreground">Everything you need to stay focused</h2>
         </div>
         <div className="mt-10 grid gap-6 sm:grid-cols-3">
-          <div className="animate-fadeInUp stagger-1 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
+          <div className="animate-fadeIn stagger-1 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15">
               <span className="text-xl" aria-hidden="true">🎯</span>
             </div>
@@ -107,7 +107,7 @@ export function MarketingLanding() {
               daily stats at a glance.
             </p>
           </div>
-          <div className="animate-fadeInUp stagger-2 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
+          <div className="animate-fadeIn stagger-2 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/15">
               <span className="text-xl" aria-hidden="true">✅</span>
             </div>
@@ -117,7 +117,7 @@ export function MarketingLanding() {
               or due date.
             </p>
           </div>
-          <div className="animate-fadeInUp stagger-3 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
+          <div className="animate-fadeIn stagger-3 card-hover-lift rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-soft)]">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/15">
               <span className="text-xl" aria-hidden="true">📊</span>
             </div>
@@ -141,7 +141,7 @@ export function MarketingLanding() {
             { step: "2", title: "Start a session", desc: "Hit Space or tap Start, link a task, and enter flow." },
             { step: "3", title: "Track progress", desc: "Review your dashboard, see trends, adjust your plan." },
           ].map((item, i) => (
-            <div key={item.step} className={`animate-fadeInUp stagger-${i + 1} flex flex-col items-center gap-3 text-center`}>
+            <div key={item.step} className={`animate-fadeIn stagger-${i + 1} flex flex-col items-center gap-3 text-center`}>
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-sm font-bold text-white shadow-md">
                 {item.step}
               </span>

@@ -10,15 +10,15 @@ type ButtonStyleOptions = {
 };
 
 const baseClasses =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 transition-standard focus-visible:outline-none focus-ring disabled:pointer-events-none disabled:opacity-50";
+  "ui-hover inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-standard focus-visible:outline-none focus-ring disabled:pointer-events-none disabled:opacity-50";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "border border-emerald-600 bg-emerald-600 text-white shadow-sm hover:-translate-y-0.5 hover:border-emerald-700 hover:bg-emerald-700 hover:shadow-[var(--shadow-lift)]",
+    "border border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700",
   secondary:
-    "border border-border bg-card text-foreground shadow-sm hover:border-border/80 hover:bg-muted/70",
+    "border-[0.5px] border-border bg-card text-foreground hover:bg-muted",
   ghost: "border border-transparent bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
-  danger: "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+  danger: "border-[0.5px] border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

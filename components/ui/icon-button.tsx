@@ -29,7 +29,7 @@ export function IconButton({
     <button
       type={type}
       className={[
-        "inline-flex items-center justify-center rounded-md border bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+        "focus-ring ui-hover inline-flex items-center justify-center rounded-md border-[0.5px] bg-card disabled:pointer-events-none disabled:opacity-50",
         variantClasses[variant],
         sizeClasses[size],
         className,

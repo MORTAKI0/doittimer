@@ -1,0 +1,94 @@
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:31:46.867Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:31:46.873Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:31:46.884Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:31:46.887Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:31:46.889Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:32:02.402Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:32:02.404Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:32:02.410Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:32:02.412Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:32:02.413Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:32:15.739Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:32:15.746Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:32:15.827Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"app-layout:user","ts":"2026-03-16T15:32:15.831Z","hasUser":false,"userId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:32:15.868Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:32:15.869Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:32:15.933Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"app-layout:user","ts":"2026-03-16T15:32:15.935Z","hasUser":false,"userId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:32:16.197Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:32:16.199Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:32:16.250Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"app-layout:user","ts":"2026-03-16T15:32:16.252Z","hasUser":false,"userId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:32:18.291Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:32:18.293Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:32:18.298Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:32:18.300Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:32:18.301Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:32:34.293Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:32:34.295Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:32:34.299Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:32:34.300Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:32:34.301Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:32:42.009Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:32:42.011Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:32:42.919Z","hasUser":false,"error":"Invalid Refresh Token: Refresh Token Not Found"}
+{"event":"app-layout:user","ts":"2026-03-16T15:32:42.921Z","hasUser":false,"userId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:32:50.330Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:32:50.332Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:32:50.334Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:32:50.336Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:32:50.338Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-16T15:33:06.289Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"sessions:get-active:start","ts":"2026-03-16T15:33:06.291Z"}
+{"event":"sessions:get-active:client-ready","ts":"2026-03-16T15:33:06.310Z"}
+{"event":"sessions:get-active:user-result","ts":"2026-03-16T15:33:06.312Z","hasUser":false,"error":"Auth session missing!"}
+{"event":"api:sessions-active:response","ts":"2026-03-16T15:33:06.314Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"app-layout:start","ts":"2026-03-16T15:33:34.730Z"}
+{"event":"auth:get-user:start","ts":"2026-03-16T15:33:34.732Z"}
+{"event":"auth:get-user:result","ts":"2026-03-16T15:33:35.168Z","hasUser":false,"error":"Invalid Refresh Token: Refresh Token Not Found"}
+{"event":"app-layout:user","ts":"2026-03-16T15:33:35.169Z","hasUser":false,"userId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:19:52.305Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/dashboard","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:19:52.926Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:19:53.867Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/dashboard","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:19:54.360Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:20:09.402Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:20:09.891Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:20:25.191Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:20:26.079Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:20:41.305Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:20:42.308Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:20:58.302Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:20:59.029Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:21:14.305Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:21:15.364Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:21:31.299Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:21:32.316Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:21:48.321Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:21:49.365Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:22:05.306Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:22:06.084Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:22:16.194Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:22:17.308Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:22:33.305Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:22:34.166Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:22:49.300Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:22:50.112Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:23:05.297Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:23:06.361Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:23:22.299Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:23:23.551Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:23:39.304Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:23:40.603Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:23:56.300Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:23:57.080Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:24:12.303Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:24:13.363Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:24:29.302Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:24:30.224Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:24:34.018Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:24:34.471Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:24:50.301Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:24:51.318Z","hasActiveSession":false,"activeSessionId":null}
+{"event":"api:sessions-active:request","ts":"2026-03-17T09:25:07.302Z","pathname":"/api/sessions/active","search":"","referer":"http://localhost:3000/today","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"}
+{"event":"api:sessions-active:response","ts":"2026-03-17T09:25:08.624Z","hasActiveSession":false,"activeSessionId":null}

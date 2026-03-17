@@ -6,7 +6,7 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
       className={[
-        "shimmer rounded-xl",
+        "shimmer rounded-md",
         className,
       ].filter(Boolean).join(" ")}
       aria-hidden="true"

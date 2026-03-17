@@ -1098,17 +1098,15 @@ export function FocusPanel({
       ) : null}
 
       <div className="space-y-2">
-        <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
+        <h2 className="text-sm font-semibold text-foreground">
           Next up (Today queue)
         </h2>
         {nextUp ? (
-          <div className="space-y-2 rounded-lg border border-border bg-card p-3" data-testid="next-up">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-foreground flex items-center gap-2 text-sm">
-                <span>{nextUp.title}</span>
-                {nextUp.archived_at ? (
-                  <Badge variant="neutral">Archived</Badge>
-                ) : null}
+          <div className="border-t-[0.5px] border-border" data-testid="next-up">
+            <div className="task-row flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="task-title truncate">{nextUp.title}</p>
+                <p className="task-meta">{nextUp.archived_at ? "Archived" : "Today queue"}</p>
               </div>
               <Button
                 type="button"
@@ -1123,22 +1121,23 @@ export function FocusPanel({
               </Button>
             </div>
             {nextQueueItems.length > 0 ? (
-              <ul className="space-y-1 border-t border-border/70 pt-2 text-xs text-muted-foreground">
+              <ul className="border-t-[0.5px] border-border">
                 {nextQueueItems.map((item) => (
-                  <li key={item.task_id} className="truncate">
-                    {item.sort_order + 1}. {item.title}
+                  <li key={item.task_id} className="task-row">
+                    <p className="task-title truncate">{item.title}</p>
+                    <p className="task-meta">Position {item.sort_order + 1}</p>
                   </li>
                 ))}
               </ul>
             ) : null}
           </div>
         ) : (
-          <div className="space-y-3 rounded-lg border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
+          <div className="space-y-3 border-t-[0.5px] border-border pt-4 text-sm text-muted-foreground">
             <p>No tasks in Today queue.</p>
             <div className="flex flex-wrap gap-2">
               <a
                 href="/tasks"
-                className="inline-flex h-9 items-center rounded-xl border border-border bg-background px-3 text-sm text-foreground hover:bg-muted"
+                className="focus-ring ui-hover inline-flex h-9 items-center rounded-md border-[0.5px] border-border bg-background px-3 text-sm text-foreground hover:bg-muted"
               >
                 Add tasks
               </a>

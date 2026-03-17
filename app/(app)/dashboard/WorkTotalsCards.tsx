@@ -30,7 +30,7 @@ export function WorkTotalsCards({ today, week, month }: WorkTotalsCardsProps) {
   ] as const;
 
   return (
-    <div className="animate-fadeInUp stagger-2 grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">
+    <div className="animate-fadeIn stagger-2 grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">
       {items.map((item) => (
         <Card
           key={item.label}

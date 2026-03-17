@@ -62,7 +62,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={toast.id}
             role="status"
             className={[
-              "pointer-events-auto rounded-xl border px-4 py-3 text-sm shadow-[var(--shadow-soft)]",
+              "pointer-events-auto rounded-md border px-4 py-3 text-sm shadow-[var(--shadow-soft)]",
               variantClasses[toast.variant],
             ].join(" ")}
           >

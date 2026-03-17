@@ -11,7 +11,7 @@ server-first pages and server actions for mutations.
 - Focus sessions: start/stop with a single active session guard and optional task link.
 - Dashboard: today's focus time, sessions count, tasks completed/total.
 - Settings: timezone + default task, theme toggle stored in cookies.
-- Optional service worker + web app manifest.
+- Production-only service worker + web app manifest.
 
 ## Tech stack
 - Next.js 16 App Router, React 19, TypeScript
@@ -48,7 +48,6 @@ You can copy from `.env.example` and fill the required values.
 
 Optional env:
 - `NEXT_PUBLIC_SITE_URL` (defaults to http://localhost:3000 for metadata)
-- `NEXT_PUBLIC_ENABLE_SW=1` (register service worker in dev)
 - `SETTINGS_RPC_DIAG_TIMEOUT_MS` (diagnostic timeout for settings RPC)
 - `PLAYWRIGHT_BASE_URL` (for Playwright, defaults to http://localhost:3000)
 - `E2E_EMAIL`, `E2E_PASSWORD` (required for Playwright auth)
@@ -70,7 +69,7 @@ pnpm build
 pnpm start
 ```
 
-If you previously enabled the service worker and see stale client behavior (for example Server Action mismatch), clear service workers + cache once in browser DevTools Console:
+The app unregisters old DoItTimer service workers automatically in development. If you still see stale client behavior, clear service workers + cache once in browser DevTools Console:
 ```js
 await navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister())));
 await caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));

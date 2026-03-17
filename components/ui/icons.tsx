@@ -43,6 +43,46 @@ export function IconTasks(props: IconProps) {
   );
 }
 
+export function IconInbox(props: IconProps) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M4 5h16v10l-3 4H7l-3-4V5Z" />
+      <path d="M4 13h4l2 3h4l2-3h4" />
+    </svg>
+  );
+}
+
+export function IconCalendar(props: IconProps) {
+  return (
+    <svg {...iconProps(props)}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4" />
+      <path d="M8 3v4" />
+      <path d="M3 10h18" />
+    </svg>
+  );
+}
+
+export function IconFilter(props: IconProps) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M4 6h16" />
+      <path d="M7 12h10" />
+      <path d="M10 18h4" />
+    </svg>
+  );
+}
+
+export function IconArchive(props: IconProps) {
+  return (
+    <svg {...iconProps(props)}>
+      <rect x="3" y="4" width="18" height="5" rx="1" />
+      <path d="M5 9h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9Z" />
+      <path d="M10 13h4" />
+    </svg>
+  );
+}
+
 export function IconFocus(props: IconProps) {
   return (
     <svg {...iconProps(props)}>

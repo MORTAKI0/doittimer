@@ -27,7 +27,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       </header>
 
       <section className="mx-auto grid max-w-6xl gap-8 px-6 py-12 lg:grid-cols-[1fr_420px] lg:items-center">
-        <div className="animate-fadeInUp space-y-4">
+      <div className="animate-fadeIn space-y-4">
           <p className="text-overline">Welcome back</p>
           <h1 className="text-page-title">Get back into deep work.</h1>
           <p className="max-w-lg text-sm text-muted-foreground">Reopen your task queue, continue active sessions, and keep your focus rhythm consistent.</p>
@@ -36,7 +36,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
         </div>
 
-        <div className="animate-fadeInUp stagger-2 space-y-3">
+      <div className="animate-fadeIn stagger-2 space-y-3">
           {showSignup ? (
             <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
               Account created. Check your email if needed, then sign in.

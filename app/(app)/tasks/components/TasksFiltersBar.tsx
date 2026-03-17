@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
 type TasksFiltersBarProps = {
@@ -42,12 +43,17 @@ export function TasksFiltersBar({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const searchParamsKey = searchParams.toString();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [queryInput, setQueryInput] = React.useState(currentQuery);
 
   React.useEffect(() => {
     setQueryInput(currentQuery);
   }, [currentQuery]);
+
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, searchParamsKey]);
 
   const today = React.useMemo(() => formatDate(new Date()), []);
   const tomorrow = React.useMemo(() => formatDate(addDays(new Date(), 1)), []);
@@ -56,7 +62,7 @@ export function TasksFiltersBar({
     updater: (params: URLSearchParams) => void,
     options?: { resetPage?: boolean },
   ) {
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(searchParamsKey);
     updater(params);
     if (options?.resetPage ?? true) {
       params.set("page", "1");
@@ -95,7 +101,7 @@ export function TasksFiltersBar({
   const filterControls = (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <label className="space-y-1 text-sm font-medium text-muted-foreground">
           Status
           <Select
             value={currentStatus}
@@ -117,7 +123,7 @@ export function TasksFiltersBar({
             <option value="all">All</option>
           </Select>
         </label>
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <label className="space-y-1 text-sm font-medium text-muted-foreground">
           Project
           <Select
             value={currentProjectId ?? "all"}
@@ -141,7 +147,7 @@ export function TasksFiltersBar({
             ))}
           </Select>
         </label>
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <label className="space-y-1 text-sm font-medium text-muted-foreground">
           Schedule
           <Select
             value={currentScheduledOnly}
@@ -162,9 +168,9 @@ export function TasksFiltersBar({
             <option value="unscheduled">Unscheduled</option>
           </Select>
         </label>
-        <label className="space-y-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <label className="space-y-1 text-sm font-medium text-muted-foreground">
           Date
-          <input
+          <Input
             type="date"
             value={currentRange === "day" ? currentDate : ""}
             onChange={(event) => {
@@ -179,13 +185,12 @@ export function TasksFiltersBar({
                 params.set("date", value);
               });
             }}
-            className="h-9 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-ring"
             aria-label="Filter by scheduled date"
           />
         </label>
       </div>
       <div className="flex items-center justify-between gap-3">
-        <div className="inline-flex flex-wrap gap-1 rounded-xl border border-border bg-background p-1">
+        <div className="inline-flex flex-wrap gap-1 rounded-md border-[0.5px] border-border bg-background p-1">
           <Button size="sm" type="button" variant={currentStatus === "active" ? "primary" : "ghost"} onClick={() => pushParams((params) => params.set("status", "active"))}>Active</Button>
           <Button size="sm" type="button" variant={currentStatus === "completed" ? "primary" : "ghost"} onClick={() => pushParams((params) => params.set("status", "completed"))}>Completed</Button>
           <Button size="sm" type="button" variant={currentStatus === "archived" ? "primary" : "ghost"} onClick={() => pushParams((params) => params.set("status", "archived"))}>Archived</Button>
@@ -214,7 +219,7 @@ export function TasksFiltersBar({
   );
 
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+    <div className="space-y-4 border-b-[0.5px] border-border pb-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" type="button" variant={isToday ? "primary" : "secondary"} onClick={() => setQuickRange("today")}>Today</Button>
         <Button size="sm" type="button" variant={isTomorrow ? "primary" : "secondary"} onClick={() => setQuickRange("tomorrow")}>Tomorrow</Button>
@@ -228,7 +233,7 @@ export function TasksFiltersBar({
       </div>
 
       <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
-        <input
+        <Input
           value={queryInput}
           onChange={(event) => setQueryInput(event.target.value)}
           onKeyDown={(event) => {
@@ -242,7 +247,6 @@ export function TasksFiltersBar({
           }}
           placeholder="Search tasks by title"
           aria-label="Search tasks"
-          className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus-ring"
         />
         <Button
           size="sm"

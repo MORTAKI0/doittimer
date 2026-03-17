@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { getActiveSession } from "@/app/actions/sessions";
+import { getProjects } from "@/app/actions/projects";
+import { getTaskNavigationSummary } from "@/app/actions/tasks";
 import { getTheme } from "@/app/actions/theme";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth/get-user";
@@ -24,9 +26,11 @@ export default async function AppLayout({
   const initialTheme = theme === "dark" ? "dark" : "light";
 
   const supabase = await createSupabaseServerClient();
-  const [{ data: queueData }, activeSession] = await Promise.all([
+  const [{ data: queueData }, activeSession, projectsResult, navigationSummaryResult] = await Promise.all([
     supabase.rpc("task_queue_list"),
     getActiveSession(),
+    getProjects(),
+    getTaskNavigationSummary(),
   ]);
 
   const queueCount = Array.isArray(queueData)
@@ -34,12 +38,21 @@ export default async function AppLayout({
     : queueData
       ? 1
       : 0;
+  const projects = projectsResult.success ? projectsResult.data : [];
+  const navigationSummary = navigationSummaryResult.success
+    ? navigationSummaryResult.data
+    : { inboxCount: 0, todayCount: 0, projectCounts: {} };
+
   return (
     <AppShellNav
       initialTheme={initialTheme}
       userId={user.id}
       userEmail={user.email ?? null}
       queueCount={queueCount}
+      inboxCount={navigationSummary.inboxCount}
+      todayCount={navigationSummary.todayCount}
+      projects={projects}
+      projectCounts={navigationSummary.projectCounts}
       hasActiveFocus={Boolean(activeSession)}
       activeSession={
         activeSession
