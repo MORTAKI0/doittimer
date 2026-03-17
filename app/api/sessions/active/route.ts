@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getActiveSession } from "@/app/actions/sessions";
-import { logServerDiagnostic } from "@/lib/debug/devDiagnostics";
+import { logServerDiagnostic } from "@/lib/debug/devDiagnostics.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -7,7 +7,7 @@ import {
   DEV_DIAGNOSTICS_ENABLED,
   getClientRuntimeSnapshot,
   logClientDiagnostic,
-} from "@/lib/debug/devDiagnostics";
+} from "@/lib/debug/devDiagnostics.client";
 
 type FetchWithMetadata = typeof window.fetch & {
   __doitTimerInstrumented?: boolean;

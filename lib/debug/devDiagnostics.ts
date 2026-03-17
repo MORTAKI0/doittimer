@@ -1,88 +1,10 @@
-export const DEV_DIAGNOSTICS_ENABLED = process.env.NODE_ENV !== "production";
-const CLIENT_PREFIX = "[dev-diag]";
-const SERVER_PREFIX = "[dev-diag:server]";
-const SERVER_LOG_PATH = ".tmp/dev-diagnostics.log";
+export {
+  DEV_DIAGNOSTICS_ENABLED,
+  getClientRuntimeSnapshot,
+  logClientDiagnostic,
+} from "@/lib/debug/devDiagnostics.client";
 
-export type DiagnosticPayload = Record<string, unknown>;
-export type ClientDiagnosticEntry = {
-  event: string;
-  ts: string;
-} & DiagnosticPayload;
-
-declare global {
-  interface Window {
-    __DOITTIMER_DEV_DIAGNOSTICS__?: ClientDiagnosticEntry[];
-  }
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-export function logClientDiagnostic(event: string, payload: DiagnosticPayload = {}) {
-  if (!DEV_DIAGNOSTICS_ENABLED || typeof window === "undefined") {
-    return;
-  }
-
-  const entry: ClientDiagnosticEntry = {
-    event,
-    ts: nowIso(),
-    ...payload,
-  };
-
-  const nextEntries = window.__DOITTIMER_DEV_DIAGNOSTICS__ ?? [];
-  nextEntries.push(entry);
-  window.__DOITTIMER_DEV_DIAGNOSTICS__ = nextEntries.slice(-200);
-
-  console.info(CLIENT_PREFIX, entry);
-}
-
-export function logServerDiagnostic(event: string, payload: DiagnosticPayload = {}) {
-  if (!DEV_DIAGNOSTICS_ENABLED) {
-    return;
-  }
-
-  const entry = {
-    event,
-    ts: nowIso(),
-    ...payload,
-  };
-
-  console.info(SERVER_PREFIX, entry);
-
-  if (typeof window !== "undefined") {
-    return;
-  }
-
-  try {
-    // Use require here so the client bundle never pulls in Node modules.
-    const fs = require("node:fs") as typeof import("node:fs");
-    const path = require("node:path") as typeof import("node:path");
-    const filePath = path.join(process.cwd(), SERVER_LOG_PATH);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.appendFileSync(filePath, JSON.stringify(entry) + "\n", "utf8");
-  } catch {
-    // Avoid failing requests because diagnostics could not be written.
-  }
-}
-
-export function getClientRuntimeSnapshot() {
-  if (typeof window === "undefined") {
-    return {
-      pathname: null,
-      search: null,
-      visibilityState: null,
-      online: null,
-      serviceWorkerControlled: null,
-    };
-  }
-
-  return {
-    pathname: window.location.pathname,
-    search: window.location.search,
-    visibilityState: document.visibilityState,
-    online: navigator.onLine,
-    serviceWorkerControlled:
-      "serviceWorker" in navigator && navigator.serviceWorker.controller != null,
-  };
-}
+export type {
+  ClientDiagnosticEntry,
+  DiagnosticPayload,
+} from "@/lib/debug/devDiagnostics.client";

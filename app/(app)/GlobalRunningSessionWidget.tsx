@@ -203,7 +203,7 @@ export function GlobalRunningSessionWidget({
   );
 
   React.useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !session) return;
 
     let cancelled = false;
     let timer: number | null = null;
@@ -234,7 +234,7 @@ export function GlobalRunningSessionWidget({
 
       await syncActiveSession();
 
-      if (cancelled || pollingPausedRef.current) {
+      if (cancelled || pollingPausedRef.current || !session) {
         if (pollingPausedRef.current) {
           logClientDiagnostic("active-session:poll:backoff-paused", {
             failureCount: consecutiveFailuresRef.current,
@@ -256,7 +256,7 @@ export function GlobalRunningSessionWidget({
     void runPollLoop();
 
     const resumePolling = () => {
-      if (cancelled || document.visibilityState === "hidden") {
+      if (cancelled || document.visibilityState === "hidden" || !session) {
         return;
       }
 
@@ -284,7 +284,7 @@ export function GlobalRunningSessionWidget({
       window.removeEventListener("online", resumePolling);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isProduction, mounted, syncActiveSession]);
+  }, [isProduction, mounted, session, syncActiveSession]);
 
   const scheduleWidgetPoll = React.useCallback(() => {
     scheduleRouteRefresh({

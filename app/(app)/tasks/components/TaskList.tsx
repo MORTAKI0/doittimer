@@ -56,6 +56,8 @@ type TaskListProps = {
 
 type TaskItem = TaskRow & TaskPresentationMeta;
 
+const EMPTY_QUEUE_ITEMS: TaskQueueRow[] = [];
+
 const ERROR_MAP: Record<string, string> = {
   "Le titre est requis.": "Title is required.",
   "Le titre est trop long.": "Title is too long.",
@@ -149,7 +151,7 @@ export function TaskList({
   tasks,
   projects = [],
   pomodoroStatsByTaskId = {},
-  queueItems = [],
+  queueItems = EMPTY_QUEUE_ITEMS,
   currentRange = "all",
   currentDate = "",
   showQueueSection = true,
