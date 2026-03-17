@@ -86,10 +86,16 @@
 Stop -> capture evidence -> revert smallest unit -> update plan -> re-approve if material.
 
 ## Skills to invoke
-- sprint-2026-02
-- pomodoro-v2-spec
-- db-rls-check
-- codex-review-gate
+- nextjs-architecture
+- frontend-ui-system
+- nextjs-code-review
+- nextjs-debugging
+- nextjs-testing
+- web-performance
+- nextjs-security
+- forms-validation
+- api-data-layer
+- repo-standards
 
 ## Update cadence
 - After each story completion

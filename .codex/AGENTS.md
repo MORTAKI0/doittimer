@@ -1,44 +1,84 @@
 # DoItTimer — Codex Instructions (Repo)
 
 ## Project context
-DoItTimer is a Next.js App Router + TypeScript + Tailwind app.
-Sprint 0 scope: Public home page + Supabase Auth (email/password + Google OAuth) + SSR session persistence.
-Do NOT implement timer/tasks/stats in Sprint 0.
+DoItTimer is a Next.js App Router + TypeScript + Tailwind application.
+
+Current focus:
+- new feature implementation
+- clean App Router architecture
+- server-first rendering
+- maintainable UI patterns
+- safe validation and mutation flows
+- strong security, performance, and repo standards
+
+Implement only what the current task requires.
+Do not add unrelated features, broad rewrites, or speculative improvements.
+
+## Source of truth for implementation style
+Use the local skills in `.codex/skills` when relevant, especially:
+- nextjs-architecture
+- frontend-ui-system
+- nextjs-code-review
+- nextjs-debugging
+- nextjs-testing
+- web-performance
+- nextjs-security
+- forms-validation
+- api-data-layer
+- repo-standards
 
 ## Non-negotiable engineering rules
-- App Router with route groups: (public), (auth), (app)
-- Server-first: pages/layouts are Server Components unless browser APIs are required.
-- Keep client boundaries small ("use client" only in leaf interactive components).
-- Do not access Supabase directly from UI components unless explicitly planned (prefer server actions / server helpers).
+- Use Next.js App Router patterns consistently.
+- Prefer Server Components by default.
+- Add `"use client"` only when browser APIs, event handlers, refs, local interactive state, or client-only hooks are required.
+- Keep client components small and leaf-level where possible.
+- Keep `page.tsx` and `layout.tsx` thin.
+- Move business logic, validation, and data access out of route files where practical.
+- Do not access Supabase or other backend services directly from arbitrary UI components unless the task explicitly requires it.
+- Prefer server actions, route handlers, server helpers, services, or repositories for mutations and privileged operations.
 - Use pnpm only.
+- Preserve existing conventions unless the task explicitly asks to change them.
+- Do not mix unrelated refactors into focused implementation work.
 
-## Commands to run after changes
-- pnpm lint
-- pnpm typecheck
-- pnpm dev (manual smoke)
+## Repository structure conventions
+- Reusable UI primitives live in `src/components/ui` unless the task explicitly uses another shared UI location.
+- Shared/domain/infrastructure helpers live in `src/lib`.
+- Group feature logic clearly by responsibility.
+- Prefer descriptive kebab-case file names.
+- Avoid vague file names like `utils.ts`, `helpers.ts`, `data.ts`, `misc.ts`, or `temp.ts`.
 
-## Coding conventions
-- Reusable UI components in src/components/ui
-- Domain/infra helpers in src/lib
-- Validation with zod for auth inputs
-- No secrets committed; use .env.local
+## Validation and data handling
+- Use `zod` for input validation where appropriate.
+- Server validation is the source of truth.
+- Keep mutation result shapes predictable and stable.
+- Do not leak raw backend or database models directly into UI when a mapped shape is clearer.
+- Make loading, empty, success, error, and unauthorized states explicit where relevant.
 
-## Approval policy
-- Ask before adding any new production dependencies (except Supabase + zod which are already approved for Sprint 0).
+## Security and secrets
+- Never commit secrets, tokens, or credentials.
+- Use `.env.local` for local secrets.
+- Do not expose server-only environment variables to client code.
+- Be careful with auth boundaries, redirects, input validation, and sensitive data handling.
 
-Optional: you can add folder-specific overrides later like src/app/(auth)/AGENTS.override.md if you want special rules for auth pages. Codex prioritizes overrides closer to the working directory.
-OpenAI Developers
+## Dependency approval policy
+- Ask before adding any new production dependency.
+- Prefer built-in platform features and existing repo utilities before adding packages.
 
-## ClickUp Sprint Documentation
+## Commands to run after meaningful changes
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm dev` for manual smoke validation when relevant
 
-### Rules
-- If ClickUp MCP is available, publish to ClickUp Docs (preferred) instead of local files.
-- Sprint Plan doc naming: "DoItTimer � Sprint X Plan".
-- Closeout doc naming: "DoItTimer � Sprint X Closeout".
-- Link docs + tasks.
-- CRITICAL: Never include secrets/credentials; use [REDACTED].
-- Keep docs concise; use checklists and story IDs.
+## Documentation rules
+- Keep docs concise, practical, and scoped to the task.
+- Use local markdown files when documentation is needed.
+- Prefer short sections, checklists, and explicit implementation decisions.
+- Never include secrets or credentials; use `[REDACTED]` if needed.
 
-### Fallback
-- If ClickUp MCP is unavailable, produce the same structure as local markdown files.
+## Optional overrides
+You may add folder-specific overrides such as:
+- `src/app/(auth)/AGENTS.override.md`
+- `src/app/(app)/AGENTS.override.md`
+- `src/features/<feature>/AGENTS.override.md`
 
+More local override files take priority over this repo-level file.
