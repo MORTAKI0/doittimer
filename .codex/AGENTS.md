@@ -16,6 +16,7 @@ Do not add unrelated features, broad rewrites, or speculative improvements.
 
 ## Source of truth for implementation style
 Use the local skills in `.codex/skills` when relevant, especially:
+- notion-implementation-docs
 - nextjs-architecture
 - frontend-ui-system
 - nextjs-code-review
