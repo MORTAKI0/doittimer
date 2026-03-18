@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { buttonStyles } from "@/components/ui/button";
@@ -9,6 +10,7 @@ type TaskPageHeaderProps = {
   secondaryLabel?: string;
   actionHref?: string;
   actionLabel?: string;
+  action?: ReactNode;
 };
 
 export function TaskPageHeader({
@@ -18,6 +20,7 @@ export function TaskPageHeader({
   secondaryLabel,
   actionHref,
   actionLabel,
+  action,
 }: TaskPageHeaderProps) {
   return (
     <div className="space-y-2 pb-4">
@@ -34,7 +37,7 @@ export function TaskPageHeader({
           ) : null}
           {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
         </div>
-        {actionHref && actionLabel ? (
+        {action ? action : actionHref && actionLabel ? (
           <Link href={actionHref} className={buttonStyles({ variant: "secondary", size: "sm" })}>
             {actionLabel}
           </Link>

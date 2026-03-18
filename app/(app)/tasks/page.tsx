@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { EmptyState } from "./components/EmptyState";
+import { AddTaskLauncher } from "./components/AddTaskLauncher";
 import { ProjectsPanel } from "./components/ProjectsPanel";
+import { TaskComposeOwner } from "./components/TaskComposeOwner";
 import { TaskList } from "./components/TaskList";
 import { TaskPageHeader } from "./components/TaskPageHeader";
 import { TasksFiltersBar } from "./components/TasksFiltersBar";
@@ -161,71 +163,90 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
       : {};
 
   return (
-    <div className="space-y-8">
-      <TaskPageHeader
-        title="Tasks"
-        count={pagination.totalCount}
-        description="Plan your day, manage queue order, and keep task states clean."
-      />
+    <TaskComposeOwner
+      projects={activeProjects}
+      defaultScheduledFor={scheduledRange === "day" ? scheduledDate : null}
+      defaultProjectId={projectId}
+    >
+      <div className="space-y-8">
+        <TaskPageHeader
+          title="Tasks"
+          count={pagination.totalCount}
+          description="Plan your day, manage queue order, and keep task states clean."
+          action={(
+            <AddTaskLauncher
+              projects={activeProjects}
+              defaultScheduledFor={scheduledRange === "day" ? scheduledDate : null}
+              defaultProjectId={projectId}
+            />
+          )}
+        />
 
-      <div className="grid gap-8 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
-        <div className="space-y-6 lg:sticky lg:top-24 lg:h-fit">
-          <ProjectsPanel initialProjects={projects} initialError={projectsError} />
-        </div>
+        <div className="grid gap-8 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
+          <div className="space-y-6 lg:sticky lg:top-24 lg:h-fit">
+            <ProjectsPanel initialProjects={projects} initialError={projectsError} />
+          </div>
 
-        <div className="page-content-column space-y-6">
-          <div data-testid="tasks-list" className="space-y-4">
-            {listError ? (
-              <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                {listError}
-              </p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                <TasksFiltersBar
-                  projects={activeProjects}
-                  currentStatus={status}
-                  currentRange={scheduledRange}
-                  currentDate={scheduledDate}
-                  currentProjectId={projectId}
-                  currentScheduledOnly={scheduledOnly}
-                  currentQuery={query}
-                />
-                {tasks.length === 0 ? (
-                  <div className="flex flex-col gap-4">
-                    {hasActiveFilters ? (
-                      <SharedEmptyState
-                        title="No tasks match these filters"
-                        description="Try broader filters or clear everything."
-                        actionLabel="Clear filters"
-                        actionHref="/tasks"
-                      />
-                    ) : (
-                      <EmptyState />
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <TaskList
-                      tasks={tasks}
-                      projects={activeProjects}
-                      pomodoroStatsByTaskId={pomodoroStatsByTaskId}
-                      queueItems={queueItems}
-                      currentRange={scheduledRange}
-                      currentDate={scheduledDate}
-                      inlineCreateDefaultProjectId={projectId}
-                      inlineCreateAutoOpen={composeMode}
-                    />
-
-                    <div className="border-t border-border pt-4">
-                      <Pagination currentPage={pagination.page} totalPages={pagination.totalPages} />
+          <div className="page-content-column space-y-6">
+            <div data-testid="tasks-list" className="space-y-4">
+              {listError ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {listError}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <TasksFiltersBar
+                    projects={activeProjects}
+                    currentStatus={status}
+                    currentRange={scheduledRange}
+                    currentDate={scheduledDate}
+                    currentProjectId={projectId}
+                    currentScheduledOnly={scheduledOnly}
+                    currentQuery={query}
+                  />
+                  {tasks.length === 0 ? (
+                    <div className="flex flex-col gap-4">
+                      {hasActiveFilters ? (
+                        <SharedEmptyState
+                          title="No tasks match these filters"
+                          description="Try broader filters or clear everything."
+                          actionLabel="Clear filters"
+                          actionHref="/tasks"
+                        />
+                      ) : (
+                        <EmptyState
+                          action={(
+                            <AddTaskLauncher
+                              projects={activeProjects}
+                              defaultProjectId={projectId}
+                            />
+                          )}
+                        />
+                      )}
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  ) : (
+                    <div className="space-y-6">
+                      <TaskList
+                        tasks={tasks}
+                        projects={activeProjects}
+                        pomodoroStatsByTaskId={pomodoroStatsByTaskId}
+                        queueItems={queueItems}
+                        currentRange={scheduledRange}
+                        currentDate={scheduledDate}
+                        inlineCreateDefaultProjectId={projectId}
+                      />
+
+                      <div className="border-t border-border pt-4">
+                        <Pagination currentPage={pagination.page} totalPages={pagination.totalPages} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </TaskComposeOwner>
   );
 }

@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import type { ProjectRow } from "@/app/actions/projects";
+import { AddTaskLauncher } from "@/app/(app)/tasks/components/AddTaskLauncher";
 import {
   getClientRuntimeSnapshot,
   logClientDiagnostic,
@@ -141,16 +142,7 @@ export function AppShellNav({
             </div>
 
             <div className="mt-6">
-              <Link
-                href="/tasks?compose=1"
-                className="nav-action-link focus-ring"
-                onClick={() => logNavClick("Add task", "/tasks?compose=1", pathname)}
-              >
-                <span className="nav-action-icon text-base leading-none text-current" aria-hidden="true">
-                  +
-                </span>
-                <span>Add task</span>
-              </Link>
+              <AddTaskLauncher projects={activeProjects} variant="nav" />
             </div>
 
             <hr className="sidebar-divider" />
@@ -285,16 +277,11 @@ export function AppShellNav({
             <div className="flex items-center justify-between gap-3 px-4 py-3">
               <Brand />
               <div className="flex items-center gap-2">
-                <Link
-                  href="/tasks?compose=1"
-                  className="nav-action-link focus-ring min-h-0 px-3 py-2 text-sm"
-                  onClick={() => logNavClick("Add task mobile", "/tasks?compose=1", pathname)}
-                >
-                  <span className="nav-action-icon text-base leading-none text-current" aria-hidden="true">
-                    +
-                  </span>
-                  <span>Add task</span>
-                </Link>
+                <AddTaskLauncher
+                  projects={activeProjects}
+                  variant="nav"
+                  className="min-h-0 px-3 py-2 text-sm"
+                />
                 {hasActiveFocus ? (
                   <Link
                     href="/focus"

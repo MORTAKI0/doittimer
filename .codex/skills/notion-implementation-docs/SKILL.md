@@ -268,17 +268,36 @@ This is where plan and tasks should come from.
 
 # Notion behavior rules
 
+## Default documentation destination
+
+Unless the user explicitly names another destination page in the prompt, create or update implementation documentation under the parent Notion page:
+
+* `DoItTimer — App`
+
+This is the default documentation home for repo implementation docs.
+
+Behavior rules:
+
+* first search for `DoItTimer — App`
+* if it exists, create the implementation doc and related plan/progress pages under it
+* if a matching implementation doc already exists under `DoItTimer — App`, update it instead of creating a duplicate
+* if the user explicitly names another destination page in the prompt, use that page instead
+* if `DoItTimer — App` cannot be found, clearly say so and ask the user whether to create under another parent page
+* do not choose a different parent page silently when `DoItTimer — App` is missing or ambiguous
+
 ## Search first
 
 Before creating pages, search for:
 
+* the parent page `DoItTimer — App` unless the user explicitly names another destination
 * existing spec
 * existing implementation page
 * existing plan page
 * existing task database
 * existing related tasks
 
-If multiple relevant pages are found, choose the best match when obvious. If not obvious, ask the user which one to use.
+If multiple relevant pages are found, prefer the one under the requested parent page.
+If multiple matches still remain, ask the user which one to use.
 
 ## Reuse before creating duplicates
 
@@ -294,6 +313,12 @@ Prefer titles like:
 * `DoItTimer - <Feature Name> Implementation`
 * `DoItTimer - <Feature Name> Plan`
 * `DoItTimer - <Feature Name> Progress`
+ 
+Create these under:
+
+* `DoItTimer — App` by default
+* or another parent page only if the user explicitly requests it
+
 * task titles should start with a clear action verb
 
 ## Secrets
@@ -307,10 +332,11 @@ After finishing, respond with:
 
 1. what boundary was used for analysis
 2. what was documented
-3. what Notion pages were created or updated
-4. what tasks were created or updated
-5. any ambiguities or assumptions
-6. best next step
+3. what parent Notion page was used
+4. what Notion pages were created or updated
+5. what tasks were created or updated
+6. any ambiguities or assumptions
+7. best next step
 
 # Reference files to consult
 

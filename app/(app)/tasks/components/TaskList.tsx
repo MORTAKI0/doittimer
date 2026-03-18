@@ -35,8 +35,8 @@ import {
   presetToOverrides,
   type PomodoroPreset,
 } from "@/lib/pomodoro/presets";
+import { AddTaskLauncher } from "./AddTaskLauncher";
 import { DatePickerPopover } from "./DatePickerPopover";
-import { InlineTaskComposer } from "./InlineTaskComposer";
 import { PriorityPicker } from "./PriorityPicker";
 
 type TaskListProps = {
@@ -51,7 +51,6 @@ type TaskListProps = {
   allowInlineCreate?: boolean;
   inlineCreateDefaultScheduledFor?: string | null;
   inlineCreateDefaultProjectId?: string | null;
-  inlineCreateAutoOpen?: boolean;
 };
 
 type TaskItem = TaskRow & TaskPresentationMeta;
@@ -159,7 +158,6 @@ export function TaskList({
   allowInlineCreate = true,
   inlineCreateDefaultScheduledFor = null,
   inlineCreateDefaultProjectId = null,
-  inlineCreateAutoOpen = false,
 }: TaskListProps) {
   const router = useRouter();
   const [queue, setQueue] = React.useState<TaskQueueRow[]>(queueItems);
@@ -774,15 +772,12 @@ export function TaskList({
         </ul>
 
         {allowInlineCreate ? (
-          <InlineTaskComposer
+          <AddTaskLauncher
+            variant="nav"
+            label="Add task"
             projects={projects}
             defaultScheduledFor={inlineCreateDefaultScheduledFor ?? (currentRange === "day" && currentDate ? currentDate : null)}
             defaultProjectId={inlineCreateDefaultProjectId}
-            autoOpenFromQuery={inlineCreateAutoOpen}
-            onCreated={(task, meta) => {
-              setItems((prev) => [hydrateTask({ ...task, ...meta }), ...prev]);
-              router.refresh();
-            }}
           />
         ) : null}
       </section>

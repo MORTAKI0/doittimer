@@ -1,6 +1,8 @@
 import { getProjects } from "@/app/actions/projects";
 import { getTodayTasks } from "@/app/actions/tasks";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AddTaskLauncher } from "@/app/(app)/tasks/components/AddTaskLauncher";
+import { TaskComposeOwner } from "@/app/(app)/tasks/components/TaskComposeOwner";
 import { TaskGroupSection } from "@/app/(app)/tasks/components/TaskGroupSection";
 import { TaskList } from "@/app/(app)/tasks/components/TaskList";
 import { TaskPageHeader } from "@/app/(app)/tasks/components/TaskPageHeader";
@@ -35,45 +37,45 @@ export default async function TodayPage() {
     .filter((group) => group.tasks.length > 0);
 
   return (
-    <div className="page-content-column space-y-6">
-      <TaskPageHeader
-        title="Today"
-        count={tasks.length}
-        secondaryLabel={today ? formatTodayLabel(today) : undefined}
-        actionHref="/tasks?compose=1"
-        actionLabel="Add task"
-      />
-
-      {error ? (
-        <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
-      ) : tasks.length === 0 ? (
-        <EmptyState
-          title="Nothing scheduled for today"
-          description="Tasks due today and overdue work will appear here."
-          actionHref="/tasks?compose=1"
-          actionLabel="Create task"
+    <TaskComposeOwner projects={projects} defaultScheduledFor={today || null}>
+      <div className="page-content-column space-y-6">
+        <TaskPageHeader
+          title="Today"
+          count={tasks.length}
+          secondaryLabel={today ? formatTodayLabel(today) : undefined}
+          action={<AddTaskLauncher projects={projects} defaultScheduledFor={today || null} />}
         />
-      ) : (
-        <div className="space-y-6">
-          {overdueTasks.length > 0 ? (
-            <TaskGroupSection title="Overdue" tone="overdue">
-              <TaskList tasks={overdueTasks} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} />
-            </TaskGroupSection>
-          ) : null}
 
-          {inboxTasks.length > 0 ? (
-            <TaskGroupSection title="Inbox">
-              <TaskList tasks={inboxTasks} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} />
-            </TaskGroupSection>
-          ) : null}
+        {error ? (
+          <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
+        ) : tasks.length === 0 ? (
+          <EmptyState
+            title="Nothing scheduled for today"
+            description="Tasks due today and overdue work will appear here."
+            action={<AddTaskLauncher projects={projects} defaultScheduledFor={today || null} label="Create task" />}
+          />
+        ) : (
+          <div className="space-y-6">
+            {overdueTasks.length > 0 ? (
+              <TaskGroupSection title="Overdue" tone="overdue">
+                <TaskList tasks={overdueTasks} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} />
+              </TaskGroupSection>
+            ) : null}
 
-          {projectGroups.map((group) => (
-            <TaskGroupSection key={group.id} title={group.name}>
-              <TaskList tasks={group.tasks} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} inlineCreateDefaultProjectId={group.id} />
-            </TaskGroupSection>
-          ))}
-        </div>
-      )}
-    </div>
+            {inboxTasks.length > 0 ? (
+              <TaskGroupSection title="Inbox">
+                <TaskList tasks={inboxTasks} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} />
+              </TaskGroupSection>
+            ) : null}
+
+            {projectGroups.map((group) => (
+              <TaskGroupSection key={group.id} title={group.name}>
+                <TaskList tasks={group.tasks} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} inlineCreateDefaultProjectId={group.id} />
+              </TaskGroupSection>
+            ))}
+          </div>
+        )}
+      </div>
+    </TaskComposeOwner>
   );
 }
