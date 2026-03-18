@@ -1,0 +1,4 @@
+interface:
+  display_name: "DoItTimer Supabase"
+  short_description: "Supabase CLI and SQL workflow for the DoItTimer project"
+  default_prompt: "Use $doittimer-supabase to inspect, migrate, or verify the DoItTimer Supabase project safely."

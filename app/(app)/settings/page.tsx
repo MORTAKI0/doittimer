@@ -1,3 +1,4 @@
+import { listTokens } from "@/app/actions/automationTokens";
 import { getNotionConnection } from "@/app/actions/notion";
 import { getUserSettings } from "@/app/actions/settings";
 import { getTasks } from "@/app/actions/tasks";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { signOutAction } from "@/lib/auth/actions";
 import { getUser } from "@/lib/auth/get-user";
+import { AutomationTokensCard } from "./AutomationTokensCard";
 import { DataManagementCard } from "./DataManagementCard";
 import { NotionIntegrationCard } from "./NotionIntegrationCard";
 import { SettingsForm } from "./SettingsForm";
@@ -12,7 +14,11 @@ import { SettingsForm } from "./SettingsForm";
 export default async function SettingsPage() {
   const user = await getUser();
   const email = user?.email ?? "Unknown";
-  const [settingsResult, tasksResult] = await Promise.all([getUserSettings(), getTasks()]);
+  const [settingsResult, tasksResult, tokensResult] = await Promise.all([
+    getUserSettings(),
+    getTasks(),
+    listTokens(),
+  ]);
   const notionResult = await getNotionConnection();
 
   const settings = settingsResult.success
@@ -29,6 +35,8 @@ export default async function SettingsPage() {
     };
 
   const tasks = tasksResult.success ? tasksResult.data.tasks.map((t) => ({ id: t.id, title: t.title })) : [];
+  const automationTokens = tokensResult.success ? tokensResult.data : [];
+  const automationTokensError = tokensResult.success ? null : tokensResult.error;
   const notionConnection = notionResult.success
     ? notionResult.data
     : {
@@ -99,6 +107,12 @@ export default async function SettingsPage() {
         />
       </Card>
 
+      <div className="animate-fadeIn stagger-4">
+        <AutomationTokensCard
+          initialTokens={automationTokens}
+          initialError={automationTokensError}
+        />
+      </div>
       <div className="animate-fadeIn stagger-4">
         <DataManagementCard />
       </div>
