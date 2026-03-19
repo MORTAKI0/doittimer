@@ -79,13 +79,25 @@ export async function requireAutomationAuth(
       return null;
     }
 
-    const { error: updateError } = await supabase
-      .from("automation_tokens")
-      .update({ last_used_at: new Date().toISOString() })
-      .eq("id", tokenRow.id);
+    try {
+      const { error: updateError } = await supabase
+        .from("automation_tokens")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", tokenRow.id);
 
-    if (updateError) {
-      throw updateError;
+      if (updateError) {
+        logServerError({
+          scope: "automation.requireAutomationAuth",
+          error: updateError,
+          context: { action: "update-last-used-at" },
+        });
+      }
+    } catch (error) {
+      logServerError({
+        scope: "automation.requireAutomationAuth",
+        error,
+        context: { action: "update-last-used-at" },
+      });
     }
 
     return {

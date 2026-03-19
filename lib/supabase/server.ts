@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { envServer } from "@/lib/env.server";
 
@@ -29,19 +29,27 @@ export async function createSupabaseServerClient() {
   );
 }
 
+declare global {
+  var __doittimerSupabaseAdminClient: SupabaseClient | undefined;
+}
+
 export function createSupabaseAdminClient() {
   if (!envServer.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for automation endpoints.");
   }
 
-  return createClient(
-    envServer.NEXT_PUBLIC_SUPABASE_URL,
-    envServer.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
+  if (!globalThis.__doittimerSupabaseAdminClient) {
+    globalThis.__doittimerSupabaseAdminClient = createClient(
+      envServer.NEXT_PUBLIC_SUPABASE_URL,
+      envServer.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
       },
-    },
-  );
+    );
+  }
+
+  return globalThis.__doittimerSupabaseAdminClient;
 }

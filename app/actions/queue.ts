@@ -27,6 +27,14 @@ const ERROR_LIST = "Impossible de charger la file.";
 const ERROR_MUTATE = "Impossible de mettre a jour la file.";
 const ERROR_INVALID_DATE = "Date invalide. Format attendu: YYYY-MM-DD.";
 
+function todayDateOnly() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function isValidDateOnly(value: string | null | undefined): value is string {
   if (!value) return false;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -55,6 +63,8 @@ export async function getTaskQueue(
     return { success: false, error: ERROR_INVALID_DATE };
   }
 
+  const effectiveQueueDate = queueDate ?? todayDateOnly();
+
   try {
     let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
@@ -67,7 +77,7 @@ export async function getTaskQueue(
     userId = userData.user.id;
 
     const { data, error } = await supabase.rpc("task_queue_list", {
-      p_queue_date: queueDate ?? null,
+      p_queue_date: effectiveQueueDate,
     });
 
     if (error) {
@@ -104,6 +114,8 @@ async function mutateQueue(
     return { success: false, error: ERROR_INVALID_DATE };
   }
 
+  const effectiveQueueDate = queueDate ?? todayDateOnly();
+
   try {
     let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
@@ -117,7 +129,7 @@ async function mutateQueue(
 
     const { data, error } = await supabase.rpc(rpc, {
       p_task_id: parsedId.data,
-      p_queue_date: queueDate ?? null,
+      p_queue_date: effectiveQueueDate,
     });
 
     if (error) {

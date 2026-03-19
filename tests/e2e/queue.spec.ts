@@ -5,78 +5,82 @@ test("today queue supports add, reorder, and focus next up", async ({ page }) =>
   const titleA = uniqueTitle("E2E-Queue-A");
   const titleB = uniqueTitle("E2E-Queue-B");
   const titleC = uniqueTitle("E2E-Queue-C");
+  const queueSection = page
+    .getByRole("heading", { name: "Today Queue" })
+    .locator("xpath=ancestor::section[1]");
+  const queueList = queueSection.locator("ul").first();
+  const tasksSection = page
+    .getByRole("heading", { name: "Your Tasks" })
+    .locator("xpath=ancestor::section[1]");
+  const tasksList = tasksSection.locator("ul").first();
 
   async function clearTodayQueue() {
     await page.goto("/tasks");
-    const queue = page.getByTestId("today-queue");
-    const items = queue.locator("li");
-
-    async function clickQueueMutation(locator: ReturnType<typeof page.locator>) {
-      const [response] = await Promise.all([
-        page.waitForResponse(
-          (r) => r.url().includes("/tasks") && r.request().method() === "POST",
-          { timeout: 15000 },
-        ),
-        locator.click(),
-      ]);
-
-      if (!response.ok()) {
-        const body = await response.text().catch(() => "");
-        throw new Error(`Queue mutation failed (${response.status()}): ${body}`);
-      }
-    }
-
-    async function getQueueRowKey(li: ReturnType<typeof page.locator>) {
-      const raw = await li.locator("span").first().innerText();
-      return raw.replace(/\s+/g, " ").trim();
-    }
+    const items = queueList.locator("li");
 
     for (let i = 0; i < 50; i += 1) {
       const count = await items.count();
       if (count === 0) break;
 
       const first = items.first();
-      const key = await getQueueRowKey(first);
-      const removeButton = first.getByRole("button", { name: /remove from queue/i });
+      const removeButton = first.getByRole("button", { name: "Remove" });
       await first.scrollIntoViewIfNeeded();
       await expect(removeButton).toBeEnabled();
-      await clickQueueMutation(removeButton);
-      await expect(queue.locator("li", { hasText: key })).toHaveCount(0, { timeout: 20000 });
-      await expect.poll(async () => items.count()).toBeLessThan(count);
+      await removeButton.click();
+      await expect(items).toHaveCount(count - 1, { timeout: 20000 });
     }
 
     await expect(items).toHaveCount(0, { timeout: 20000 });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    await expect(queueList.locator("li")).toHaveCount(0, { timeout: 20000 });
   }
 
   await clearTodayQueue();
 
   await page.goto("/tasks");
 
-  async function clickQueueAction(locator: ReturnType<typeof page.locator>) {
-    await Promise.all([
-      page.waitForResponse(
-        (response) => response.url().includes("/tasks") && response.request().method() === "POST",
-        { timeout: 10000 },
-      ),
-      locator.click(),
-    ]);
+  async function addQueueAction(row: ReturnType<typeof page.locator>, title: string) {
+    const queueItems = queueList.locator("li");
+    const before = await queueItems.count();
+    const addButton = row.getByRole("button", { name: "Add to queue" });
+    await expect(addButton).toBeEnabled();
+    await addButton.click();
+    await expect(queueItems).toHaveCount(before + 1, { timeout: 20000 });
+    await expect(queueItems.filter({ hasText: title })).toHaveCount(1, { timeout: 20000 });
+    await expect(addButton).toBeDisabled({ timeout: 20000 });
+  }
+
+  async function moveQueueAction(button: ReturnType<typeof page.locator>, expectedFirstTitle: string) {
+    await expect(button).toBeEnabled();
+    await button.click();
+    await expect(queueList.locator("li").first()).toContainText(expectedFirstTitle, {
+      timeout: 20000,
+    });
   }
 
   for (const title of [titleA, titleB, titleC]) {
-    await page.getByLabel("Task title").fill(title);
-    await page.getByRole("button", { name: "Add task" }).click();
-    await expect(page.locator("li", { hasText: title })).toBeVisible({ timeout: 20000 });
+    await page.getByRole("button", { name: "Add task" }).first().click();
+    await expect(page.getByRole("heading", { name: "Add task" })).toBeVisible();
+    await page.getByLabel("Task name").fill(title);
+    await page.getByRole("dialog").locator('button[type="submit"]').click();
+    await expect(
+      tasksList
+        .locator("li")
+        .filter({ hasText: title })
+        .last(),
+    ).toBeVisible({ timeout: 20000 });
   }
 
-  const rowA = page.locator("li", { hasText: titleA });
-  const rowB = page.locator("li", { hasText: titleB });
-  const rowC = page.locator("li", { hasText: titleC });
+  const rowA = tasksList.locator("li").filter({ hasText: titleA }).last();
+  const rowB = tasksList.locator("li").filter({ hasText: titleB }).last();
+  const rowC = tasksList.locator("li").filter({ hasText: titleC }).last();
 
-  await clickQueueAction(rowA.locator('[data-testid^="queue-add-"]'));
-  await clickQueueAction(rowB.locator('[data-testid^="queue-add-"]'));
-  await clickQueueAction(rowC.locator('[data-testid^="queue-add-"]'));
+  await addQueueAction(rowA, titleA);
+  await addQueueAction(rowB, titleB);
+  await addQueueAction(rowC, titleC);
 
-  const queueItems = page.getByTestId("today-queue").locator("li");
+  const queueItems = queueList.locator("li");
   await expect(queueItems).toHaveCount(3);
   await expect(queueItems.nth(0)).toContainText(titleA);
   await expect(queueItems.nth(1)).toContainText(titleB);
@@ -87,15 +91,18 @@ test("today queue supports add, reorder, and focus next up", async ({ page }) =>
 
   await page.getByTestId("next-up-switch").click();
   await expect(
-    page.getByLabel("Link a task").locator("option:checked"),
-  ).toHaveText(titleA);
+    page.locator('button[aria-haspopup="listbox"]').first(),
+  ).toContainText(titleA, { timeout: 10000 });
 
   await page.goto("/tasks");
-  const queue = page.getByTestId("today-queue");
+  const queue = queueList;
   const rowBAfter = queue.locator("li", { hasText: titleB });
-  await clickQueueAction(rowBAfter.getByRole("button", { name: /move up/i }));
-  await page.reload();
-  const queueAfter = page.getByTestId("today-queue");
+  await moveQueueAction(rowBAfter.getByRole("button", { name: "Up" }), titleB);
+  const queueAfter = page
+    .getByRole("heading", { name: "Today Queue" })
+    .locator("xpath=ancestor::section[1]")
+    .locator("ul")
+    .first();
 
   await expect(queueAfter.locator("li").first()).toContainText(titleB, { timeout: 15000 });
   const updatedQueueItems = queueAfter.locator("li");

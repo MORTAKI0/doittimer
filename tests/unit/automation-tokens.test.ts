@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { GET as getAgentHealth } from "../../app/api/agent/health/route.ts";
-import { generateToken, hashToken } from "../../lib/automation/auth.ts";
+import { GET as getAgentHealth } from "../../app/api/agent/health/route";
+import { generateToken, hashToken } from "../../lib/automation/auth";
 import {
   AUTOMATION_ERROR_CODES,
   errorResponse,
   successResponse,
-} from "../../lib/automation/response.ts";
+} from "../../lib/automation/response";
 
 describe("automation token helpers", () => {
   it("generates a ditm token and matching sha256 hash", () => {

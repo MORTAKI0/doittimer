@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 export const AUTOMATION_ERROR_CODES = {
   unauthorized: "unauthorized",
   badRequest: "bad_request",
+  notFound: "not_found",
+  readOnlyResource: "read_only_resource",
+  conflict: "conflict",
   internalError: "internal_error",
 } as const;
 

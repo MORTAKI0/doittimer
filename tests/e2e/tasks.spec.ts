@@ -5,30 +5,43 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function ensureAutoArchiveCompletedIsDisabled(
+  page: import("@playwright/test").Page,
+) {
+  await page.goto("/settings");
+
+  const autoArchiveCheckbox = page.getByLabel("Auto-archive completed tasks");
+  await expect(autoArchiveCheckbox).toBeVisible({ timeout: 20000 });
+
+  if (await autoArchiveCheckbox.isChecked()) {
+    await autoArchiveCheckbox.uncheck();
+    await expect(page.getByText("All changes saved")).toBeVisible({ timeout: 20000 });
+  }
+}
+
 test("create, toggle, edit, delete a task", async ({ page }) => {
   const title = uniqueTitle("E2E-Task");
   const updatedTitle = `${title}-Updated`;
 
+  await ensureAutoArchiveCompletedIsDisabled(page);
   await page.goto("/tasks");
 
   // Create
-  await page.getByLabel("Task title").fill(title);
-  await page.getByRole("button", { name: "Add task" }).click();
-  await expect(page.locator("li", { hasText: title })).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Add task" }).first().click();
+  await expect(page.getByRole("heading", { name: "Add task" })).toBeVisible();
+  await page.getByLabel("Task name").fill(title);
+  await page.getByRole("dialog").locator('button[type="submit"]').click();
+  await expect(page.getByText(title)).toBeVisible({ timeout: 20000 });
 
-  // Anchor row via checkbox (stable selector)
-  const checkbox = page.getByRole("checkbox", {
+  // Anchor row via completion button (stable selector)
+  const toggleButton = page.getByRole("button", {
     name: new RegExp(`Mark ${escapeRegExp(title)} as completed`),
   });
-  await expect(checkbox).toBeVisible({ timeout: 20000 });
+  await expect(toggleButton).toBeVisible({ timeout: 20000 });
 
-  const row = page.locator("li").filter({ has: checkbox });
+  const row = page.locator("li").filter({ hasText: title });
 
-  // Toggle
-  await checkbox.check();
-  await expect(checkbox).toBeChecked();
-
-  // Edit (within the SAME row)
+  // Edit while task is still active
   await row.getByRole("button", { name: "Edit task" }).click();
 
   // Inline row editor should show an input prefilled with the current title
@@ -47,10 +60,10 @@ test("create, toggle, edit, delete a task", async ({ page }) => {
   // Wait for inline editor to close (Save disappears)
   await expect(saveBtn).toBeHidden({ timeout: 20000 });
 
-  const oldCb = page.getByRole("checkbox", {
+  const oldToggle = page.getByRole("button", {
     name: new RegExp(`^Mark ${escapeRegExp(title)} as completed$`),
   });
-  const newCb = page.getByRole("checkbox", {
+  const newToggle = page.getByRole("button", {
     name: new RegExp(`^Mark ${escapeRegExp(updatedTitle)} as completed$`),
   });
 
@@ -61,8 +74,8 @@ test("create, toggle, edit, delete a task", async ({ page }) => {
         await page.reload();
         await page.waitForLoadState("domcontentloaded");
 
-        const oldExists = (await oldCb.count()) > 0;
-        const newExists = (await newCb.count()) > 0;
+        const oldExists = (await oldToggle.count()) > 0;
+        const newExists = (await newToggle.count()) > 0;
 
         return { oldExists, newExists };
       },
@@ -70,12 +83,40 @@ test("create, toggle, edit, delete a task", async ({ page }) => {
     )
     .toEqual({ oldExists: false, newExists: true });
 
-  // Delete the UPDATED row (anchor via updated checkbox)
-  const updatedRow = page.locator("li").filter({ has: newCb });
+  // Toggle to completed, then back to active, waiting for each row mutation to settle.
+  const updatedRow = page.locator("li").filter({ hasText: updatedTitle });
+  const [completeResp] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.request().method() === "POST" && r.url().includes("/tasks"),
+      { timeout: 10000 },
+    ),
+    newToggle.click(),
+  ]);
+  expect(completeResp.ok()).toBeTruthy();
 
+  const activeToggle = updatedRow.getByRole("button", {
+    name: new RegExp(`^Mark ${escapeRegExp(updatedTitle)} as active$`),
+  });
+  await expect(activeToggle).toBeVisible({ timeout: 20000 });
+  await expect(activeToggle).toBeEnabled({ timeout: 20000 });
+
+  const [activateResp] = await Promise.all([
+    page.waitForResponse(
+      (r) => r.request().method() === "POST" && r.url().includes("/tasks"),
+      { timeout: 10000 },
+    ),
+    activeToggle.click(),
+  ]);
+  expect(activateResp.ok()).toBeTruthy();
+  await expect(newToggle).toBeVisible({ timeout: 20000 });
+  await expect(updatedRow.getByRole("button", { name: "Archive task" })).toBeEnabled({
+    timeout: 20000,
+  });
+
+  // Archive the UPDATED row while active.
   page.once("dialog", (dialog) => dialog.accept());
-  await updatedRow.getByRole("button", { name: "Delete task" }).click();
+  await updatedRow.getByRole("button", { name: "Archive task" }).click();
 
-  // Confirm it’s gone by checkbox label (strongest signal)
-  await expect(newCb).toHaveCount(0, { timeout: 20000 });
+  // Confirm it’s gone from the active list
+  await expect(updatedRow).toHaveCount(0, { timeout: 20000 });
 });

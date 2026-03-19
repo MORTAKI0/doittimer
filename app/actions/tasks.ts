@@ -2,54 +2,37 @@
 
 import { revalidatePath } from "next/cache";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  parseNullableInteger,
-  taskIdSchema,
-  taskPomodoroOverridesSchema,
-  taskProjectIdSchema,
-  taskScheduledForSchema,
-  taskTitleSchema,
-} from "@/lib/validation/task.schema";
+import { requireSignedInUser } from "@/lib/auth/get-user";
 import { logServerError } from "@/lib/logging/logServerError";
-import type { TaskPriority } from "@/lib/tasks/types";
+import {
+  createTaskForUser,
+  deleteTaskForUser,
+  getTaskPomodoroStatsForUser,
+  getTasksForUser,
+  restoreTaskForUser,
+  setTaskCompletedForUser,
+  setTaskScheduledForUser,
+  TASK_SELECT,
+  updateTaskPomodoroOverridesForUser,
+  updateTaskProjectForUser,
+  updateTaskTitleForUser,
+  type PaginatedTasks,
+  type ServiceResult,
+  type TaskFilters,
+  type TaskPomodoroOverrides,
+  type TaskPomodoroStats,
+  type TaskRow,
+} from "@/lib/services/tasks";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { taskProjectIdSchema } from "@/lib/validation/task.schema";
 
-const DUPLICATE_WINDOW_MS = 10_000;
-const TASK_SELECT =
-  "id, title, completed, completed_at, scheduled_for, created_at, updated_at, project_id, archived_at, source, read_only, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
-
-export type TaskRow = {
-  id: string;
-  title: string;
-  description?: string | null;
-  priority?: TaskPriority | null;
-  section_name?: string | null;
-  completed: boolean;
-  completed_at?: string | null;
-  scheduled_for?: string | null;
-  created_at: string;
-  updated_at: string;
-  project_id: string | null;
-  archived_at: string | null;
-  source: string;
-  read_only: boolean;
-  pomodoro_work_minutes?: number | null;
-  pomodoro_short_break_minutes?: number | null;
-  pomodoro_long_break_minutes?: number | null;
-  pomodoro_long_break_every?: number | null;
-};
-
-export type TaskPomodoroOverrides = {
-  workMinutes: number | null;
-  shortBreakMinutes: number | null;
-  longBreakMinutes: number | null;
-  longBreakEvery: number | null;
-};
-
-export type TaskPomodoroStats = {
-  pomodoros_today: number;
-  pomodoros_total: number;
-};
+export type {
+  PaginatedTasks,
+  TaskFilters,
+  TaskPomodoroOverrides,
+  TaskPomodoroStats,
+  TaskRow,
+} from "@/lib/services/tasks";
 
 export type TaskNavigationSummary = {
   inboxCount: number;
@@ -72,207 +55,12 @@ export type CompletedTasksData = {
   tasks: TaskRow[];
 };
 
-type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
-
-const ERROR_READ_ONLY_TASK = "This task is managed in Notion. Edit it in Notion and sync again.";
-
-async function assertTaskWritable(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  taskId: string,
-) {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("id, read_only")
-    .eq("id", taskId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!data) {
-    return { ok: false as const, error: "Task not found" };
-  }
-
-  if (data.read_only) {
-    return { ok: false as const, error: ERROR_READ_ONLY_TASK };
-  }
-
-  return { ok: true as const };
-}
-
-function isRecentDuplicate(task: TaskRow | null) {
-  if (!task?.created_at) return false;
-  const createdAt = Date.parse(task.created_at);
-  if (Number.isNaN(createdAt)) return false;
-  return Date.now() - createdAt < DUPLICATE_WINDOW_MS;
-}
-
-function toNumber(value: unknown) {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
-
-async function removeTaskFromQueueByOwner(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  taskId: string,
-) {
-  const { error } = await supabase
-    .from("task_queue_items")
-    .delete()
-    .eq("user_id", userId)
-    .eq("task_id", taskId);
-
-  return error;
-}
-
-export async function createTask(
-  title: string,
-  projectId?: string | null,
-  scheduledFor?: string | null,
-): Promise<ActionResult<TaskRow>> {
-  const parsed = taskTitleSchema.safeParse(title);
-  const parsedProjectId = taskProjectIdSchema.safeParse(projectId ?? null);
-  const parsedScheduledFor =
-    scheduledFor == null
-      ? { success: true as const, data: null as string | null }
-      : taskScheduledForSchema.safeParse(scheduledFor);
-
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: parsed.error.issues[0]?.message ?? "Titre invalide.",
-    };
-  }
-
-  if (!parsedProjectId.success) {
-    return {
-      success: false,
-      error: parsedProjectId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  if (!parsedScheduledFor.success) {
-    return {
-      success: false,
-      error:
-        parsedScheduledFor.error.issues[0]?.message
-        ?? "Date invalide. Format attendu: YYYY-MM-DD.",
-    };
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
-
-    userId = userData.user.id;
-
-    const { data: existingTask } = await supabase
-      .from("tasks")
-      .select(TASK_SELECT)
-      .eq("user_id", userData.user.id)
-      .eq("title", parsed.data)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (existingTask && isRecentDuplicate(existingTask)) {
-      return { success: true, data: existingTask };
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .insert({
-        user_id: userData.user.id,
-        title: parsed.data,
-        project_id: parsedProjectId.data ?? null,
-        scheduled_for: parsedScheduledFor.data,
-      })
-      .select(TASK_SELECT)
-      .single();
-
-    if (error || !data) {
-      logServerError({
-        scope: "actions.tasks.createTask",
-        userId,
-        error: error ?? new Error("Task insert returned no data."),
-        context: { action: "insert" },
-      });
-      return {
-        success: false,
-        error: "Impossible de creer la tache. Reessaie.",
-      };
-    }
-
-    revalidatePath("/tasks");
-    revalidatePath("/dashboard");
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.createTask",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
-}
-
-type GetTasksOptions = {
-  includeArchived?: boolean;
-  page?: number;
-  limit?: number;
-  projectId?: string | null;
-  status?: "active" | "completed" | "archived" | "all";
-  scheduledRange?: "all" | "day" | "week";
-  scheduledDate?: string | null;
-  includeUnscheduled?: boolean;
-  scheduledOnly?: "all" | "scheduled" | "unscheduled";
-  query?: string;
-  completedFrom?: string | null;
-  completedTo?: string | null;
-};
-
-export type PaginatedTasks = {
-  tasks: TaskRow[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-  };
-};
-
-function toDateOnly(value: string): string | null {
-  const parsed = taskScheduledForSchema.safeParse(value);
-  if (!parsed.success) return null;
-  return parsed.data;
-}
+type ActionResult<T> = ServiceResult<T>;
 
 function addDays(date: Date, days: number): Date {
   const next = new Date(date);
   next.setUTCDate(next.getUTCDate() + days);
   return next;
-}
-
-function startOfWeekMonday(date: Date): Date {
-  const day = date.getUTCDay();
-  const delta = day === 0 ? -6 : 1 - day;
-  return addDays(date, delta);
 }
 
 function formatDateUTC(date: Date): string {
@@ -282,363 +70,144 @@ function formatDateUTC(date: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function nextDateUTC(dateOnly: string): string {
-  return formatDateUTC(addDays(new Date(`${dateOnly}T00:00:00.000Z`), 1));
-}
-
-function applyTaskFilters<T extends {
-  eq: (column: string, value: unknown) => T;
-  is: (column: string, value: null) => T;
-  not: (column: string, operator: string, value: unknown) => T;
-  gte: (column: string, value: string) => T;
-  lte: (column: string, value: string) => T;
-  lt: (column: string, value: string) => T;
-  ilike: (column: string, pattern: string) => T;
-  or: (filters: string) => T;
-}>(
-  query: T,
-  options: {
-    userId: string;
-    includeArchived: boolean;
-    projectId: string | null;
-    status: "active" | "completed" | "archived" | "all";
-    scheduledRange: "all" | "day" | "week";
-    scheduledDate: string;
-    includeUnscheduled: boolean;
-    scheduledOnly: "all" | "scheduled" | "unscheduled";
-    query: string;
-    completedFrom: string | null;
-    completedTo: string | null;
-  },
-) {
-  let next = query.eq("user_id", options.userId);
-
-  if (options.projectId) {
-    next = next.eq("project_id", options.projectId);
-  }
-
-  if (options.status === "active") {
-    next = next.eq("completed", false).is("archived_at", null);
-  } else if (options.status === "completed") {
-    next = next.eq("completed", true).is("archived_at", null);
-  } else if (options.status === "archived") {
-    next = next.not("archived_at", "is", null);
-  } else if (!options.includeArchived) {
-    next = next.is("archived_at", null);
-  }
-
-  if (options.scheduledOnly === "unscheduled") {
-    return next.is("scheduled_for", null);
-  }
-
-  if (options.scheduledRange === "day") {
-    if (options.includeUnscheduled) {
-      next = next.or(`scheduled_for.eq.${options.scheduledDate},scheduled_for.is.null`);
-    } else {
-      next = next.eq("scheduled_for", options.scheduledDate);
-    }
-  } else if (options.scheduledRange === "week") {
-    const anchor = new Date(`${options.scheduledDate}T00:00:00.000Z`);
-    const weekStart = formatDateUTC(startOfWeekMonday(anchor));
-    const weekEnd = formatDateUTC(addDays(startOfWeekMonday(anchor), 6));
-
-    if (options.includeUnscheduled) {
-      next = next.or(
-        `and(scheduled_for.gte.${weekStart},scheduled_for.lte.${weekEnd}),scheduled_for.is.null`,
-      );
-    } else {
-      next = next.gte("scheduled_for", weekStart).lte("scheduled_for", weekEnd);
-    }
-  }
-
-  if (options.scheduledOnly === "scheduled" && options.scheduledRange === "all") {
-    next = next.not("scheduled_for", "is", null);
-  }
-
-  if (options.query.length > 0) {
-    const escaped = options.query.replaceAll("%", "\\%").replaceAll("_", "\\_");
-    next = next.ilike("title", `%${escaped}%`);
-  }
-
-  if (options.completedFrom) {
-    next = next.gte("completed_at", `${options.completedFrom}T00:00:00.000Z`);
-  }
-
-  if (options.completedTo) {
-    next = next.lt("completed_at", `${options.completedTo}T00:00:00.000Z`);
-  }
-
-  return next;
-}
-
-/** Returns filtered task pages with server-side count/query parity for pagination. */
-export async function getTasks(
-  options: GetTasksOptions = {},
-): Promise<ActionResult<PaginatedTasks>> {
+async function runWithSignedInUser<T>(
+  scope: string,
+  handler: (
+    supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+    userId: string,
+  ) => Promise<ActionResult<T>>,
+): Promise<ActionResult<T>> {
   try {
-    let userId: string | undefined;
     const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const auth = await requireSignedInUser(supabase);
 
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
+    if (auth.error || !auth.user) {
+      return { success: false, error: auth.error };
     }
 
-    userId = userData.user.id;
-
-    const page = Math.max(1, options.page ?? 1);
-    const limit = Math.max(1, Math.min(100, options.limit ?? 20));
-    const includeArchived = Boolean(options.includeArchived);
-    const projectId = options.projectId ?? null;
-    const status = options.status ?? "all";
-    const scheduledRange = options.scheduledRange ?? "all";
-    const scheduledOnly = options.scheduledOnly ?? "all";
-    const includeUnscheduled =
-      scheduledOnly === "all" ? (options.includeUnscheduled ?? true) : false;
-    const today = formatDateUTC(new Date());
-    const scheduledDate = options.scheduledDate ? toDateOnly(options.scheduledDate) : null;
-    const effectiveDate = scheduledDate ?? today;
-    const query = typeof options.query === "string" ? options.query.trim() : "";
-    const completedFrom = options.completedFrom ? toDateOnly(options.completedFrom) : null;
-    const completedTo = options.completedTo ? toDateOnly(options.completedTo) : null;
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    let countQuery = supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true });
-    countQuery = applyTaskFilters(countQuery, {
-      userId: userData.user.id,
-      includeArchived,
-      projectId,
-      status,
-      scheduledRange,
-      scheduledDate: effectiveDate,
-      includeUnscheduled,
-      scheduledOnly,
-      query,
-      completedFrom,
-      completedTo,
-    });
-
-    const { error: countError, count } = await countQuery;
-    if (countError) {
-      logServerError({
-        scope: "actions.tasks.getTasks",
-        userId,
-        error: countError,
-        context: { action: "count-select" },
-      });
-      return {
-        success: false,
-        error: "Impossible de charger les taches.",
-      };
-    }
-
-    let dataQuery = supabase
-      .from("tasks")
-      .select(TASK_SELECT)
-      .order("updated_at", { ascending: false })
-      .range(from, to);
-    dataQuery = applyTaskFilters(dataQuery, {
-      userId: userData.user.id,
-      includeArchived,
-      projectId,
-      status,
-      scheduledRange,
-      scheduledDate: effectiveDate,
-      includeUnscheduled,
-      scheduledOnly,
-      query,
-      completedFrom,
-      completedTo,
-    });
-
-    const { data, error } = await dataQuery;
-
-    if (error) {
-      logServerError({
-        scope: "actions.tasks.getTasks",
-        userId,
-        error,
-        context: { action: "select" },
-      });
-      return {
-        success: false,
-        error: "Impossible de charger les taches.",
-      };
-    }
-
-    const tasks: TaskRow[] = Array.isArray(data) ? data : [];
-    const totalCount = count ?? 0;
-    const totalPages = Math.ceil(totalCount / limit);
-
-    return {
-      success: true,
-      data: {
-        tasks,
-        pagination: {
-          page,
-          limit,
-          totalCount,
-          totalPages,
-        },
-      },
-    };
+    return handler(supabase, auth.user.id);
   } catch (error) {
-    logServerError({
-      scope: "actions.tasks.getTasks",
-      error,
-    });
+    logServerError({ scope, error });
     return {
       success: false,
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
     };
   }
+}
+
+function revalidateTasksDashboard() {
+  revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+}
+
+function revalidateTasksDashboardFocusSettings() {
+  revalidateTasksDashboard();
+  revalidatePath("/focus");
+  revalidatePath("/settings");
+}
+
+export async function createTask(
+  title: string,
+  projectId?: string | null,
+  scheduledFor?: string | null,
+): Promise<ActionResult<TaskRow>> {
+  return runWithSignedInUser("actions.tasks.createTask", async (supabase, userId) => {
+    const result = await createTaskForUser(supabase, userId, {
+      title,
+      projectId,
+      scheduledFor,
+    });
+
+    if (result.success) {
+      revalidateTasksDashboard();
+    }
+
+    return result;
+  });
+}
+
+export async function getTasks(
+  options: TaskFilters = {},
+): Promise<ActionResult<PaginatedTasks>> {
+  return runWithSignedInUser("actions.tasks.getTasks", (supabase, userId) =>
+    getTasksForUser(supabase, userId, options),
+  );
 }
 
 export async function getTaskPomodoroStats(
   taskId: string,
 ): Promise<ActionResult<TaskPomodoroStats>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
-
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
-
-    userId = userData.user.id;
-
-    const { data, error } = await supabase.rpc("get_task_pomodoro_stats", {
-      p_task_id: parsedId.data,
-    });
-
-    if (error) {
-      logServerError({
-        scope: "actions.tasks.getTaskPomodoroStats",
-        userId,
-        error,
-        context: { rpc: "get_task_pomodoro_stats" },
-      });
-      return { success: false, error: "Impossible de charger les stats pomodoro." };
-    }
-
-    const row = Array.isArray(data) ? data[0] : data;
-
-    return {
-      success: true,
-      data: {
-        pomodoros_today: toNumber(row?.pomodoros_today),
-        pomodoros_total: toNumber(row?.pomodoros_total),
-      },
-    };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.getTaskPomodoroStats",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+  return runWithSignedInUser("actions.tasks.getTaskPomodoroStats", (supabase, userId) =>
+    getTaskPomodoroStatsForUser(supabase, userId, taskId),
+  );
 }
 
 export async function getTaskNavigationSummary(): Promise<ActionResult<TaskNavigationSummary>> {
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+  return runWithSignedInUser(
+    "actions.tasks.getTaskNavigationSummary",
+    async (supabase, userId) => {
+      const today = formatDateUTC(new Date());
 
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
+      const [inboxResult, todayResult, projectResult] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .is("project_id", null)
+          .eq("completed", false)
+          .is("archived_at", null),
+        supabase
+          .from("tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .eq("completed", false)
+          .is("archived_at", null)
+          .eq("scheduled_for", today),
+        supabase
+          .from("tasks")
+          .select("project_id")
+          .eq("user_id", userId)
+          .eq("completed", false)
+          .is("archived_at", null)
+          .not("project_id", "is", null),
+      ]);
 
-    userId = userData.user.id;
-    const today = formatDateUTC(new Date());
+      if (inboxResult.error || todayResult.error || projectResult.error) {
+        logServerError({
+          scope: "actions.tasks.getTaskNavigationSummary",
+          userId,
+          error:
+            inboxResult.error ??
+            todayResult.error ??
+            projectResult.error ??
+            new Error("Unknown navigation summary error"),
+        });
+        return { success: false, error: "Impossible de charger les taches." };
+      }
 
-    const [inboxResult, todayResult, projectResult] = await Promise.all([
-      supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .is("project_id", null)
-        .eq("completed", false)
-        .is("archived_at", null),
-      supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("completed", false)
-        .is("archived_at", null)
-        .eq("scheduled_for", today),
-      supabase
-        .from("tasks")
-        .select("project_id")
-        .eq("user_id", userId)
-        .eq("completed", false)
-        .is("archived_at", null)
-        .not("project_id", "is", null),
-    ]);
+      const projectCounts = (projectResult.data ?? []).reduce<Record<string, number>>(
+        (acc, row) => {
+          if (typeof row.project_id !== "string") return acc;
+          acc[row.project_id] = (acc[row.project_id] ?? 0) + 1;
+          return acc;
+        },
+        {},
+      );
 
-    if (inboxResult.error || todayResult.error || projectResult.error) {
-      logServerError({
-        scope: "actions.tasks.getTaskNavigationSummary",
-        userId,
-        error: inboxResult.error ?? todayResult.error ?? projectResult.error ?? new Error("Unknown navigation summary error"),
-      });
-      return { success: false, error: "Impossible de charger les taches." };
-    }
-
-    const projectCounts = (projectResult.data ?? []).reduce<Record<string, number>>((acc, row) => {
-      if (typeof row.project_id !== "string") return acc;
-      acc[row.project_id] = (acc[row.project_id] ?? 0) + 1;
-      return acc;
-    }, {});
-
-    return {
-      success: true,
-      data: {
-        inboxCount: inboxResult.count ?? 0,
-        todayCount: todayResult.count ?? 0,
-        projectCounts,
-      },
-    };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.getTaskNavigationSummary",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+      return {
+        success: true,
+        data: {
+          inboxCount: inboxResult.count ?? 0,
+          todayCount: todayResult.count ?? 0,
+          projectCounts,
+        },
+      };
+    },
+  );
 }
 
 export async function getInboxTasks(): Promise<ActionResult<TaskRow[]>> {
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
-
-    userId = userData.user.id;
-
+  return runWithSignedInUser("actions.tasks.getInboxTasks", async (supabase, userId) => {
     const { data, error } = await supabase
       .from("tasks")
       .select(TASK_SELECT)
@@ -658,26 +227,11 @@ export async function getInboxTasks(): Promise<ActionResult<TaskRow[]>> {
     }
 
     return { success: true, data: data ?? [] };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.getInboxTasks",
-      error,
-    });
-    return { success: false, error: "Erreur reseau. Verifie ta connexion et reessaie." };
-  }
+  });
 }
 
 export async function getTodayTasks(): Promise<ActionResult<TodayTasksData>> {
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
-
-    userId = userData.user.id;
+  return runWithSignedInUser("actions.tasks.getTodayTasks", async (supabase, userId) => {
     const today = formatDateUTC(new Date());
 
     const { data, error } = await supabase
@@ -701,26 +255,11 @@ export async function getTodayTasks(): Promise<ActionResult<TodayTasksData>> {
     }
 
     return { success: true, data: { today, tasks: data ?? [] } };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.getTodayTasks",
-      error,
-    });
-    return { success: false, error: "Erreur reseau. Verifie ta connexion et reessaie." };
-  }
+  });
 }
 
 export async function getUpcomingTasks(days = 7): Promise<ActionResult<UpcomingTasksData>> {
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
-
-    userId = userData.user.id;
+  return runWithSignedInUser("actions.tasks.getUpcomingTasks", async (supabase, userId) => {
     const safeDays = Math.max(1, Math.min(30, Math.floor(days)));
     const startDate = formatDateUTC(new Date());
     const endDate = formatDateUTC(addDays(new Date(`${startDate}T00:00:00.000Z`), safeDays - 1));
@@ -746,13 +285,7 @@ export async function getUpcomingTasks(days = 7): Promise<ActionResult<UpcomingT
     }
 
     return { success: true, data: { startDate, endDate, tasks: data ?? [] } };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.getUpcomingTasks",
-      error,
-    });
-    return { success: false, error: "Erreur reseau. Verifie ta connexion et reessaie." };
-  }
+  });
 }
 
 export async function getCompletedTasks(
@@ -767,16 +300,7 @@ export async function getCompletedTasks(
     };
   }
 
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
-
-    userId = userData.user.id;
+  return runWithSignedInUser("actions.tasks.getCompletedTasks", async (supabase, userId) => {
     let query = supabase
       .from("tasks")
       .select(TASK_SELECT)
@@ -802,224 +326,40 @@ export async function getCompletedTasks(
     }
 
     return { success: true, data: { tasks: data ?? [] } };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.getCompletedTasks",
-      error,
-    });
-    return { success: false, error: "Erreur reseau. Verifie ta connexion et reessaie." };
-  }
+  });
 }
 
 export async function setTaskScheduledFor(
   taskId: string,
   scheduledFor: string | null,
 ): Promise<ActionResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
+  return runWithSignedInUser(
+    "actions.tasks.setTaskScheduledFor",
+    async (supabase, userId) => {
+      const result = await setTaskScheduledForUser(supabase, userId, taskId, scheduledFor);
 
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
+      if (result.success) {
+        revalidateTasksDashboard();
+      }
 
-  if (scheduledFor !== null) {
-    const parsedScheduledFor = taskScheduledForSchema.safeParse(scheduledFor);
-    if (!parsedScheduledFor.success) {
-      return {
-        success: false,
-        error:
-          parsedScheduledFor.error.issues[0]?.message
-          ?? "Date invalide. Format attendu: YYYY-MM-DD.",
-      };
-    }
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
-
-    userId = userData.user.id;
-
-    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ scheduled_for: scheduledFor })
-      .eq("id", parsedId.data)
-      .eq("user_id", userData.user.id)
-      .select(TASK_SELECT)
-      .maybeSingle();
-
-    if (error) {
-      logServerError({
-        scope: "actions.tasks.setTaskScheduledFor",
-        userId,
-        error,
-        context: { action: "update" },
-      });
-      return {
-        success: false,
-        error: "Impossible de mettre a jour la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    revalidatePath("/tasks");
-    revalidatePath("/dashboard");
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.setTaskScheduledFor",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+      return result;
+    },
+  );
 }
 
 export async function setTaskCompleted(
   taskId: string,
   completed: boolean,
-): Promise<ActionResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
+) : Promise<ActionResult<TaskRow>> {
+  return runWithSignedInUser("actions.tasks.setTaskCompleted", async (supabase, userId) => {
+    const result = await setTaskCompletedForUser(supabase, userId, taskId, completed);
 
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
+    if (result.success) {
+      revalidateTasksDashboardFocusSettings();
     }
 
-    userId = userData.user.id;
-
-    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-    let autoArchiveCompleted = false;
-    if (completed) {
-      const { data: settingsRow, error: settingsError } = await supabase
-        .from("user_settings")
-        .select("auto_archive_completed")
-        .eq("user_id", userData.user.id)
-        .maybeSingle();
-
-      if (settingsError) {
-        logServerError({
-          scope: "actions.tasks.setTaskCompleted",
-          userId,
-          error: settingsError,
-          context: { action: "load-auto-archive-setting" },
-        });
-        return {
-          success: false,
-          error: "Impossible de mettre a jour la tache.",
-        };
-      }
-
-      autoArchiveCompleted = settingsRow?.auto_archive_completed === true;
-    }
-
-    const now = completed ? new Date().toISOString() : null;
-    const payload: {
-      completed: boolean;
-      completed_at: string | null;
-      archived_at?: string;
-    } = {
-      completed,
-      completed_at: now,
-    };
-
-    if (completed && autoArchiveCompleted && now) {
-      payload.archived_at = now;
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update(payload)
-      .eq("id", parsedId.data)
-      .eq("user_id", userData.user.id)
-      .select(TASK_SELECT)
-      .maybeSingle();
-
-    if (error) {
-      logServerError({
-        scope: "actions.tasks.setTaskCompleted",
-        userId,
-        error,
-        context: { action: "update" },
-      });
-      return {
-        success: false,
-        error: "Impossible de mettre a jour la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    if (completed && autoArchiveCompleted) {
-      const queueError = await removeTaskFromQueueByOwner(
-        supabase,
-        userData.user.id,
-        parsedId.data,
-      );
-      if (queueError) {
-        logServerError({
-          scope: "actions.tasks.setTaskCompleted",
-          userId,
-          error: queueError,
-          context: { action: "queue-cleanup-after-auto-archive" },
-        });
-        return {
-          success: false,
-          error: "Impossible de mettre a jour la tache.",
-        };
-      }
-    }
-
-    revalidatePath("/tasks");
-    revalidatePath("/dashboard");
-    revalidatePath("/focus");
-    revalidatePath("/settings");
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.setTaskCompleted",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+    return result;
+  });
 }
 
 export async function toggleTaskCompletion(
@@ -1033,418 +373,75 @@ export async function updateTaskTitle(
   taskId: string,
   title: string,
 ): Promise<ActionResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
-  const parsedTitle = taskTitleSchema.safeParse(title);
+  return runWithSignedInUser("actions.tasks.updateTaskTitle", async (supabase, userId) => {
+    const result = await updateTaskTitleForUser(supabase, userId, taskId, title);
 
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  if (!parsedTitle.success) {
-    return {
-      success: false,
-      error: parsedTitle.error.issues[0]?.message ?? "Titre invalide.",
-    };
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
+    if (result.success) {
+      revalidateTasksDashboard();
     }
 
-    userId = userData.user.id;
-
-    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ title: parsedTitle.data })
-      .eq("id", parsedId.data)
-      .eq("user_id", userData.user.id)
-      .select(TASK_SELECT)
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        return { success: false, error: "Task not found" };
-      }
-      logServerError({
-        scope: "actions.tasks.updateTaskTitle",
-        userId,
-        error,
-        context: { action: "update" },
-      });
-      return {
-        success: false,
-        error: "Impossible de mettre a jour la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    revalidatePath("/tasks");
-    revalidatePath("/dashboard");
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.updateTaskTitle",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+    return result;
+  });
 }
 
 export async function deleteTask(taskId: string): Promise<ActionResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
+  return runWithSignedInUser("actions.tasks.deleteTask", async (supabase, userId) => {
+    const result = await deleteTaskForUser(supabase, userId, taskId);
 
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
+    if (result.success) {
+      revalidateTasksDashboard();
     }
 
-    userId = userData.user.id;
-
-    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const archivedAt = new Date().toISOString();
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ archived_at: archivedAt })
-      .eq("id", parsedId.data)
-      .eq("user_id", userData.user.id)
-      .select(TASK_SELECT)
-      .maybeSingle();
-
-    if (error) {
-      logServerError({
-        scope: "actions.tasks.deleteTask",
-        userId,
-        error,
-        context: { action: "archive" },
-      });
-      return {
-        success: false,
-        error: "Impossible de supprimer la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    revalidatePath("/tasks");
-    revalidatePath("/dashboard");
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.deleteTask",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+    return result;
+  });
 }
 
 export async function updateTaskProject(
   taskId: string,
   projectId?: string | null,
 ): Promise<ActionResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
-  const parsedProjectId = taskProjectIdSchema.safeParse(projectId ?? null);
+  return runWithSignedInUser("actions.tasks.updateTaskProject", async (supabase, userId) => {
+    const result = await updateTaskProjectForUser(supabase, userId, taskId, projectId);
 
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  if (!parsedProjectId.success) {
-    return {
-      success: false,
-      error: parsedProjectId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
+    if (result.success) {
+      revalidateTasksDashboardFocusSettings();
     }
 
-    userId = userData.user.id;
-
-    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ project_id: parsedProjectId.data ?? null })
-      .eq("id", parsedId.data)
-      .eq("user_id", userData.user.id)
-      .select(TASK_SELECT)
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        return { success: false, error: "Task not found" };
-      }
-      logServerError({
-        scope: "actions.tasks.updateTaskProject",
-        userId,
-        error,
-        context: { action: "update" },
-      });
-      return {
-        success: false,
-        error: "Impossible de mettre a jour la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    revalidatePath("/tasks");
-    revalidatePath("/dashboard");
-    revalidatePath("/focus");
-    revalidatePath("/settings");
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.updateTaskProject",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+    return result;
+  });
 }
 
 export async function restoreTask(taskId: string): Promise<ActionResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
+  return runWithSignedInUser("actions.tasks.restoreTask", async (supabase, userId) => {
+    const result = await restoreTaskForUser(supabase, userId, taskId);
 
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
+    if (result.success) {
+      revalidateTasksDashboardFocusSettings();
     }
 
-    userId = userData.user.id;
-
-    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ archived_at: null })
-      .eq("id", parsedId.data)
-      .eq("user_id", userData.user.id)
-      .select(TASK_SELECT)
-      .maybeSingle();
-
-    if (error) {
-      logServerError({
-        scope: "actions.tasks.restoreTask",
-        userId,
-        error,
-        context: { action: "restore" },
-      });
-      return {
-        success: false,
-        error: "Impossible de restaurer la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    revalidatePath("/tasks");
-    revalidatePath("/dashboard");
-    revalidatePath("/focus");
-    revalidatePath("/settings");
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.restoreTask",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+    return result;
+  });
 }
 
 export async function updateTaskPomodoroOverrides(
   taskId: string,
   overrides: TaskPomodoroOverrides | null,
 ): Promise<ActionResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
-
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  const normalizedOverrides = overrides
-    ? {
-      workMinutes: parseNullableInteger(overrides.workMinutes),
-      shortBreakMinutes: parseNullableInteger(overrides.shortBreakMinutes),
-      longBreakMinutes: parseNullableInteger(overrides.longBreakMinutes),
-      longBreakEvery: parseNullableInteger(overrides.longBreakEvery),
-    }
-    : null;
-
-  if (normalizedOverrides) {
-    const allValid =
-      normalizedOverrides.workMinutes.valid
-      && normalizedOverrides.shortBreakMinutes.valid
-      && normalizedOverrides.longBreakMinutes.valid
-      && normalizedOverrides.longBreakEvery.valid;
-
-    if (!allValid) {
-      return { success: false, error: "Parametres pomodoro invalides." };
-    }
-
-    const parsedOverrides = taskPomodoroOverridesSchema.safeParse({
-      workMinutes: normalizedOverrides.workMinutes.value,
-      shortBreakMinutes: normalizedOverrides.shortBreakMinutes.value,
-      longBreakMinutes: normalizedOverrides.longBreakMinutes.value,
-      longBreakEvery: normalizedOverrides.longBreakEvery.value,
-    });
-
-    if (!parsedOverrides.success) {
-      return { success: false, error: "Parametres pomodoro invalides." };
-    }
-  }
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: "Tu dois etre connecte." };
-    }
-
-    userId = userData.user.id;
-
-    const writableTask = await assertTaskWritable(supabase, userData.user.id, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const payload = normalizedOverrides
-      ? {
-        pomodoro_work_minutes: normalizedOverrides.workMinutes.value,
-        pomodoro_short_break_minutes: normalizedOverrides.shortBreakMinutes.value,
-        pomodoro_long_break_minutes: normalizedOverrides.longBreakMinutes.value,
-        pomodoro_long_break_every: normalizedOverrides.longBreakEvery.value,
-      }
-      : {
-        pomodoro_work_minutes: null,
-        pomodoro_short_break_minutes: null,
-        pomodoro_long_break_minutes: null,
-        pomodoro_long_break_every: null,
-      };
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update(payload)
-      .eq("id", parsedId.data)
-      .eq("user_id", userData.user.id)
-      .select(TASK_SELECT)
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        return { success: false, error: "Task not found" };
-      }
-      logServerError({
-        scope: "actions.tasks.updateTaskPomodoroOverrides",
+  return runWithSignedInUser(
+    "actions.tasks.updateTaskPomodoroOverrides",
+    async (supabase, userId) => {
+      const result = await updateTaskPomodoroOverridesForUser(
+        supabase,
         userId,
-        error,
-        context: { action: "update" },
-      });
-      return {
-        success: false,
-        error: "Impossible de mettre a jour la tache.",
-      };
-    }
+        taskId,
+        overrides,
+      );
 
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
+      if (result.success) {
+        revalidateTasksDashboard();
+      }
 
-    revalidatePath("/tasks");
-    revalidatePath("/dashboard");
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "actions.tasks.updateTaskPomodoroOverrides",
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+      return result;
+    },
+  );
 }
