@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 
 import {
+  getDashboardOptimizedScreenForUser,
   getDashboardSummaryForUser,
   getWorkTotalsForUser,
+  type DashboardOptimizedScreen,
   type DashboardRange,
   type DashboardSummary,
   type QueueItemLite,
@@ -24,10 +26,24 @@ async function requireDashboardAuth() {
   return {
     supabase,
     userId: userData.user.id,
+    userEmail: userData.user.email ?? null,
+    userDisplayName:
+      typeof userData.user.user_metadata?.full_name === "string"
+        ? userData.user.user_metadata.full_name
+        : typeof userData.user.user_metadata?.name === "string"
+          ? userData.user.user_metadata.name
+          : null,
   };
 }
 
-export type { DashboardRange, DashboardSummary, QueueItemLite, TaskLite, WorkTotals };
+export type {
+  DashboardOptimizedScreen,
+  DashboardRange,
+  DashboardSummary,
+  QueueItemLite,
+  TaskLite,
+  WorkTotals,
+};
 
 export async function getWorkTotals(): Promise<WorkTotals> {
   const auth = await requireDashboardAuth();
@@ -52,6 +68,22 @@ export async function getDashboardSummary(input: {
     input.range,
     input.from,
     input.to,
+  );
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result.data;
+}
+
+export async function getDashboardOptimizedScreenData(): Promise<DashboardOptimizedScreen> {
+  const auth = await requireDashboardAuth();
+  const result = await getDashboardOptimizedScreenForUser(
+    auth.supabase,
+    auth.userId,
+    auth.userEmail,
+    auth.userDisplayName,
   );
 
   if (!result.success) {

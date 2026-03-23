@@ -61,6 +61,7 @@ type FocusPanelProps = {
   };
   pomodoroEnabled: boolean;
   queueItems: TaskQueueRow[];
+  initialManualModalOpen?: boolean;
 };
 
 const ERROR_MAP: Record<string, string> = {
@@ -210,6 +211,7 @@ export function FocusPanel({
   pomodoroDefaults,
   pomodoroEnabled,
   queueItems,
+  initialManualModalOpen = false,
 }: FocusPanelProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -485,6 +487,19 @@ export function FocusPanel({
   React.useEffect(() => {
     setQueue(queueItems);
   }, [queueItems]);
+
+  React.useEffect(() => {
+    if (!initialManualModalOpen) return;
+    setManualAddError(null);
+    setIsManualModalOpen(true);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("manual");
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  }, [initialManualModalOpen, pathname, router, searchParams]);
 
   React.useEffect(() => {
     setTaskPickerHighlightedIndex(0);

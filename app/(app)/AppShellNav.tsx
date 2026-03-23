@@ -57,11 +57,22 @@ const MOBILE_LINKS = [
   { href: "/settings", label: "Settings", Icon: IconSettings },
 ] as const;
 
+type SidebarNavItemProps = {
+  href: string;
+  label: string;
+  pathname: string;
+  onClick: (label: string, href: string, pathname: string) => void;
+  count?: number | null;
+  icon?: React.ReactNode;
+  isActiveOverride?: boolean;
+  truncateLabel?: boolean;
+};
+
 function UserAvatar({ email }: { email: string | null }) {
   const initials = email ? email.slice(0, 2).toUpperCase() : "U";
 
   return (
-    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-800">
+    <span className="app-shell-avatar">
       {initials}
     </span>
   );
@@ -92,6 +103,223 @@ function logNavClick(label: string, href: string, pathname: string) {
     pathnameBeforeClick: pathname,
     ...getClientRuntimeSnapshot(),
   });
+}
+
+function SidebarSectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="app-shell-section-label">{children}</p>;
+}
+
+function SidebarNavItem({
+  href,
+  label,
+  pathname,
+  onClick,
+  count = null,
+  icon,
+  isActiveOverride,
+  truncateLabel = false,
+}: SidebarNavItemProps) {
+  const isActive = isActiveOverride ?? isRouteActive(pathname, href);
+
+  return (
+    <Link
+      href={href}
+      aria-current={isActive ? "page" : undefined}
+      className={[
+        "app-shell-nav-item focus-ring ui-hover",
+        isActive ? "app-shell-nav-item-active" : "",
+      ].join(" ")}
+      onClick={() => onClick(label, href, pathname)}
+    >
+      <span className={["app-shell-nav-icon-wrap", isActive ? "app-shell-nav-icon-wrap-active" : ""].join(" ")}>
+        {icon ?? null}
+      </span>
+      <span className={truncateLabel ? "truncate" : ""}>{label}</span>
+      {typeof count === "number" ? (
+        <span className={["app-shell-nav-item-count", count > 0 ? "app-shell-nav-item-count-visible" : ""].join(" ")}>
+          {count}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+function SidebarPrimaryNav({
+  pathname,
+  inboxCount,
+  todayCount,
+}: {
+  pathname: string;
+  inboxCount: number;
+  todayCount: number;
+}) {
+  return (
+    <div className="app-shell-section">
+      <SidebarSectionLabel>Workspace</SidebarSectionLabel>
+      <div className="app-shell-nav-list">
+        {PRIMARY_LINKS.map((link) => {
+          const count = "countKey" in link
+            ? link.countKey === "inbox"
+              ? inboxCount
+              : todayCount
+            : null;
+
+          return (
+            <SidebarNavItem
+              key={link.href}
+              href={link.href}
+              label={link.label}
+              pathname={pathname}
+              onClick={logNavClick}
+              count={typeof count === "number" ? count : null}
+              icon={<link.Icon className="h-[15px] w-[15px]" aria-hidden="true" />}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SidebarSecondaryNav({
+  pathname,
+  queueCount,
+}: {
+  pathname: string;
+  queueCount: number;
+}) {
+  return (
+    <div className="app-shell-section">
+      <SidebarSectionLabel>Spaces</SidebarSectionLabel>
+      <div className="app-shell-nav-list">
+        {SECONDARY_LINKS.map((link) => (
+          <SidebarNavItem
+            key={link.href}
+            href={link.href}
+            label={link.label}
+            pathname={pathname}
+            onClick={logNavClick}
+            count={link.href === "/focus" && queueCount > 0 ? Math.min(queueCount, 99) : null}
+            icon={<link.Icon className="h-[15px] w-[15px]" aria-hidden="true" />}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SidebarProjectsSection({
+  pathname,
+  activeProjectId,
+  activeProjects,
+  projectCounts,
+}: {
+  pathname: string;
+  activeProjectId: string | null;
+  activeProjects: ProjectRow[];
+  projectCounts: Record<string, number>;
+}) {
+  return (
+    <div className="app-shell-section app-shell-projects-section">
+      <div className="app-shell-section-header">
+        <SidebarSectionLabel>My Projects</SidebarSectionLabel>
+        <span className="app-shell-section-meta">{activeProjects.length}</span>
+      </div>
+      <div className="app-shell-nav-list">
+        {activeProjects.map((project) => {
+          const href = `/tasks?project=${project.id}`;
+          const count = projectCounts[project.id] ?? 0;
+
+          return (
+            <SidebarNavItem
+              key={project.id}
+              href={href}
+              label={project.name}
+              pathname={pathname}
+              onClick={logNavClick}
+              count={count > 0 ? count : null}
+              truncateLabel
+              isActiveOverride={pathname === "/tasks" && activeProjectId === project.id}
+              icon={<span className="app-shell-project-marker" aria-hidden="true" />}
+            />
+          );
+        })}
+        <Link
+          href="/tasks#projects-panel"
+          className="app-shell-nav-action focus-ring ui-hover"
+          onClick={() => logNavClick("Add project", "/tasks#projects-panel", pathname)}
+        >
+          <span className="app-shell-nav-action-icon" aria-hidden="true">
+            +
+          </span>
+          <span>Add project</span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function SidebarFooter({
+  pathname,
+  hasActiveFocus,
+  settingsActive,
+  userEmail,
+  initialTheme,
+}: {
+  pathname: string;
+  hasActiveFocus: boolean;
+  settingsActive: boolean;
+  userEmail: string | null;
+  initialTheme: "light" | "dark";
+}) {
+  return (
+    <div className="app-shell-sidebar-footer">
+      <Link
+        href="/focus"
+        className="app-shell-quick-action focus-ring ui-hover"
+        onClick={() => logNavClick("Quick start", "/focus", pathname)}
+      >
+        <span className="app-shell-quick-action-icon" aria-hidden="true">+</span>
+        <span>Quick Start</span>
+      </Link>
+
+      {hasActiveFocus ? (
+        <Link
+          href="/focus"
+          className="app-shell-focus-card focus-ring ui-hover animate-fadeIn"
+          onClick={() => logNavClick("Focus running", "/focus", pathname)}
+        >
+          <div className="app-shell-focus-card-header">
+            <span className="animate-pulse-soft app-shell-focus-dot" />
+            <span>Focus running</span>
+          </div>
+          <div className="app-shell-focus-card-meta">
+            <span>Active session</span>
+            <span className="numeric-tabular">Live</span>
+          </div>
+        </Link>
+      ) : null}
+
+      <div className="app-shell-footer-card">
+        <Link
+          href="/settings"
+          aria-label="Open settings"
+          className={[
+            "app-shell-profile-link focus-ring ui-hover",
+            settingsActive ? "app-shell-profile-link-active" : "",
+          ].join(" ")}
+          onClick={() => logNavClick("Settings", "/settings", pathname)}
+        >
+          <UserAvatar email={userEmail} />
+          <span className="app-shell-profile-meta">
+            <span className="app-shell-profile-title">Workspace</span>
+            <span className="app-shell-profile-subtitle">{userEmail ?? "Signed in"}</span>
+          </span>
+        </Link>
+        <ThemeToggle initialTheme={initialTheme} className="app-shell-theme-toggle" />
+      </div>
+    </div>
+  );
 }
 
 export function AppShellNav({
@@ -131,144 +359,48 @@ export function AppShellNav({
     <div className="bg-background text-foreground min-h-dvh">
       <CommandPalette actions={commandActions} />
       <GlobalRunningSessionWidget activeSession={activeSession} userId={userId} />
-      <div className="mx-auto grid min-h-dvh w-full max-w-[1680px] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] 2xl:px-6">
+      <div className="app-shell-frame mx-auto grid min-h-dvh w-full max-w-[1720px] grid-cols-1 lg:grid-cols-[296px_minmax(0,1fr)] 2xl:px-6">
         <aside className="app-sidebar hidden lg:block">
-          <div className="sticky top-0 flex h-dvh flex-col px-3 py-5">
-            <div className="flex items-center justify-between">
-              <Brand />
-              <span className="inline-flex items-center gap-1 rounded-md border-[0.5px] border-border bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground">
+          <div className="app-shell-sidebar-inner sticky top-0 flex h-dvh flex-col">
+            <div className="app-shell-sidebar-header">
+              <Brand variant="shell" />
+              <span className="app-shell-kbd">
                 ⌘K
               </span>
             </div>
 
-            <div className="mt-6">
-              <AddTaskLauncher projects={activeProjects} variant="nav" />
+            <div className="app-shell-add-task-row">
+              <AddTaskLauncher
+                projects={activeProjects}
+                variant="nav"
+                className="app-shell-nav-action app-shell-primary-action min-h-0 border-0 px-0 py-0 text-sm"
+              />
             </div>
 
-            <hr className="sidebar-divider" />
-
-            <nav className="space-y-1" aria-label="Main navigation">
-              {PRIMARY_LINKS.map((link) => {
-                const isActive = isRouteActive(pathname, link.href);
-                const count = "countKey" in link
-                  ? link.countKey === "inbox"
-                    ? inboxCount
-                    : todayCount
-                  : null;
-
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={["nav-link focus-ring", isActive ? "nav-link-active" : ""].join(" ")}
-                    onClick={() => logNavClick(link.label, link.href, pathname)}
-                  >
-                    <link.Icon className="h-4 w-4" aria-hidden="true" />
-                    <span>{link.label}</span>
-                    {typeof count === "number" ? <span className="nav-link-count">{count}</span> : null}
-                  </Link>
-                );
-              })}
-
-              <hr className="sidebar-divider" />
-
-              {SECONDARY_LINKS.map((link) => {
-                const isActive = isRouteActive(pathname, link.href);
-
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={["nav-link focus-ring", isActive ? "nav-link-active" : ""].join(" ")}
-                    onClick={() => logNavClick(link.label, link.href, pathname)}
-                  >
-                    <link.Icon className="h-4 w-4" aria-hidden="true" />
-                    <span>{link.label}</span>
-                    {link.href === "/focus" && queueCount > 0 ? (
-                      <span className="nav-link-count">{Math.min(queueCount, 99)}</span>
-                    ) : null}
-                  </Link>
-                );
-              })}
-
-              <hr className="sidebar-divider" />
-
-              <div className="space-y-1">
-                <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  My Projects
-                </p>
-                {activeProjects.map((project) => {
-                  const href = `/tasks?project=${project.id}`;
-                  const isActive = pathname === "/tasks" && activeProjectId === project.id;
-                  const count = projectCounts[project.id] ?? 0;
-
-                  return (
-                    <Link
-                      key={project.id}
-                      href={href}
-                      aria-current={isActive ? "page" : undefined}
-                      className={["nav-link focus-ring", isActive ? "nav-link-active" : ""].join(" ")}
-                      onClick={() => logNavClick(project.name, href, pathname)}
-                    >
-                      <span className="text-base leading-none text-muted-foreground" aria-hidden="true">
-                        #
-                      </span>
-                      <span className="truncate">{project.name}</span>
-                      {count > 0 ? <span className="nav-link-count">{count}</span> : null}
-                    </Link>
-                  );
-                })}
-                <Link
-                  href="/tasks#projects-panel"
-                  className="nav-action-link focus-ring"
-                  onClick={() => logNavClick("Add project", "/tasks#projects-panel", pathname)}
-                >
-                  <span className="nav-action-icon text-base leading-none text-current" aria-hidden="true">
-                    +
-                  </span>
-                  <span>Add project</span>
-                </Link>
-              </div>
-            </nav>
-
-            <div className="mt-auto space-y-3">
-              {hasActiveFocus ? (
-                <Link
-                  href="/focus"
-                  className="sidebar-focus-indicator focus-ring ui-hover animate-fadeIn block"
-                  onClick={() => logNavClick("Focus running", "/focus", pathname)}
-                >
-                  <div className="flex items-center gap-2 font-semibold">
-                    <span className="animate-pulse-soft h-2 w-2 rounded-full bg-[var(--ring)]" />
-                    Focus running
-                  </div>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <span>Active session</span>
-                    <span className="numeric-tabular">Live</span>
-                  </div>
-                </Link>
-              ) : null}
-
-              <div className="flex items-center gap-2 rounded-md border-[0.5px] border-border bg-card px-3 py-2">
-                <Link
-                  href="/settings"
-                  aria-label="Open settings"
-                  className={[
-                    "focus-ring ui-hover flex min-w-0 flex-1 items-center gap-2 rounded-md",
-                    settingsActive ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]" : "",
-                  ].join(" ")}
-                  onClick={() => logNavClick("Settings", "/settings", pathname)}
-                >
-                  <UserAvatar email={userEmail} />
-                  <p className="truncate text-xs text-muted-foreground">
-                    {userEmail ?? "Signed in"}
-                  </p>
-                </Link>
-                <ThemeToggle initialTheme={initialTheme} />
-              </div>
+            <div className="app-shell-sidebar-scroll">
+              <nav className="app-shell-sidebar-nav" aria-label="Main navigation">
+                <SidebarPrimaryNav
+                  pathname={pathname}
+                  inboxCount={inboxCount}
+                  todayCount={todayCount}
+                />
+                <SidebarSecondaryNav pathname={pathname} queueCount={queueCount} />
+                <SidebarProjectsSection
+                  pathname={pathname}
+                  activeProjectId={activeProjectId}
+                  activeProjects={activeProjects}
+                  projectCounts={projectCounts}
+                />
+              </nav>
             </div>
+
+            <SidebarFooter
+              pathname={pathname}
+              hasActiveFocus={hasActiveFocus}
+              settingsActive={settingsActive}
+              userEmail={userEmail}
+              initialTheme={initialTheme}
+            />
           </div>
         </aside>
 

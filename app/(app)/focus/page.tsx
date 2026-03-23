@@ -52,7 +52,7 @@ function todayDateOnly() {
 }
 
 type FocusPageProps = {
-  searchParams: Promise<{ day?: string }>;
+  searchParams: Promise<{ day?: string; manual?: string }>;
 };
 
 export default async function FocusPage(props: FocusPageProps) {
@@ -60,6 +60,7 @@ export default async function FocusPage(props: FocusPageProps) {
   const selectedDay = isValidDateOnly(searchParams.day)
     ? searchParams.day
     : todayDateOnly();
+  const openManualSession = searchParams.manual === "1";
   const user = await getUser();
   const [activeResult, sessionsResult, sessionTotalResult, tasksResult, settingsResult, queueResult] =
     await Promise.all([
@@ -164,6 +165,7 @@ export default async function FocusPage(props: FocusPageProps) {
           pomodoroDefaults={pomodoroDefaults}
           pomodoroEnabled={pomodoroEnabled}
           queueItems={queueItems}
+          initialManualModalOpen={openManualSession}
         />
       </Card>
     </div>

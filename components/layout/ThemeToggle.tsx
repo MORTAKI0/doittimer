@@ -9,9 +9,10 @@ type ThemeMode = "light" | "dark";
 
 type ThemeToggleProps = {
   initialTheme: ThemeMode;
+  className?: string;
 };
 
-export function ThemeToggle({ initialTheme }: ThemeToggleProps) {
+export function ThemeToggle({ initialTheme, className = "" }: ThemeToggleProps) {
   const [theme, setTheme] = React.useState<ThemeMode>(initialTheme);
   const [isPending, startTransition] = React.useTransition();
 
@@ -33,7 +34,10 @@ export function ThemeToggle({ initialTheme }: ThemeToggleProps) {
           void setThemeAction(nextTheme);
         });
       }}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 disabled:cursor-not-allowed disabled:opacity-60"
+      className={[
+        "inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-[background-color,color,transform,box-shadow] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 disabled:cursor-not-allowed disabled:opacity-60",
+        className,
+      ].join(" ")}
     >
       {theme === "dark" ? (
         <IconSun className="h-4 w-4" aria-hidden="true" />

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import {
+  getDashboardOptimizedScreenData,
   getDashboardSummary,
   getWorkTotals,
   type DashboardRange,
@@ -27,6 +28,8 @@ import {
   IconTrophy,
 } from "@/components/ui/icons";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { envServer } from "@/lib/env.server";
+import { DashboardOptimizedView } from "./DashboardOptimizedView";
 import { DashboardRangeSelector } from "./DashboardRangeSelector";
 import { TrendLineChart } from "./TrendLineChart";
 import { TrendRangeToggle } from "./TrendRangeToggle";
@@ -336,6 +339,14 @@ function InsightCard({
 export default async function DashboardPage(props: {
   searchParams: SearchParams;
 }) {
+  const optimizedEnabled =
+    envServer.DASHBOARD_OPTIMIZED_FOUNDATION_ENABLED === "1";
+
+  if (optimizedEnabled) {
+    const screen = await getDashboardOptimizedScreenData();
+    return <DashboardOptimizedView screen={screen} />;
+  }
+
   const searchParams = await props.searchParams;
   const range = parseRange(searchParams.range);
   const trendDays = parseTrendDays(searchParams.trend);

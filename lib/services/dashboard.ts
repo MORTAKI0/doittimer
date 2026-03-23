@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { logServerError } from "@/lib/logging/logServerError";
+import { getTaskQueueForUser } from "@/lib/services/queue";
+import {
+  getActiveSessionForUser,
+  getSessionsForUser,
+  type SessionRow,
+} from "@/lib/services/sessions";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -63,6 +69,72 @@ export type TrendPoint = {
 export type DashboardTrends = {
   days: 7 | 30;
   points: TrendPoint[];
+};
+
+export type DashboardOpenLoopItem = {
+  id: string;
+  title: string;
+  scheduled_for: string | null;
+  completed: boolean;
+  projectName: string | null;
+  metaLabel: string | null;
+  chipLabel: string | null;
+  href: string;
+};
+
+export type DashboardNarrativeItem = {
+  id: string;
+  timeLabel: string;
+  eyebrow: string;
+  title: string;
+  detail: string;
+  state: "past" | "current" | "upcoming";
+  href: string | null;
+};
+
+export type DashboardOptimizedScreen = {
+  hero: {
+    greeting: string;
+    userLabel: string;
+    dateLabel: string;
+    focusLabel: string;
+  };
+  execution: {
+    points: TrendPoint[];
+    metricLabels: {
+      totalFlow: string;
+      completionRate: string;
+      onTimeRate: string;
+    };
+  };
+  performance: {
+    activeDays: number;
+    totalDays: number;
+    focusTodayLabel: string;
+    completedToday: number;
+    onTimeRateLabel: string;
+    title: string;
+    description: string;
+    detail: string;
+  };
+  openLoops: {
+    items: DashboardOpenLoopItem[];
+  };
+  narrative: {
+    items: DashboardNarrativeItem[];
+  };
+  floatingRail: {
+    active: boolean;
+    statusLabel: string;
+    timerLabel: string | null;
+    taskLabel: string | null;
+    phaseLabel: string | null;
+    startedAt: string | null;
+    primaryHref: string;
+    secondaryHref: string;
+    tertiaryHref: string;
+    primaryLabel: string;
+  };
 };
 
 type GetDashboardSummaryInput = {
@@ -378,6 +450,141 @@ function nextUtcDayIso(day: string) {
   const date = new Date(`${day}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + 1);
   return date.toISOString();
+}
+
+function formatDurationLabel(totalSeconds: number) {
+  const clamped = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(clamped / 3600);
+  const minutes = Math.floor((clamped % 3600) / 60);
+  return `${hours}h ${minutes}m`;
+}
+
+function formatPercentLabel(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatLongDateLabel(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
+function formatTimeLabel(value: string, timeZone: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function greetingForTimeZone(timeZone: string) {
+  const hour = datePartsAt(new Date(), timeZone).hour;
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function titleCaseLabel(value: string) {
+  return value
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function deriveUserLabel(
+  userEmail: string | null | undefined,
+  userDisplayName?: string | null,
+) {
+  if (typeof userDisplayName === "string" && userDisplayName.trim().length > 0) {
+    return userDisplayName.trim().split(/\s+/)[0] ?? "there";
+  }
+
+  if (!userEmail) return "there";
+  const localPart = userEmail.split("@")[0] ?? "";
+  if (!localPart) return "there";
+  return titleCaseLabel(localPart);
+}
+
+function formatElapsedSince(startedAt: string) {
+  const startedAtMs = Date.parse(startedAt);
+  if (!Number.isFinite(startedAtMs)) return null;
+
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - startedAtMs) / 1000),
+  );
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function chipLabelForTask(
+  task: TaskLite & { pomodoro_work_minutes?: number | null },
+) {
+  if (typeof task.pomodoro_work_minutes === "number" && task.pomodoro_work_minutes > 0) {
+    return `${task.pomodoro_work_minutes}m`;
+  }
+
+  if (task.scheduled_for) {
+    return "Today";
+  }
+
+  return null;
+}
+
+function metaLabelForTask(task: {
+  scheduled_for: string | null;
+  projectName: string | null;
+}) {
+  if (task.scheduled_for) {
+    const parsed = new Date(`${task.scheduled_for}T00:00:00.000Z`);
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    }).format(parsed);
+  }
+
+  if (task.projectName) {
+    return task.projectName;
+  }
+
+  return null;
+}
+
+function buildSessionNarrativeItems(
+  sessions: SessionRow[],
+  timeZone: string,
+): DashboardNarrativeItem[] {
+  return sessions
+    .filter((session) => session.ended_at)
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.started_at);
+      const rightTime = Date.parse(right.started_at);
+      return leftTime - rightTime;
+    })
+    .slice(-2)
+    .map((session) => ({
+      id: session.id,
+      timeLabel: formatTimeLabel(session.started_at, timeZone),
+      eyebrow: "Completed Focus",
+      title: session.task_title ?? "Focus Session",
+      detail:
+        session.duration_seconds != null
+          ? `Focused for ${formatDurationLabel(session.duration_seconds)}.`
+          : "Completed focus session.",
+      state: "past" as const,
+      href: "/focus",
+    }));
 }
 
 async function countTasksInRange(
@@ -789,5 +996,189 @@ export async function getDashboardTrendsForUser(
       context: { days: normalizedDays },
     });
     return { success: false, error: ERROR_TRENDS };
+  }
+}
+
+export async function getDashboardOptimizedScreenForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  userEmail?: string | null,
+  userDisplayName?: string | null,
+): Promise<ServiceResult<DashboardOptimizedScreen>> {
+  try {
+    const timeZone = await getUserTimeZone(
+      supabase,
+      userId,
+      DASHBOARD_TIMEZONE_FALLBACK,
+    );
+    const [summaryResult, workTotalsResult, trendsResult, activeSessionResult, sessionsResult, queueResult] =
+      await Promise.all([
+        getDashboardSummaryForUser(supabase, userId, "today"),
+        getWorkTotalsForUser(supabase, userId),
+        getDashboardTrendsForUser(supabase, userId, 7),
+        getActiveSessionForUser(supabase, userId),
+        getSessionsForUser(supabase, userId, { timeZone }),
+        getTaskQueueForUser(supabase, userId),
+      ]);
+
+    if (!summaryResult.success) return summaryResult;
+    if (!workTotalsResult.success) return workTotalsResult;
+    if (!trendsResult.success) return trendsResult;
+    if (!activeSessionResult.success) return activeSessionResult;
+    if (!sessionsResult.success) return sessionsResult;
+    if (!queueResult.success) return queueResult;
+
+    const summary = summaryResult.data;
+    const workTotals = workTotalsResult.data;
+    const trends = trendsResult.data;
+    const activeSession = activeSessionResult.data;
+    const sessions = sessionsResult.data;
+    const queue = queueResult.data;
+
+    const openLoopRows = await supabase
+      .from("tasks")
+      .select(
+        "id, title, scheduled_for, completed, archived_at, project_id, pomodoro_work_minutes",
+      )
+      .eq("user_id", userId)
+      .eq("completed", false)
+      .is("archived_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(3);
+
+    if (openLoopRows.error) {
+      throw openLoopRows.error;
+    }
+
+    const projectIds = Array.from(
+      new Set(
+        (openLoopRows.data ?? [])
+          .map((row) => row.project_id)
+          .filter((projectId): projectId is string => typeof projectId === "string"),
+      ),
+    );
+
+    const projectNameById = new Map<string, string>();
+    if (projectIds.length > 0) {
+      const projectRows = await supabase
+        .from("projects")
+        .select("id, name")
+        .eq("user_id", userId)
+        .in("id", projectIds);
+
+      if (projectRows.error) {
+        throw projectRows.error;
+      }
+
+      for (const project of projectRows.data ?? []) {
+        projectNameById.set(project.id, project.name);
+      }
+    }
+
+    const activeDays = trends.points.filter((point) => point.focus_minutes > 0).length;
+    const nextUp = queue[0] ?? null;
+    const queueCount = queue.length;
+    const narrativeItems = [
+      ...buildSessionNarrativeItems(sessions, timeZone),
+      ...(activeSession
+        ? [
+            {
+              id: `${activeSession.id}-current`,
+              timeLabel: formatTimeLabel(activeSession.started_at, timeZone),
+              eyebrow:
+                activeSession.pomodoro_phase != null
+                  ? `Current - ${activeSession.pomodoro_phase.replace("_", " ")}`
+                  : "Current - Focus",
+              title: activeSession.task_title ?? "Deep Work in Progress",
+              detail:
+                activeSession.pomodoro_phase != null
+                  ? `Elapsed ${formatElapsedSince(activeSession.started_at) ?? "live"} in ${activeSession.pomodoro_phase.replace("_", " ")}.`
+                  : `Elapsed ${formatElapsedSince(activeSession.started_at) ?? "live"} in active focus.`,
+              state: "current" as const,
+              href: "/focus",
+            },
+          ]
+        : []),
+      ...queue.slice(0, activeSession ? 1 : 2).map((item, index) => ({
+        id: `${item.task_id}-upcoming`,
+        timeLabel: `Queue position ${index + 1}`,
+        eyebrow: "Upcoming - Queue",
+        title: item.title,
+        detail: "Ready to start from the focus queue.",
+        state: "upcoming" as const,
+        href: `/tasks?q=${encodeURIComponent(item.title)}`,
+      })),
+    ].slice(0, 5);
+
+    return {
+      success: true,
+      data: {
+        hero: {
+          greeting: greetingForTimeZone(timeZone),
+          userLabel: deriveUserLabel(userEmail, userDisplayName),
+          dateLabel: formatLongDateLabel(new Date(), timeZone),
+          focusLabel: `${sessions.length} session${sessions.length === 1 ? "" : "s"} logged today - ${queueCount} queued next`,
+        },
+        execution: {
+          points: trends.points,
+          metricLabels: {
+            totalFlow: formatDurationLabel(workTotals.todaySeconds),
+            completionRate: formatPercentLabel(summary.kpis.completionRate),
+            onTimeRate: formatPercentLabel(summary.kpis.onTimeRate),
+          },
+        },
+        performance: {
+          activeDays,
+          totalDays: trends.points.length,
+          focusTodayLabel: formatDurationLabel(workTotals.todaySeconds),
+          completedToday: summary.kpis.completed,
+          onTimeRateLabel: formatPercentLabel(summary.kpis.onTimeRate),
+          title: "Last 7 days",
+          description: `${activeDays} of ${trends.points.length} days included real focus time.`,
+          detail: `${summary.kpis.completed} task${summary.kpis.completed === 1 ? "" : "s"} completed today with ${formatPercentLabel(summary.kpis.onTimeRate)} on-time completion.`,
+        },
+        openLoops: {
+          items: (openLoopRows.data ?? []).map((task) => ({
+            id: task.id,
+            title: task.title,
+            scheduled_for: task.scheduled_for,
+            completed: task.completed,
+            projectName: task.project_id
+              ? projectNameById.get(task.project_id) ?? null
+              : null,
+            metaLabel: metaLabelForTask({
+              scheduled_for: task.scheduled_for,
+              projectName: task.project_id
+                ? projectNameById.get(task.project_id) ?? null
+                : null,
+            }),
+            chipLabel: chipLabelForTask(task),
+            href: `/tasks?q=${encodeURIComponent(task.title)}`,
+          })),
+        },
+        narrative: {
+          items: narrativeItems,
+        },
+        floatingRail: {
+          active: Boolean(activeSession),
+          statusLabel: activeSession ? "Focus running" : "No active focus session",
+          timerLabel: activeSession ? formatElapsedSince(activeSession.started_at) : null,
+          taskLabel: activeSession?.task_title ?? nextUp?.title ?? null,
+          phaseLabel: activeSession?.pomodoro_phase ?? null,
+          startedAt: activeSession?.started_at ?? null,
+          primaryHref: activeSession ? "/focus?manual=1" : "/focus",
+          secondaryHref: "/tasks",
+          tertiaryHref: "/focus",
+          primaryLabel: activeSession ? "Log Entry" : "Quick Start",
+        },
+      },
+    };
+  } catch (error) {
+    logServerError({
+      scope: "services.dashboard.getDashboardOptimizedScreenForUser",
+      userId,
+      error,
+    });
+    return { success: false, error: ERROR_SUMMARY };
   }
 }

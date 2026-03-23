@@ -81,7 +81,7 @@ export function AddTaskLauncher({
     <button type="button" className={triggerClassName} onClick={handleClick}>
       {variant === "nav" ? (
         <>
-          <span className="nav-action-icon text-base leading-none text-current" aria-hidden="true">
+          <span className="nav-action-icon app-shell-nav-action-icon text-base leading-none text-current" aria-hidden="true">
             +
           </span>
           <span>{label}</span>

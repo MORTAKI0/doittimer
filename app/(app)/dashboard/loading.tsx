@@ -1,7 +1,27 @@
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { envServer } from "@/lib/env.server";
 
 export default function LoadingDashboardPage() {
+  if (envServer.DASHBOARD_OPTIMIZED_FOUNDATION_ENABLED === "1") {
+    return (
+      <div className="space-y-8">
+        <div className="hidden h-14 rounded-[1.5rem] border border-border/70 bg-card/80 lg:block" />
+        <div className="space-y-3">
+          <Skeleton className="h-12 w-80" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <div className="dashboard-bento-grid">
+          <Skeleton className="col-span-12 h-[34rem] rounded-[2rem] lg:col-span-8" />
+          <Skeleton className="col-span-12 h-[22rem] rounded-[2rem] lg:col-span-4" />
+          <Skeleton className="col-span-12 h-[28rem] rounded-[2rem] lg:col-span-7" />
+          <Skeleton className="col-span-12 h-[28rem] rounded-[2rem] lg:col-span-5" />
+        </div>
+        <Skeleton className="h-24 w-full max-w-[32rem] rounded-[1.5rem]" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.75fr)_400px] xl:grid-cols-[minmax(0,1.55fr)_380px]">
