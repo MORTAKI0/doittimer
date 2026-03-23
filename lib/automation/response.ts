@@ -6,6 +6,8 @@ export const AUTOMATION_ERROR_CODES = {
   notFound: "not_found",
   readOnlyResource: "read_only_resource",
   conflict: "conflict",
+  upstreamError: "upstream_error",
+  rateLimited: "rate_limited",
   internalError: "internal_error",
 } as const;
 
@@ -64,6 +66,7 @@ export function errorResponse(
   message: string,
   status: number,
   requestId?: string,
+  headers?: HeadersInit,
 ) {
   const payload: ErrorPayload = {
     success: false,
@@ -76,6 +79,9 @@ export function errorResponse(
 
   return NextResponse.json(payload, {
     status,
-    headers: NO_STORE_HEADERS,
+    headers: {
+      ...NO_STORE_HEADERS,
+      ...headers,
+    },
   });
 }

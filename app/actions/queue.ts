@@ -2,30 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  addTaskToQueueForUser,
+  getTaskQueueForUser,
+  moveTaskQueueDownForUser,
+  moveTaskQueueUpForUser,
+  removeTaskFromQueueForUser,
+  type ServiceResult,
+  type TaskQueueRow,
+} from "@/lib/services/queue";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { taskIdSchema } from "@/lib/validation/task.schema";
-import { logServerError } from "@/lib/logging/logServerError";
 
-export type TaskQueueRow = {
-  task_id: string;
-  queue_date: string;
-  sort_order: number;
-  created_at: string;
-  title: string;
-  completed: boolean;
-  project_id: string | null;
-  archived_at: string | null;
-};
+type ActionResult<T> = ServiceResult<T>;
 
-type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
-
-const ERROR_INVALID_ID = "Identifiant invalide.";
 const ERROR_SIGN_IN = "Tu dois etre connecte.";
-const ERROR_QUEUE_FULL = "Limite de 7 elements atteinte.";
-const ERROR_TASK_NOT_FOUND = "Tache introuvable.";
-const ERROR_LIST = "Impossible de charger la file.";
-const ERROR_MUTATE = "Impossible de mettre a jour la file.";
-const ERROR_INVALID_DATE = "Date invalide. Format attendu: YYYY-MM-DD.";
+
+export type { TaskQueueRow };
 
 function todayDateOnly() {
   const now = new Date();
@@ -35,154 +27,120 @@ function todayDateOnly() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function isValidDateOnly(value: string | null | undefined): value is string {
-  if (!value) return false;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(parsed.getTime());
+async function requireActionAuth() {
+  const supabase = await createSupabaseServerClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { success: false as const, error: ERROR_SIGN_IN };
+  }
+
+  return {
+    success: true as const,
+    supabase,
+    userId: userData.user.id,
+  };
 }
 
-function normalizeRpcList<T>(data: unknown): T[] {
-  if (data == null) return [];
-  if (Array.isArray(data)) return data as T[];
-  if (typeof data === "object") return [data as T];
-  return [];
-}
+async function mutateQueue(
+  action: (args: {
+    supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+    userId: string;
+    queueDate?: string | null;
+  }) => Promise<ActionResult<TaskQueueRow[]>>,
+  queueDate?: string | null,
+) {
+  const auth = await requireActionAuth();
+  if (!auth.success) {
+    return { success: false as const, error: auth.error };
+  }
 
-function mapRpcError(error: { message?: string } | null) {
-  const message = error?.message ?? "";
-  if (message.includes("queue_full")) return ERROR_QUEUE_FULL;
-  if (message.includes("task_not_found")) return ERROR_TASK_NOT_FOUND;
-  return null;
+  const result = await action({
+    supabase: auth.supabase,
+    userId: auth.userId,
+    queueDate,
+  });
+
+  if (result.success) {
+    revalidatePath("/tasks");
+    revalidatePath("/focus");
+    revalidatePath("/dashboard");
+  }
+
+  return result;
 }
 
 export async function getTaskQueue(
   queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  if (queueDate != null && !isValidDateOnly(queueDate)) {
-    return { success: false, error: ERROR_INVALID_DATE };
+  const auth = await requireActionAuth();
+  if (!auth.success) {
+    return { success: false as const, error: auth.error };
   }
 
-  const effectiveQueueDate = queueDate ?? todayDateOnly();
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: ERROR_SIGN_IN };
-    }
-
-    userId = userData.user.id;
-
-    const { data, error } = await supabase.rpc("task_queue_list", {
-      p_queue_date: effectiveQueueDate,
-    });
-
-    if (error) {
-      logServerError({
-        scope: "actions.queue.getTaskQueue",
-        userId,
-        error,
-        context: { rpc: "task_queue_list" },
-      });
-      return { success: false, error: ERROR_LIST };
-    }
-
-    return { success: true, data: normalizeRpcList<TaskQueueRow>(data) };
-  } catch (error) {
-    logServerError({
-      scope: "actions.queue.getTaskQueue",
-      error,
-    });
-    return { success: false, error: ERROR_LIST };
-  }
-}
-
-async function mutateQueue(
-  rpc: string,
-  taskId: string,
-  queueDate?: string | null,
-): Promise<ActionResult<TaskQueueRow[]>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
-
-  if (!parsedId.success) {
-    return { success: false, error: ERROR_INVALID_ID };
-  }
-  if (queueDate != null && !isValidDateOnly(queueDate)) {
-    return { success: false, error: ERROR_INVALID_DATE };
-  }
-
-  const effectiveQueueDate = queueDate ?? todayDateOnly();
-
-  try {
-    let userId: string | undefined;
-    const supabase = await createSupabaseServerClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      return { success: false, error: ERROR_SIGN_IN };
-    }
-
-    userId = userData.user.id;
-
-    const { data, error } = await supabase.rpc(rpc, {
-      p_task_id: parsedId.data,
-      p_queue_date: effectiveQueueDate,
-    });
-
-    if (error) {
-      const mapped = mapRpcError(error);
-      if (mapped) return { success: false, error: mapped };
-      logServerError({
-        scope: "actions.queue.mutateQueue",
-        userId,
-        error,
-        context: { rpc },
-      });
-      return { success: false, error: ERROR_MUTATE };
-    }
-
-    revalidatePath("/tasks");
-    revalidatePath("/focus");
-    revalidatePath("/dashboard");
-
-    return { success: true, data: normalizeRpcList<TaskQueueRow>(data) };
-  } catch (error) {
-    logServerError({
-      scope: "actions.queue.mutateQueue",
-      error,
-      context: { rpc },
-    });
-    return { success: false, error: ERROR_MUTATE };
-  }
+  return getTaskQueueForUser(auth.supabase, auth.userId, queueDate ?? todayDateOnly());
 }
 
 export async function addTaskToQueue(
   taskId: string,
   queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  return mutateQueue("task_queue_add", taskId, queueDate);
+  return mutateQueue(
+    ({ supabase, userId, queueDate: effectiveDate }) =>
+      addTaskToQueueForUser(
+        supabase,
+        userId,
+        taskId,
+        effectiveDate ?? todayDateOnly(),
+      ),
+    queueDate ?? todayDateOnly(),
+  );
 }
 
 export async function removeTaskFromQueue(
   taskId: string,
   queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  return mutateQueue("task_queue_remove", taskId, queueDate);
+  return mutateQueue(
+    ({ supabase, userId, queueDate: effectiveDate }) =>
+      removeTaskFromQueueForUser(
+        supabase,
+        userId,
+        taskId,
+        effectiveDate ?? todayDateOnly(),
+      ),
+    queueDate ?? todayDateOnly(),
+  );
 }
 
 export async function moveTaskQueueUp(
   taskId: string,
   queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  return mutateQueue("task_queue_move_up", taskId, queueDate);
+  return mutateQueue(
+    ({ supabase, userId, queueDate: effectiveDate }) =>
+      moveTaskQueueUpForUser(
+        supabase,
+        userId,
+        taskId,
+        effectiveDate ?? todayDateOnly(),
+      ),
+    queueDate ?? todayDateOnly(),
+  );
 }
 
 export async function moveTaskQueueDown(
   taskId: string,
   queueDate?: string | null,
 ): Promise<ActionResult<TaskQueueRow[]>> {
-  return mutateQueue("task_queue_move_down", taskId, queueDate);
+  return mutateQueue(
+    ({ supabase, userId, queueDate: effectiveDate }) =>
+      moveTaskQueueDownForUser(
+        supabase,
+        userId,
+        taskId,
+        effectiveDate ?? todayDateOnly(),
+      ),
+    queueDate ?? todayDateOnly(),
+  );
 }

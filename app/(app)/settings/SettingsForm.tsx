@@ -19,6 +19,7 @@ import {
   FOCUS_INTERVAL_STORAGE_KEY,
   normalizeFocusIntervalMinutes,
 } from "@/lib/focusInterval";
+import { normalizeTimezone, SETTINGS_LIMITS, TIMEZONE_OPTIONS } from "@/lib/validation/settings.schema";
 
 type TaskOption = {
   id: string;
@@ -47,19 +48,10 @@ type DraftSettings = {
   intervalBell: number;
 };
 
-const TIMEZONE_OPTIONS = [
-  "Africa/Casablanca",
-  "UTC",
-  "Europe/Paris",
-  "America/New_York",
-  "Asia/Dubai",
-  "Asia/Tokyo",
-];
-
-const WORK_MINUTES_RANGE = { min: 1, max: 240 };
-const SHORT_BREAK_RANGE = { min: 1, max: 60 };
-const LONG_BREAK_RANGE = { min: 1, max: 120 };
-const LONG_BREAK_EVERY_RANGE = { min: 1, max: 12 };
+const WORK_MINUTES_RANGE = SETTINGS_LIMITS.pomodoroWorkMinutes;
+const SHORT_BREAK_RANGE = SETTINGS_LIMITS.pomodoroShortBreakMinutes;
+const LONG_BREAK_RANGE = SETTINGS_LIMITS.pomodoroLongBreakMinutes;
+const LONG_BREAK_EVERY_RANGE = SETTINGS_LIMITS.pomodoroLongBreakEvery;
 
 function sameServerSettings(a: DraftSettings, b: DraftSettings) {
   return (
@@ -114,6 +106,9 @@ function validateDraft(
 ): { ok: true } | { ok: false; message: string } {
   if (draft.timezone.trim().length === 0) {
     return { ok: false, message: "Timezone is required." };
+  }
+  if (!normalizeTimezone(draft.timezone)) {
+    return { ok: false, message: "Timezone is invalid." };
   }
   if (
     draft.work < WORK_MINUTES_RANGE.min ||

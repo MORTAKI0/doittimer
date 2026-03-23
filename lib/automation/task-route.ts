@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { requireAutomationAuth, type AutomationAuthContext } from "@/lib/automation/auth";
+import { checkAutomationRateLimit } from "@/lib/automation/rate-limit";
 import {
   AUTOMATION_ERROR_CODES,
   errorResponse,
@@ -101,6 +102,14 @@ type RouteContext = {
   supabase: SupabaseClient;
 };
 
+type AutomationRouteOptions = {
+  rateLimit?: {
+    scope: string;
+    limit: number;
+    windowMs: number;
+  };
+};
+
 type RouteContextResult =
   | { ok: true; value: RouteContext }
   | { ok: false; response: Response };
@@ -125,6 +134,7 @@ function isValidationError(message: string) {
 
 export async function getAutomationRouteContext(
   request: Request,
+  options?: AutomationRouteOptions,
 ): Promise<RouteContextResult> {
   try {
     const auth = await requireAutomationAuth(request);
@@ -138,6 +148,24 @@ export async function getAutomationRouteContext(
           401,
         ),
       };
+    }
+
+    if (options?.rateLimit) {
+      const rateLimit = checkAutomationRateLimit(auth.tokenId, options.rateLimit);
+      if (!rateLimit.ok) {
+        return {
+          ok: false,
+          response: errorResponse(
+            AUTOMATION_ERROR_CODES.rateLimited,
+            "Rate limit exceeded.",
+            429,
+            undefined,
+            {
+              "Retry-After": String(Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000))),
+            },
+          ),
+        };
+      }
     }
 
     return {
