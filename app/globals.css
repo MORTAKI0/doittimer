@@ -374,13 +374,6 @@ h2,
   margin-right: 0;
 }
 
-.dashboard-route-main {
-  width: 100%;
-  max-width: 1720px;
-  margin: 0 auto;
-  padding: 20px 16px 40px;
-}
-
 .app-shell-sidebar-inner {
   position: relative;
   z-index: 1;
@@ -1514,11 +1507,6 @@ html:not([data-theme="dark"]) .app-shell-section-label {
     gap: 20px;
   }
 
-  .dashboard-route-main {
-    padding-top: 16px;
-    padding-bottom: 32px;
-  }
-
   .dashboard-topbar-shell {
     flex-wrap: wrap;
     gap: 12px;
@@ -1543,18 +1531,7 @@ html:not([data-theme="dark"]) .app-shell-section-label {
 }
 
 @media (min-width: 640px) {
-  .dashboard-route-main {
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-
   .dashboard-metric-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .dashboard-route-main {
-    padding: 28px 32px 40px;
   }
 }

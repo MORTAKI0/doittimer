@@ -340,7 +340,6 @@ export function AppShellNav({
   const activeProjects = projects.filter((project) => !project.archived_at);
   const activeProjectId = searchParams.get("project");
   const settingsActive = isRouteActive(pathname, "/settings");
-  const isDashboardRoute = pathname === "/dashboard";
 
   const commandActions: CommandAction[] = [
     { id: "nav-inbox", label: "Go to Inbox", href: "/inbox", hint: "Navigation" },
@@ -360,122 +359,107 @@ export function AppShellNav({
     <div className="bg-background text-foreground min-h-dvh">
       <CommandPalette actions={commandActions} />
       <GlobalRunningSessionWidget activeSession={activeSession} userId={userId} />
-      <div
-        className={[
-          "app-shell-frame min-h-dvh w-full",
-          isDashboardRoute
-            ? "flex"
-            : "grid grid-cols-1 lg:grid-cols-[296px_minmax(0,1fr)]",
-        ].join(" ")}
-      >
-        {isDashboardRoute ? (
-          <main className="dashboard-route-main flex-1">
-            {children}
-          </main>
-        ) : (
-          <>
-            <aside className="app-sidebar hidden lg:block">
-              <div className="app-shell-sidebar-inner">
-                <div className="app-shell-sidebar-header">
-                  <Brand variant="shell" />
-                  <span className="app-shell-kbd">
-                    ⌘K
-                  </span>
-                </div>
+      <div className="app-shell-frame grid min-h-dvh w-full grid-cols-1 lg:grid-cols-[296px_minmax(0,1fr)]">
+        <aside className="app-sidebar hidden lg:block">
+          <div className="app-shell-sidebar-inner">
+            <div className="app-shell-sidebar-header">
+              <Brand variant="shell" />
+              <span className="app-shell-kbd">
+                ⌘K
+              </span>
+            </div>
 
-                <div className="app-shell-add-task-row">
-                  <AddTaskLauncher
-                    projects={activeProjects}
-                    variant="nav"
-                    className="app-shell-nav-action app-shell-primary-action min-h-0 border-0 px-0 py-0 text-sm"
-                  />
-                </div>
+            <div className="app-shell-add-task-row">
+              <AddTaskLauncher
+                projects={activeProjects}
+                variant="nav"
+                className="app-shell-nav-action app-shell-primary-action min-h-0 border-0 px-0 py-0 text-sm"
+              />
+            </div>
 
-                <div className="app-shell-sidebar-scroll">
-                  <nav className="app-shell-sidebar-nav" aria-label="Main navigation">
-                    <SidebarPrimaryNav
-                      pathname={pathname}
-                      inboxCount={inboxCount}
-                      todayCount={todayCount}
-                    />
-                    <SidebarSecondaryNav pathname={pathname} queueCount={queueCount} />
-                    <SidebarProjectsSection
-                      pathname={pathname}
-                      activeProjectId={activeProjectId}
-                      activeProjects={activeProjects}
-                      projectCounts={projectCounts}
-                    />
-                  </nav>
-                </div>
-
-                <SidebarFooter
+            <div className="app-shell-sidebar-scroll">
+              <nav className="app-shell-sidebar-nav" aria-label="Main navigation">
+                <SidebarPrimaryNav
                   pathname={pathname}
-                  hasActiveFocus={hasActiveFocus}
-                  settingsActive={settingsActive}
-                  userEmail={userEmail}
-                  initialTheme={initialTheme}
+                  inboxCount={inboxCount}
+                  todayCount={todayCount}
                 />
-              </div>
-            </aside>
-
-            <div className="flex min-h-dvh flex-col">
-              <header className="border-border/80 bg-background/88 sticky top-0 z-30 border-b backdrop-blur lg:hidden">
-                <div className="flex items-center justify-between gap-3 px-4 py-3">
-                  <Brand />
-                  <div className="flex items-center gap-2">
-                    <AddTaskLauncher
-                      projects={activeProjects}
-                      variant="nav"
-                      className="min-h-0 px-3 py-2 text-sm"
-                    />
-                    {hasActiveFocus ? (
-                      <Link
-                        href="/focus"
-                        className="inline-flex items-center gap-1 rounded-md bg-[var(--nav-active-bg)] px-2 py-1 text-xs text-[var(--nav-active-text)]"
-                        onClick={() => logNavClick("Running mobile", "/focus", pathname)}
-                      >
-                        <span className="animate-pulse-soft h-1.5 w-1.5 rounded-full bg-[var(--ring)]" />
-                        Running
-                      </Link>
-                    ) : null}
-                    <ThemeToggle initialTheme={initialTheme} />
-                  </div>
-                </div>
-              </header>
-
-              <main className="flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 lg:py-8 lg:pb-8">
-                {children}
-              </main>
-
-              <nav className="fixed inset-x-3 bottom-3 z-40 rounded-xl border border-border bg-card/95 p-1 shadow-[var(--shadow-lift)] backdrop-blur lg:hidden" aria-label="Bottom navigation">
-                <ul className="grid grid-cols-5 gap-1">
-                  {MOBILE_LINKS.map((link) => {
-                    const isActive = isRouteActive(pathname, link.href);
-
-                    return (
-                      <li key={link.href}>
-                        <Link
-                          href={link.href}
-                          aria-current={isActive ? "page" : undefined}
-                          className={[
-                            "ui-hover relative flex min-h-[40px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2 text-[10px] font-medium",
-                            isActive
-                              ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                          ].join(" ")}
-                          onClick={() => logNavClick(`mobile:${link.label}`, link.href, pathname)}
-                        >
-                          <link.Icon className="h-4 w-4" aria-hidden="true" />
-                          {link.label}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <SidebarSecondaryNav pathname={pathname} queueCount={queueCount} />
+                <SidebarProjectsSection
+                  pathname={pathname}
+                  activeProjectId={activeProjectId}
+                  activeProjects={activeProjects}
+                  projectCounts={projectCounts}
+                />
               </nav>
             </div>
-          </>
-        )}
+
+            <SidebarFooter
+              pathname={pathname}
+              hasActiveFocus={hasActiveFocus}
+              settingsActive={settingsActive}
+              userEmail={userEmail}
+              initialTheme={initialTheme}
+            />
+          </div>
+        </aside>
+
+        <div className="flex min-h-dvh flex-col">
+          <header className="border-border/80 bg-background/88 sticky top-0 z-30 border-b backdrop-blur lg:hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <Brand />
+              <div className="flex items-center gap-2">
+                <AddTaskLauncher
+                  projects={activeProjects}
+                  variant="nav"
+                  className="min-h-0 px-3 py-2 text-sm"
+                />
+                {hasActiveFocus ? (
+                  <Link
+                    href="/focus"
+                    className="inline-flex items-center gap-1 rounded-md bg-[var(--nav-active-bg)] px-2 py-1 text-xs text-[var(--nav-active-text)]"
+                    onClick={() => logNavClick("Running mobile", "/focus", pathname)}
+                  >
+                    <span className="animate-pulse-soft h-1.5 w-1.5 rounded-full bg-[var(--ring)]" />
+                    Running
+                  </Link>
+                ) : null}
+                <ThemeToggle initialTheme={initialTheme} />
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 lg:py-8 lg:pb-8">
+            {children}
+          </main>
+
+          <nav className="fixed inset-x-3 bottom-3 z-40 rounded-xl border border-border bg-card/95 p-1 shadow-[var(--shadow-lift)] backdrop-blur lg:hidden" aria-label="Bottom navigation">
+            <ul className="grid grid-cols-5 gap-1">
+              {MOBILE_LINKS.map((link) => {
+                const isActive = isRouteActive(pathname, link.href);
+
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={[
+                        "ui-hover relative flex min-h-[40px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2 text-[10px] font-medium",
+                        isActive
+                          ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ].join(" ")}
+                      onClick={() => logNavClick(`mobile:${link.label}`, link.href, pathname)}
+                    >
+                      <link.Icon className="h-4 w-4" aria-hidden="true" />
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
       </div>
     </div>
   );

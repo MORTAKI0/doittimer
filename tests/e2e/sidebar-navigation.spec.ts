@@ -16,9 +16,9 @@ test("desktop sidebar keeps navigating after visiting Today", async ({ page }) =
   await sidebar.getByRole("link", { name: "Dashboard" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/good/i);
-  await expect(page.locator(".app-sidebar")).toHaveCount(0);
+  await expect(page.locator(".app-sidebar")).toHaveCount(1);
 
-  await page.getByRole("link", { name: "Open focus" }).click();
+  await sidebar.getByRole("link", { name: "Focus" }).click();
   await expect(page).toHaveURL(/\/focus$/);
   await expect(page.getByRole("heading", { name: "Focus" })).toBeVisible();
 
