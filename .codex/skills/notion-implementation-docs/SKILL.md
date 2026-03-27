@@ -1,6 +1,6 @@
 ---
 name: notion-implementation-docs
-description: analyze everything changed since the last documentation update, turn recent implementation work into clean documentation, and publish it to notion with linked implementation plans, tasks, and progress updates. use when chatgpt is asked to document what was built from recent commits, pushes, diffs, or implementation work; create a full notion implementation doc; derive a plan and tasks from shipped work or remaining work; or keep notion pages in sync with actual engineering progress. requires notion mcp.
+description: Turns recent implementation work into clean Notion docs with linked plans and tasks. Use when documenting shipped changes, creating implementation docs, or updating progress.
 ---
 
 # Objective

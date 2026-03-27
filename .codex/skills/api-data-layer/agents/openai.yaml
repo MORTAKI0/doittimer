@@ -1,0 +1,3 @@
+interface:
+  display_name: "API Data Layer"
+  short_description: "Designs clear API and data access boundaries for maintainable server-side architecture."

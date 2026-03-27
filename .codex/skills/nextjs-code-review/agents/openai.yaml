@@ -1,0 +1,3 @@
+interface:
+  display_name: "Next.js Code Review"
+  short_description: "Reviews Next.js code for correctness, architecture, security, and maintainability."

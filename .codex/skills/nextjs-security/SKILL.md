@@ -1,6 +1,6 @@
 ---
 name: nextjs-security
-description: review and improve security for next.js 16+ applications across authentication, authorization, server actions, route handlers, input validation, secrets, cookies, headers, redirects, and server or client boundaries. use when chatgpt is asked to audit security, harden a feature, review auth flows, inspect sensitive code paths, or identify common web vulnerabilities in a next.js app.
+description: Audits and hardens Next.js security across auth, actions, route handlers, and input validation. Use when reviewing sensitive code paths or adding auth boundaries.
 ---
 
 # Objective

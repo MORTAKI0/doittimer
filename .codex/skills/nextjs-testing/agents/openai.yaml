@@ -1,0 +1,3 @@
+interface:
+  display_name: "Next.js Testing"
+  short_description: "Defines practical test strategy across unit, integration, and end-to-end layers."

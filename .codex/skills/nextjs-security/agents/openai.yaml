@@ -1,0 +1,3 @@
+interface:
+  display_name: "Next.js Security"
+  short_description: "Audits and hardens auth, actions, route handlers, and validation boundaries."

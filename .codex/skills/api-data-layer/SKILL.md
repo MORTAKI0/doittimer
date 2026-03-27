@@ -1,6 +1,6 @@
 ---
 name: api-data-layer
-description: design clean, maintainable api and data access layers for modern web applications with strong separation between ui, transport, services, repositories, and data contracts. use when chatgpt is asked to structure fetch logic, route handlers, server actions, repositories, service modules, dto mapping, or backend integration patterns in a next.js or full-stack web app.
+description: Designs clean API and data access layers with service/repository separation. Use when structuring fetch logic, route handlers, server actions, or backend integration.
 ---
 
 # Objective

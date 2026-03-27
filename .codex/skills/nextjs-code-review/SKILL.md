@@ -1,6 +1,6 @@
 ---
 name: nextjs-code-review
-description: perform strict, practical code review for next.js 16+ applications with emphasis on architecture, readability, correctness, app router patterns, server and client boundaries, typing, accessibility, performance, and maintainability. use when chatgpt is asked to review code, audit a feature, inspect a pull request, suggest refactors, or identify code smells in a next.js project.
+description: Reviews Next.js code for correctness, security, architecture, and App Router patterns. Use when reviewing a PR, auditing a feature, or identifying code smells.
 ---
 
 # Objective

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Frontend UI System"
+  short_description: "Creates consistent, accessible UI components and reusable design-system patterns."

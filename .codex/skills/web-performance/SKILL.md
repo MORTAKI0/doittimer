@@ -1,6 +1,6 @@
 ---
 name: web-performance
-description: improve frontend and next.js performance with practical recommendations around server-first rendering, bundle size, client javascript reduction, route composition, suspense, caching, image and font strategy, and core web vitals. use when chatgpt is asked to optimize a page, investigate slowness, reduce client overhead, review rendering strategy, or improve perceived and measured web performance.
+description: Improves Next.js performance across rendering, bundle size, and data paths. Use when a page is slow, reviewing client JS, or optimizing rendering strategy.
 ---
 
 # Objective

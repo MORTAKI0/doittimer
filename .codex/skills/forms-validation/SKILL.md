@@ -1,6 +1,6 @@
 ---
 name: forms-validation
-description: create and enforce robust, accessible form and validation patterns for web applications. use when chatgpt is asked to build, refactor, or review forms, field validation, server actions, error states, multi-step input flows, file uploads, or mutation ux with emphasis on correctness, accessibility, and maintainable validation architecture.
+description: Enforces robust, accessible form and validation patterns. Use when building or reviewing forms, server actions, error states, field validation, or mutation UX.
 ---
 
 # Objective

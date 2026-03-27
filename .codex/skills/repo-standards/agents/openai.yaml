@@ -1,0 +1,3 @@
+interface:
+  display_name: "Repo Standards"
+  short_description: "Enforces naming, structure, typing, and scalable repository conventions."

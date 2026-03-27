@@ -1,0 +1,3 @@
+interface:
+  display_name: "Next.js Architecture"
+  short_description: "Enforces App Router structure, server-first design, and clean feature boundaries."

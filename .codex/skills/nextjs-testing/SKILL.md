@@ -1,6 +1,6 @@
 ---
 name: nextjs-testing
-description: define and generate practical testing strategy for next.js 16+ applications across unit, integration, component, and end-to-end testing. use when chatgpt is asked to create tests, improve coverage, design test architecture, choose what to test, review flaky tests, or add reliable testing to app router features, forms, server actions, route handlers, and user flows.
+description: Defines testing strategy for Next.js App Router features. Use when adding tests, improving coverage, or testing server actions, forms, route handlers, or user flows.
 ---
 
 # Objective

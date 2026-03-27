@@ -1,0 +1,3 @@
+interface:
+  display_name: "Forms Validation"
+  short_description: "Builds and reviews robust, accessible form validation and mutation UX patterns."

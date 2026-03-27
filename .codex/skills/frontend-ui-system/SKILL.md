@@ -1,6 +1,6 @@
 ---
 name: frontend-ui-system
-description: create and enforce a clean, accessible, reusable frontend ui system for modern web apps. use when chatgpt is asked to design, build, refactor, or review components, pages, forms, dashboards, tables, cards, filters, navigation, responsive layouts, or design-system conventions with emphasis on consistency, accessibility, and maintainable component structure.
+description: Creates consistent, accessible UI components and design-system patterns. Use when building components, pages, forms, tables, or reviewing UI conventions.
 ---
 
 # Objective

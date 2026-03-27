@@ -3,3 +3,5 @@ interface:
   short_description: "Turn recent implementation work into clean Notion docs, plans, and tasks"
   category: "productivity"
   accent_color: "#111827"
+policy:
+  allow_implicit_invocation: false

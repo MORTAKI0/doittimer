@@ -1,6 +1,6 @@
 ---
 name: repo-standards
-description: enforce repository-wide engineering standards for modern web applications including naming, folder structure, imports, typing, linting, formatting, pull request hygiene, and repeatable code conventions. use when chatgpt is asked to set project conventions, clean up inconsistency, scaffold features, standardize patterns, or review whether a codebase follows clean and scalable team practices.
+description: Enforces naming, folder structure, typing, and PR hygiene. Use when scaffolding features, reviewing conventions, or standardizing repository patterns.
 ---
 
 # Objective

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Web Performance"
+  short_description: "Optimizes Next.js rendering, client JS, caching, and data-loading performance."

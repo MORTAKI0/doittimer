@@ -1,6 +1,6 @@
 ---
 name: nextjs-architecture
-description: enforce clean, scalable next.js 16+ app router architecture for production applications. use when chatgpt is asked to create, refactor, organize, or review a next.js codebase, route, feature, data flow, server action, route handler, caching strategy, auth boundary, or folder structure with emphasis on server components, client boundaries, performance, maintainability, and clean architecture.
+description: Enforces Next.js App Router architecture, folder structure, and data flow. Use when creating features, reviewing route structure, or designing server/client boundaries.
 ---
 
 # Objective

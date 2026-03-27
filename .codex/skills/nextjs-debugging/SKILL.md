@@ -1,6 +1,6 @@
 ---
 name: nextjs-debugging
-description: debug next.js 16+ applications systematically across app router, server components, client components, server actions, route handlers, caching, hydration, environment setup, build failures, and runtime errors. use when chatgpt is asked to find root causes, explain bugs, inspect stack traces, isolate regressions, or produce step-by-step fixes in a next.js project.
+description: Debugs Next.js App Router issues systematically. Use when hitting a build error, hydration mismatch, server action failure, or runtime crash.
 ---
 
 # Objective

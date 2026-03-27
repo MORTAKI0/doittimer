@@ -1,0 +1,3 @@
+interface:
+  display_name: "Next.js Debugging"
+  short_description: "Diagnoses Next.js App Router errors and isolates root causes quickly."
