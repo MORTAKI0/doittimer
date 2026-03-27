@@ -29,7 +29,8 @@ test("sidebar navigation diagnostics capture pathname and page updates", async (
 
   await sidebar.getByRole("link", { name: "Dashboard" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/good/i);
+  await expect(page.locator(".app-sidebar")).toHaveCount(0);
 
   const diagnostics = await page.evaluate(() => window.__DOITTIMER_DEV_DIAGNOSTICS__ ?? []);
 

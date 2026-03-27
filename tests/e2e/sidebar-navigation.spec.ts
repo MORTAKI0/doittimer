@@ -3,11 +3,11 @@ import { expect, test } from "@playwright/test";
 test("desktop sidebar keeps navigating after visiting Today", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
 
-  const sidebar = page.getByLabel("Main navigation");
-
   await page.goto("/inbox");
   await expect(page).toHaveURL(/\/inbox$/);
   await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
+
+  const sidebar = page.getByLabel("Main navigation");
 
   await sidebar.getByRole("link", { name: "Today" }).click();
   await expect(page).toHaveURL(/\/today$/);
@@ -15,9 +15,10 @@ test("desktop sidebar keeps navigating after visiting Today", async ({ page }) =
 
   await sidebar.getByRole("link", { name: "Dashboard" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/good/i);
+  await expect(page.locator(".app-sidebar")).toHaveCount(0);
 
-  await sidebar.getByRole("link", { name: "Focus" }).click();
+  await page.getByRole("link", { name: "Open focus" }).click();
   await expect(page).toHaveURL(/\/focus$/);
   await expect(page.getByRole("heading", { name: "Focus" })).toBeVisible();
 

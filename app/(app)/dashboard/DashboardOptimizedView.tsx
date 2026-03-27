@@ -21,9 +21,10 @@ export function DashboardOptimizedView({
 
   return (
     <div className="dashboard-optimized-page">
-      <section className="dashboard-topbar-shell hidden lg:flex">
+      <section className="dashboard-topbar-shell" aria-label="Dashboard controls">
         <DashboardTopSearch />
         <div className="dashboard-topbar-actions">
+          <span className="dashboard-topbar-label">Dashboard</span>
           <Link href="/settings" className="dashboard-upgrade-pill">
             Upgrade
           </Link>
