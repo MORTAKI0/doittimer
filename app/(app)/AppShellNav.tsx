@@ -359,9 +359,9 @@ export function AppShellNav({
     <div className="bg-background text-foreground min-h-dvh">
       <CommandPalette actions={commandActions} />
       <GlobalRunningSessionWidget activeSession={activeSession} userId={userId} />
-      <div className="app-shell-frame mx-auto grid min-h-dvh w-full max-w-[1720px] grid-cols-1 lg:grid-cols-[296px_minmax(0,1fr)] 2xl:px-6">
+      <div className="app-shell-frame grid min-h-dvh w-full grid-cols-1 lg:grid-cols-[296px_minmax(0,1fr)]">
         <aside className="app-sidebar hidden lg:block">
-          <div className="app-shell-sidebar-inner sticky top-0 flex h-dvh flex-col">
+          <div className="app-shell-sidebar-inner">
             <div className="app-shell-sidebar-header">
               <Brand variant="shell" />
               <span className="app-shell-kbd">
