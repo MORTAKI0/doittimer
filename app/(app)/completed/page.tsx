@@ -8,6 +8,8 @@ import { CompletedTaskList } from "@/app/(app)/tasks/components/CompletedTaskLis
 import { TaskGroupSection } from "@/app/(app)/tasks/components/TaskGroupSection";
 import { TaskPageHeader } from "@/app/(app)/tasks/components/TaskPageHeader";
 
+export const revalidate = 60;
+
 type SearchParams = Promise<{
   project?: string;
 }>;

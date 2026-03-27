@@ -30,6 +30,16 @@ export function IconDashboard(props: IconProps) {
   );
 }
 
+export function IconHome(props: IconProps) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M3 11.5 12 4l9 7.5" />
+      <path d="M5 10.5V20h14v-9.5" />
+      <path d="M10 20v-5h4v5" />
+    </svg>
+  );
+}
+
 export function IconTasks(props: IconProps) {
   return (
     <svg {...iconProps(props)}>

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -7,11 +8,15 @@ export type RequireSignedInUserResult =
   | { user: User; error: null }
   | { user: null; error: string };
 
-export async function getUser() {
+const getCachedUser = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
   if (error) return null;
   return data.user ?? null;
+});
+
+export async function getUser() {
+  return getCachedUser();
 }
 
 export async function requireSignedInUser(

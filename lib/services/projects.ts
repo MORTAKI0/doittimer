@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { logServerError } from "@/lib/logging/logServerError";
@@ -97,14 +98,12 @@ export async function createProjectForUser(
   }
 }
 
-export async function getProjectsForUser(
+const getProjectsForUserCached = cache(async function getProjectsForUserCached(
   supabase: SupabaseClient,
   userId: string,
-  filters: ProjectFilters = {},
+  includeArchived: boolean,
 ): Promise<ServiceResult<ProjectRow[]>> {
   try {
-    const includeArchived = Boolean(filters.includeArchived);
-
     let query = supabase
       .from("projects")
       .select(PROJECT_SELECT)
@@ -141,6 +140,14 @@ export async function getProjectsForUser(
       error: "Erreur reseau. Verifie ta connexion et reessaie.",
     };
   }
+});
+
+export async function getProjectsForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  filters: ProjectFilters = {},
+): Promise<ServiceResult<ProjectRow[]>> {
+  return getProjectsForUserCached(supabase, userId, Boolean(filters.includeArchived));
 }
 
 export async function renameProjectForUser(

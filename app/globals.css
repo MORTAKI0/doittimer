@@ -596,6 +596,10 @@ h2,
   box-shadow: inset 2px 0 0 #34d399;
 }
 
+.app-shell-nav-item[data-loading="true"] {
+  color: #e2e8f0;
+}
+
 .app-shell-nav-icon-wrap {
   display: inline-flex;
   align-items: center;
@@ -610,6 +614,18 @@ h2,
 
 .app-shell-nav-icon-wrap-active {
   color: #34d399;
+}
+
+.app-shell-nav-item[data-loading="true"] .app-shell-nav-icon-wrap {
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+}
+
+.app-shell-nav-icon-shimmer {
+  display: inline-flex;
+  width: 14px;
+  height: 4px;
+  border-radius: 999px;
 }
 
 .app-shell-nav-item-count {

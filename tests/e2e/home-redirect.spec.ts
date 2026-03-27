@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-test("redirects authenticated users from / to /dashboard", async ({ page }) => {
+test("redirects authenticated users from / to /home", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/);
+  await expect(page).toHaveURL(/\/home(?:\?.*)?$/);
 });
 
 test("shows marketing landing for unauthenticated users on /", async ({ browser }) => {

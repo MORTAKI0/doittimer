@@ -8,9 +8,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth/get-user";
 import { AppShellNav } from "./AppShellNav";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export default async function AppLayout({
   children,
 }: {

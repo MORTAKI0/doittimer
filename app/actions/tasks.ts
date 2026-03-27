@@ -96,8 +96,11 @@ async function runWithSignedInUser<T>(
 }
 
 function revalidateTasksDashboard() {
+  revalidatePath("/home");
+  revalidatePath("/today");
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/completed");
 }
 
 function revalidateTasksDashboardFocusSettings() {

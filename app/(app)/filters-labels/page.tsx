@@ -4,6 +4,8 @@ import { buttonStyles } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TaskPageHeader } from "@/app/(app)/tasks/components/TaskPageHeader";
 
+export const revalidate = 60;
+
 const DEFAULT_FILTERS = [
   { id: "assigned", name: "Assigned to me", query: "assigned:me" },
   { id: "priority-1", name: "Priority 1", query: "priority:1" },

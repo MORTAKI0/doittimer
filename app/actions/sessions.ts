@@ -49,6 +49,7 @@ async function runWithSignedInUser<T>(
 }
 
 function revalidateFocusAndDashboard() {
+  revalidatePath("/home");
   revalidatePath("/focus");
   revalidatePath("/dashboard");
 }
