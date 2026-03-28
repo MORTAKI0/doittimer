@@ -41,8 +41,10 @@ async function runWithSignedInUser<T>(
   }
 }
 
-function revalidateFocus() {
+function revalidateFocusViews() {
+  revalidatePath("/home");
   revalidatePath("/focus");
+  revalidatePath("/dashboard");
 }
 
 export async function pomodoroInit(
@@ -52,7 +54,7 @@ export async function pomodoroInit(
     const result = await pomodoroInitForUser(supabase, userId, sessionId);
 
     if (result.success) {
-      revalidateFocus();
+      revalidateFocusViews();
     }
 
     return result;
@@ -66,7 +68,7 @@ export async function pomodoroPause(
     const result = await pomodoroPauseForUser(supabase, userId, sessionId);
 
     if (result.success) {
-      revalidateFocus();
+      revalidateFocusViews();
     }
 
     return result;
@@ -80,7 +82,7 @@ export async function pomodoroResume(
     const result = await pomodoroResumeForUser(supabase, userId, sessionId);
 
     if (result.success) {
-      revalidateFocus();
+      revalidateFocusViews();
     }
 
     return result;
@@ -96,7 +98,7 @@ export async function pomodoroSkipPhase(
       const result = await pomodoroSkipPhaseForUser(supabase, userId, sessionId);
 
       if (result.success) {
-        revalidateFocus();
+        revalidateFocusViews();
       }
 
       return result;
@@ -113,7 +115,7 @@ export async function pomodoroRestartPhase(
       const result = await pomodoroRestartPhaseForUser(supabase, userId, sessionId);
 
       if (result.success) {
-        revalidateFocus();
+        revalidateFocusViews();
       }
 
       return result;

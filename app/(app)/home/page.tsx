@@ -5,6 +5,7 @@ import { getActiveSession } from "@/app/actions/sessions";
 import { getUserSettings } from "@/app/actions/settings";
 import { getTasks, getTodayTasks } from "@/app/actions/tasks";
 import { TaskList } from "@/app/(app)/tasks/components/TaskList";
+import { YearFocusHeatmapSection } from "@/components/dashboard/YearFocusHeatmapSection";
 import { buttonStyles } from "@/components/ui/button";
 import { IconFocus, IconSparkles, IconTasks } from "@/components/ui/icons";
 import { getUser } from "@/lib/auth/get-user";
@@ -183,6 +184,8 @@ export default async function ReturningHomePage() {
           <HomeQuickCreate today={today} />
         </div>
       </section>
+
+      <YearFocusHeatmapSection variant="home" />
     </div>
   );
 }

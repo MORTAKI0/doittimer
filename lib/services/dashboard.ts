@@ -1,5 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  buildDenseTrendPoints,
+  buildLocalDaySeries,
+  getLocalDaySeriesUtcRange,
+  normalizeDashboardTrendDays,
+  type DenseTrendPoint,
+  type SupportedTrendDays,
+} from "@/lib/dashboard/trends";
 import { logServerError } from "@/lib/logging/logServerError";
 import { getTaskQueueForUser } from "@/lib/services/queue";
 import {
@@ -59,15 +67,10 @@ export type WorkTotals = {
   monthSeconds: number;
 };
 
-export type TrendPoint = {
-  day: string;
-  focus_minutes: number;
-  completed_tasks: number;
-  on_time_rate: number | null;
-};
+export type TrendPoint = DenseTrendPoint;
 
 export type DashboardTrends = {
-  days: 7 | 30;
+  days: SupportedTrendDays;
   points: TrendPoint[];
 };
 
@@ -423,33 +426,6 @@ function clampRate(value: number | null): number | null {
 function toSafeInt(value: number | null): number {
   if (value == null || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value));
-}
-
-function buildUtcDaySeries(days: 7 | 30): string[] {
-  const now = new Date();
-  const todayUtcMs = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-  );
-  const output: string[] = [];
-
-  for (let index = days - 1; index >= 0; index -= 1) {
-    const day = new Date(todayUtcMs - index * 86_400_000);
-    output.push(day.toISOString().slice(0, 10));
-  }
-
-  return output;
-}
-
-function startOfUtcDayIso(day: string) {
-  return `${day}T00:00:00.000Z`;
-}
-
-function nextUtcDayIso(day: string) {
-  const date = new Date(`${day}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString();
 }
 
 function formatDurationLabel(totalSeconds: number) {
@@ -909,12 +885,16 @@ export async function getDashboardTrendsForUser(
   userId: string,
   days: number,
 ): Promise<ServiceResult<DashboardTrends>> {
-  const normalizedDays: 7 | 30 = days === 30 ? 30 : 7;
+  const normalizedDays = normalizeDashboardTrendDays(days);
 
   try {
-    const daySeries = buildUtcDaySeries(normalizedDays);
-    const startDay = daySeries[0];
-    const endExclusive = nextUtcDayIso(daySeries[daySeries.length - 1]);
+    const timeZone = await getUserTimeZone(
+      supabase,
+      userId,
+      DASHBOARD_TIMEZONE_FALLBACK,
+    );
+    const daySeries = buildLocalDaySeries(normalizedDays, timeZone);
+    const range = getLocalDaySeriesUtcRange(daySeries, timeZone);
 
     const [sessionsResult, tasksResult] = await Promise.all([
       supabase
@@ -922,69 +902,29 @@ export async function getDashboardTrendsForUser(
         .select("started_at, duration_seconds")
         .eq("user_id", userId)
         .not("ended_at", "is", null)
-        .gte("started_at", startOfUtcDayIso(startDay))
-        .lt("started_at", endExclusive),
+        .gte("started_at", range.from)
+        .lt("started_at", range.to),
       supabase
         .from("tasks")
         .select("completed_at, scheduled_for")
         .eq("user_id", userId)
         .not("completed_at", "is", null)
-        .gte("completed_at", startOfUtcDayIso(startDay))
-        .lt("completed_at", endExclusive),
+        .gte("completed_at", range.from)
+        .lt("completed_at", range.to),
     ]);
 
     if (sessionsResult.error) throw sessionsResult.error;
     if (tasksResult.error) throw tasksResult.error;
 
-    const focusSecondsByDay = new Map<string, number>();
-    for (const row of sessionsResult.data ?? []) {
-      const day = new Date(row.started_at).toISOString().slice(0, 10);
-      focusSecondsByDay.set(
-        day,
-        (focusSecondsByDay.get(day) ?? 0) + toSafeSeconds(row.duration_seconds),
-      );
-    }
-
-    const completedByDay = new Map<
-      string,
-      { completed: number; scheduledCompleted: number; onTimeCompleted: number }
-    >();
-
-    for (const row of tasksResult.data ?? []) {
-      if (!row.completed_at) continue;
-      const day = new Date(row.completed_at).toISOString().slice(0, 10);
-      const current = completedByDay.get(day) ?? {
-        completed: 0,
-        scheduledCompleted: 0,
-        onTimeCompleted: 0,
-      };
-
-      current.completed += 1;
-      if (row.scheduled_for) {
-        current.scheduledCompleted += 1;
-        if (day <= row.scheduled_for) {
-          current.onTimeCompleted += 1;
-        }
-      }
-
-      completedByDay.set(day, current);
-    }
-
     return {
       success: true,
       data: {
         days: normalizedDays,
-        points: daySeries.map((day) => {
-          const completed = completedByDay.get(day);
-          return {
-            day,
-            focus_minutes: Math.floor((focusSecondsByDay.get(day) ?? 0) / 60),
-            completed_tasks: toSafeInt(completed?.completed ?? 0),
-            on_time_rate:
-              completed && completed.scheduledCompleted > 0
-                ? clampRate(completed.onTimeCompleted / completed.scheduledCompleted)
-                : null,
-          };
+        points: buildDenseTrendPoints({
+          daySeries,
+          sessions: sessionsResult.data ?? [],
+          tasks: tasksResult.data ?? [],
+          timeZone,
         }),
       },
     };

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 import type { DashboardOptimizedScreen } from "@/app/actions/dashboard";
@@ -12,10 +13,12 @@ import { PerformanceCardShell } from "./PerformanceCardShell";
 
 type DashboardOptimizedViewProps = {
   screen: DashboardOptimizedScreen;
+  children?: ReactNode;
 };
 
 export function DashboardOptimizedView({
   screen,
+  children,
 }: DashboardOptimizedViewProps) {
   const avatarLabel = screen.hero.userLabel.slice(0, 2).toUpperCase();
 
@@ -66,6 +69,8 @@ export function DashboardOptimizedView({
         <OpenLoopsCard items={screen.openLoops.items} />
         <NarrativeTimelineShell items={screen.narrative.items} />
       </section>
+
+      {children}
 
       <FloatingFocusRail rail={screen.floatingRail} />
     </div>

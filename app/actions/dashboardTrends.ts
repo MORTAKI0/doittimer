@@ -16,7 +16,7 @@ const ERROR_SIGN_IN = "You must be signed in.";
 export type { DashboardTrends, TrendPoint };
 
 export async function getDashboardTrends(input: {
-  days: 7 | 30;
+  days: 7 | 30 | 365;
 }): Promise<ActionResult<DashboardTrends>> {
   const supabase = await createSupabaseServerClient();
   const { data: userData, error: userError } = await supabase.auth.getUser();
