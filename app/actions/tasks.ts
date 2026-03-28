@@ -9,6 +9,7 @@ import {
   deleteTaskForUser,
   getTaskPomodoroStatsForUser,
   getTasksForUser,
+  hydrateTasksWithLabelsForUser,
   mapTaskRowsFromDb,
   restoreTaskForUser,
   setTaskCompletedForUser,
@@ -22,6 +23,7 @@ import {
   type ServiceResult,
   type TaskEditableFields,
   type TaskFilters,
+  type TaskLabel,
   type TaskPomodoroOverrides,
   type TaskPomodoroStats,
   type TaskRow,
@@ -33,6 +35,7 @@ export type {
   PaginatedTasks,
   TaskEditableFields,
   TaskFilters,
+  TaskLabel,
   TaskPomodoroOverrides,
   TaskPomodoroStats,
   TaskRow,
@@ -233,10 +236,7 @@ export async function getInboxTasks(): Promise<ActionResult<TaskRow[]>> {
       return { success: false, error: "Impossible de charger les taches." };
     }
 
-    return {
-      success: true,
-      data: mapTaskRowsFromDb(data ?? []),
-    };
+    return hydrateTasksWithLabelsForUser(supabase, userId, mapTaskRowsFromDb(data ?? []));
   });
 }
 
@@ -264,9 +264,19 @@ export async function getTodayTasks(): Promise<ActionResult<TodayTasksData>> {
       return { success: false, error: "Impossible de charger les taches." };
     }
 
+    const hydratedTasks = await hydrateTasksWithLabelsForUser(
+      supabase,
+      userId,
+      mapTaskRowsFromDb(data ?? []),
+    );
+
+    if (!hydratedTasks.success) {
+      return { success: false, error: hydratedTasks.error };
+    }
+
     return {
       success: true,
-      data: { today, tasks: mapTaskRowsFromDb(data ?? []) },
+      data: { today, tasks: hydratedTasks.data },
     };
   });
 }
@@ -297,12 +307,22 @@ export async function getUpcomingTasks(days = 7): Promise<ActionResult<UpcomingT
       return { success: false, error: "Impossible de charger les taches." };
     }
 
+    const hydratedTasks = await hydrateTasksWithLabelsForUser(
+      supabase,
+      userId,
+      mapTaskRowsFromDb(data ?? []),
+    );
+
+    if (!hydratedTasks.success) {
+      return { success: false, error: hydratedTasks.error };
+    }
+
     return {
       success: true,
       data: {
         startDate,
         endDate,
-        tasks: mapTaskRowsFromDb(data ?? []),
+        tasks: hydratedTasks.data,
       },
     };
   });
@@ -345,9 +365,19 @@ export async function getCompletedTasks(
       return { success: false, error: "Impossible de charger les taches." };
     }
 
+    const hydratedTasks = await hydrateTasksWithLabelsForUser(
+      supabase,
+      userId,
+      mapTaskRowsFromDb(data ?? []),
+    );
+
+    if (!hydratedTasks.success) {
+      return { success: false, error: hydratedTasks.error };
+    }
+
     return {
       success: true,
-      data: { tasks: mapTaskRowsFromDb(data ?? []) },
+      data: { tasks: hydratedTasks.data },
     };
   });
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DM_Serif_Display } from "next/font/google";
 
+import { getLabels } from "@/app/actions/labels";
 import { getActiveSession } from "@/app/actions/sessions";
 import { getUserSettings } from "@/app/actions/settings";
 import { getTasks, getTodayTasks } from "@/app/actions/tasks";
@@ -67,11 +68,12 @@ function getUserFirstName(user: Awaited<ReturnType<typeof getUser>>) {
 
 export default async function ReturningHomePage() {
   const user = await getUser();
-  const [todayResult, activeSession, recentTasksResult, settingsResult] = await Promise.all([
+  const [todayResult, activeSession, recentTasksResult, settingsResult, labelsResult] = await Promise.all([
     getTodayTasks(),
     getActiveSession(),
     getTasks({ status: "active", limit: 3 }),
     getUserSettings(),
+    getLabels(),
   ]);
 
   const today = todayResult.success
@@ -80,6 +82,7 @@ export default async function ReturningHomePage() {
   const tasks = todayResult.success ? todayResult.data.tasks : [];
   const tasksError = todayResult.success ? null : todayResult.error;
   const recentTasks = recentTasksResult.success ? recentTasksResult.data.tasks : [];
+  const availableLabels = labelsResult.success ? labelsResult.data : [];
   const recentTask =
     recentTasks.find((task) => task.title.trim().length > 1) ?? null;
   const timeZone = settingsResult.success ? settingsResult.data.timezone : "Africa/Casablanca";
@@ -173,6 +176,7 @@ export default async function ReturningHomePage() {
         ) : (
           <TaskList
             tasks={tasks}
+            availableLabels={availableLabels}
             projects={[]}
             showQueueSection={false}
             showListHeader={false}

@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  getTaskLabelsMapForTaskIds,
+  type LabelRecord,
+} from "@/lib/services/labels";
 import { logServerError } from "@/lib/logging/logServerError";
 import type { TaskPriority } from "@/lib/tasks/types";
 import {
@@ -13,15 +17,19 @@ import {
   taskScheduledForSchema,
   taskTitleSchema,
 } from "@/lib/validation/task.schema";
+import { labelIdSchema } from "@/lib/validation/label.schema";
 
 const DUPLICATE_WINDOW_MS = 10_000;
 export const TASK_SELECT =
   "id, title, description, priority, completed, completed_at, scheduled_for, created_at, updated_at, project_id, archived_at, source, read_only, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
 
+export type TaskLabel = LabelRecord;
+
 export type TaskRow = {
   id: string;
   title: string;
   description: string | null;
+  labels: TaskLabel[];
   priority: TaskPriority;
   section_name?: string | null;
   completed: boolean;
@@ -55,6 +63,7 @@ export type TaskFilters = {
   includeArchived?: boolean;
   page?: number;
   limit?: number;
+  labelIds?: string[];
   projectId?: string | null;
   status?: "active" | "completed" | "archived" | "all";
   scheduledRange?: "all" | "day" | "week";
@@ -224,6 +233,7 @@ export function mapTaskRowFromDb(row: unknown): TaskRow {
       id: "",
       title: "",
       description: null,
+      labels: [],
       priority: 4,
       section_name: null,
       completed: false,
@@ -245,12 +255,51 @@ export function mapTaskRowFromDb(row: unknown): TaskRow {
   return {
     ...parsedRow,
     description: normalizeTaskDescription(parsedRow.description),
+    labels: [],
     priority: normalizeTaskPriority(parsedRow.priority),
   };
 }
 
 export function mapTaskRowsFromDb(rows: unknown): TaskRow[] {
   return Array.isArray(rows) ? rows.map(mapTaskRowFromDb) : [];
+}
+
+export async function hydrateTasksWithLabelsForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  tasks: TaskRow[],
+): Promise<ServiceResult<TaskRow[]>> {
+  if (tasks.length === 0) {
+    return { success: true, data: tasks };
+  }
+
+  const labelsResult = await getTaskLabelsMapForTaskIds(
+    supabase,
+    userId,
+    tasks.map((task) => task.id),
+  );
+
+  if (!labelsResult.success) {
+    return labelsResult;
+  }
+
+  return {
+    success: true,
+    data: tasks.map((task) => ({
+      ...task,
+      labels: labelsResult.data.get(task.id) ?? [],
+    })),
+  };
+}
+
+export async function hydrateTaskWithLabelsForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  task: TaskRow,
+): Promise<ServiceResult<TaskRow>> {
+  const result = await hydrateTasksWithLabelsForUser(supabase, userId, [task]);
+  if (!result.success) return result;
+  return { success: true, data: result.data[0] ?? { ...task, labels: [] } };
 }
 
 function toNumber(value: unknown) {
@@ -288,6 +337,11 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+function dedupeAndValidateLabelIds(labelIds: string[]) {
+  const uniqueIds = Array.from(new Set(labelIds));
+  return uniqueIds.filter((labelId) => labelIdSchema.safeParse(labelId).success);
+}
+
 function startOfWeekMonday(date: Date): Date {
   const day = date.getUTCDay();
   const delta = day === 0 ? -6 : 1 - day;
@@ -299,6 +353,66 @@ function formatDateUTC(date: Date): string {
   const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(date.getUTCDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+async function getTaskIdsMatchingLabelsForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  labelIds: string[],
+): Promise<ServiceResult<string[]>> {
+  try {
+    const { data: ownedLabels, error: labelsError } = await supabase
+      .from("labels")
+      .select("id")
+      .eq("user_id", userId)
+      .in("id", labelIds);
+
+    if (labelsError) {
+      logServerError({
+        scope: "services.tasks.getTaskIdsMatchingLabelsForUser",
+        userId,
+        error: labelsError,
+        context: { action: "select-labels" },
+      });
+      return { success: false, error: "Impossible de charger les taches." };
+    }
+
+    const ownedLabelIds = dedupeAndValidateLabelIds(
+      (ownedLabels ?? []).map((row) => String((row as { id: string }).id)),
+    );
+
+    if (ownedLabelIds.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    const { data, error } = await supabase
+      .from("task_labels")
+      .select("task_id")
+      .in("label_id", ownedLabelIds);
+
+    if (error) {
+      logServerError({
+        scope: "services.tasks.getTaskIdsMatchingLabelsForUser",
+        userId,
+        error,
+        context: { action: "select-task-labels" },
+      });
+      return { success: false, error: "Impossible de charger les taches." };
+    }
+
+    const taskIds = Array.from(
+      new Set((data ?? []).map((row) => String((row as { task_id: string }).task_id))),
+    );
+
+    return { success: true, data: taskIds };
+  } catch (error) {
+    logServerError({
+      scope: "services.tasks.getTaskIdsMatchingLabelsForUser",
+      userId,
+      error,
+    });
+    return { success: false, error: "Erreur reseau. Verifie ta connexion et reessaie." };
+  }
 }
 
 function applyTaskFilters<T extends {
@@ -435,8 +549,9 @@ export async function createTaskForUser(
       .limit(1)
       .maybeSingle();
 
-    if (existingTask && isRecentDuplicate(existingTask)) {
-      return { success: true, data: mapTaskRowFromDb(existingTask) };
+    const mappedExistingTask = existingTask ? mapTaskRowFromDb(existingTask) : null;
+    if (mappedExistingTask && isRecentDuplicate(mappedExistingTask)) {
+      return hydrateTaskWithLabelsForUser(supabase, userId, mappedExistingTask);
     }
 
     const { data, error } = await supabase
@@ -463,7 +578,7 @@ export async function createTaskForUser(
       };
     }
 
-    return { success: true, data: mapTaskRowFromDb(data) };
+    return hydrateTaskWithLabelsForUser(supabase, userId, mapTaskRowFromDb(data));
   } catch (error) {
     logServerError({
       scope: "services.tasks.createTaskForUser",
@@ -487,6 +602,7 @@ export async function getTasksForUser(
     const limit = Math.max(1, Math.min(100, filters.limit ?? 20));
     const includeArchived = Boolean(filters.includeArchived);
     const projectId = filters.projectId ?? null;
+    const normalizedLabelIds = dedupeAndValidateLabelIds(filters.labelIds ?? []);
     const status = filters.status ?? "all";
     const scheduledRange = filters.scheduledRange ?? "all";
     const scheduledOnly = filters.scheduledOnly ?? "all";
@@ -500,6 +616,31 @@ export async function getTasksForUser(
     const completedTo = filters.completedTo ? toDateOnly(filters.completedTo) : null;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
+    const taskIdsMatchingLabels =
+      normalizedLabelIds.length > 0
+        ? await getTaskIdsMatchingLabelsForUser(supabase, userId, normalizedLabelIds)
+        : null;
+
+    if (taskIdsMatchingLabels && !taskIdsMatchingLabels.success) {
+      return { success: false, error: taskIdsMatchingLabels.error };
+    }
+
+    const matchedTaskIds = taskIdsMatchingLabels?.data ?? null;
+
+    if (matchedTaskIds && matchedTaskIds.length === 0) {
+      return {
+        success: true,
+        data: {
+          tasks: [],
+          pagination: {
+            page,
+            limit,
+            totalCount: 0,
+            totalPages: 0,
+          },
+        },
+      };
+    }
 
     let countQuery = supabase
       .from("tasks")
@@ -517,6 +658,9 @@ export async function getTasksForUser(
       completedFrom,
       completedTo,
     });
+    if (matchedTaskIds) {
+      countQuery = countQuery.in("id", matchedTaskIds);
+    }
 
     const { error: countError, count } = await countQuery;
     if (countError) {
@@ -550,6 +694,9 @@ export async function getTasksForUser(
       completedFrom,
       completedTo,
     });
+    if (matchedTaskIds) {
+      dataQuery = dataQuery.in("id", matchedTaskIds);
+    }
 
     const { data, error } = await dataQuery;
 
@@ -566,7 +713,16 @@ export async function getTasksForUser(
       };
     }
 
-    const tasks = mapTaskRowsFromDb(data ?? []);
+    const hydratedTasks = await hydrateTasksWithLabelsForUser(
+      supabase,
+      userId,
+      mapTaskRowsFromDb(data ?? []),
+    );
+    if (!hydratedTasks.success) {
+      return { success: false, error: hydratedTasks.error };
+    }
+
+    const tasks = hydratedTasks.data;
     const totalCount = count ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -630,7 +786,7 @@ export async function getTaskByIdForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data: mapTaskRowFromDb(data) };
+    return hydrateTaskWithLabelsForUser(supabase, userId, mapTaskRowFromDb(data));
   } catch (error) {
     logServerError({
       scope: "services.tasks.getTaskByIdForUser",
@@ -722,7 +878,7 @@ export async function updateTaskForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data: mapTaskRowFromDb(data) };
+    return hydrateTaskWithLabelsForUser(supabase, userId, mapTaskRowFromDb(data));
   } catch (error) {
     logServerError({
       scope: "services.tasks.updateTaskForUser",
@@ -836,7 +992,7 @@ export async function setTaskCompletedForUser(
       }
     }
 
-    return { success: true, data: mapTaskRowFromDb(data) };
+    return hydrateTaskWithLabelsForUser(supabase, userId, mapTaskRowFromDb(data));
   } catch (error) {
     logServerError({
       scope: "services.tasks.setTaskCompletedForUser",
@@ -922,7 +1078,7 @@ export async function restoreTaskForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data: mapTaskRowFromDb(data) };
+    return hydrateTaskWithLabelsForUser(supabase, userId, mapTaskRowFromDb(data));
   } catch (error) {
     logServerError({
       scope: "services.tasks.restoreTaskForUser",
@@ -982,7 +1138,7 @@ export async function deleteTaskForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data: mapTaskRowFromDb(data) };
+    return hydrateTaskWithLabelsForUser(supabase, userId, mapTaskRowFromDb(data));
   } catch (error) {
     logServerError({
       scope: "services.tasks.deleteTaskForUser",
@@ -1213,7 +1369,7 @@ export async function updateTaskPomodoroOverridesForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data: mapTaskRowFromDb(data) };
+    return hydrateTaskWithLabelsForUser(supabase, userId, mapTaskRowFromDb(data));
   } catch (error) {
     logServerError({
       scope: "services.tasks.updateTaskPomodoroOverridesForUser",

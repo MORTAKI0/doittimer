@@ -6,14 +6,18 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
+import { LabelPill } from "@/components/ui/label-pill";
 import { Select } from "@/components/ui/select";
+import type { LabelRecord } from "@/app/actions/labels";
 
 type TasksFiltersBarProps = {
   projects: { id: string; name: string }[];
+  labels: LabelRecord[];
   currentStatus: "active" | "completed" | "archived" | "all";
   currentRange: "all" | "day" | "week";
   currentDate: string;
   currentProjectId: string | null;
+  currentLabelIds: string[];
   currentScheduledOnly: "all" | "scheduled" | "unscheduled";
   currentQuery: string;
 };
@@ -33,10 +37,12 @@ function addDays(date: Date, days: number): Date {
 
 export function TasksFiltersBar({
   projects,
+  labels,
   currentStatus,
   currentRange,
   currentDate,
   currentProjectId,
+  currentLabelIds,
   currentScheduledOnly,
   currentQuery,
 }: TasksFiltersBarProps) {
@@ -57,6 +63,7 @@ export function TasksFiltersBar({
 
   const today = React.useMemo(() => formatDate(new Date()), []);
   const tomorrow = React.useMemo(() => formatDate(addDays(new Date(), 1)), []);
+  const selectedLabelIdSet = React.useMemo(() => new Set(currentLabelIds), [currentLabelIds]);
 
   function pushParams(
     updater: (params: URLSearchParams) => void,
@@ -69,6 +76,22 @@ export function TasksFiltersBar({
     }
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
+  }
+
+  function toggleLabel(labelId: string) {
+    pushParams((params) => {
+      const nextLabelIds = new Set(searchParams.getAll("labelId"));
+      if (nextLabelIds.has(labelId)) {
+        nextLabelIds.delete(labelId);
+      } else {
+        nextLabelIds.add(labelId);
+      }
+
+      params.delete("labelId");
+      Array.from(nextLabelIds)
+        .sort((a, b) => a.localeCompare(b))
+        .forEach((value) => params.append("labelId", value));
+    });
   }
 
   function setQuickRange(mode: "today" | "tomorrow" | "week" | "all") {
@@ -202,6 +225,7 @@ export function TasksFiltersBar({
           onClick={() => {
             pushParams((params) => {
               params.delete("project");
+              params.delete("labelId");
               params.delete("status");
               params.delete("range");
               params.delete("date");
@@ -214,6 +238,38 @@ export function TasksFiltersBar({
         >
           Clear filters
         </Button>
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium text-muted-foreground">Labels</span>
+          {currentLabelIds.length > 0 ? (
+            <span className="text-xs text-muted-foreground">{currentLabelIds.length} selected</span>
+          ) : null}
+        </div>
+        {labels.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Create labels in Filters & Labels to filter tasks here.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {labels.map((label) => {
+              const isSelected = selectedLabelIdSet.has(label.id);
+              return (
+                <button
+                  key={label.id}
+                  type="button"
+                  className={[
+                    "focus-ring rounded-md",
+                    isSelected ? "ring-1 ring-foreground/20" : "",
+                  ].join(" ")}
+                  onClick={() => toggleLabel(label.id)}
+                  aria-pressed={isSelected}
+                  aria-label={`${isSelected ? "Remove" : "Add"} label filter ${label.name}`}
+                >
+                  <LabelPill name={label.name} colorHex={label.colorHex} />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

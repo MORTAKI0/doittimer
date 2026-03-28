@@ -3,11 +3,11 @@ import { describe, it } from "node:test";
 
 import {
   toSettingsAutomationResponse,
-} from "../../lib/automation/settings-route.ts";
+} from "../../lib/automation/settings-route";
 import {
   normalizeTimezone,
   settingsAgentPatchSchema,
-} from "../../lib/validation/settings.schema.ts";
+} from "../../lib/validation/settings.schema";
 
 describe("agent settings validation", () => {
   it("normalizes known timezones using the shared settings list", () => {

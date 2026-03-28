@@ -1,3 +1,4 @@
+import { getLabels } from "@/app/actions/labels";
 import { getProjects } from "@/app/actions/projects";
 import { getInboxTasks } from "@/app/actions/tasks";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -7,13 +8,15 @@ import { TaskList } from "@/app/(app)/tasks/components/TaskList";
 import { TaskPageHeader } from "@/app/(app)/tasks/components/TaskPageHeader";
 
 export default async function InboxPage() {
-  const [tasksResult, projectsResult] = await Promise.all([
+  const [tasksResult, projectsResult, labelsResult] = await Promise.all([
     getInboxTasks(),
     getProjects(),
+    getLabels(),
   ]);
 
   const tasks = tasksResult.success ? tasksResult.data : [];
   const projects = projectsResult.success ? projectsResult.data.filter((project) => !project.archived_at) : [];
+  const availableLabels = labelsResult.success ? labelsResult.data : [];
   const error = tasksResult.success ? null : tasksResult.error;
 
   return (
@@ -37,6 +40,7 @@ export default async function InboxPage() {
         ) : (
           <TaskList
             tasks={tasks}
+            availableLabels={availableLabels}
             projects={projects}
             showQueueSection={false}
             showListHeader={false}

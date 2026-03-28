@@ -5,7 +5,7 @@ import {
   toAgentNotionConnection,
   toAgentNotionSyncSummary,
   toNotionSyncAutomationResponse,
-} from "../../lib/automation/notion-route.ts";
+} from "../../lib/automation/notion-route";
 
 describe("agent notion mapping", () => {
   it("maps stored notion connection details to the public agent shape", () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { checkAutomationRateLimit } from "../../lib/automation/rate-limit.ts";
+import { checkAutomationRateLimit } from "../../lib/automation/rate-limit";
 
 describe("automation rate limiting", () => {
   it("enforces a scoped per-token limit", () => {

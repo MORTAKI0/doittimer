@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { getLabels } from "@/app/actions/labels";
 import { EmptyState } from "./components/EmptyState";
 import { AddTaskLauncher } from "./components/AddTaskLauncher";
 import { ProjectsPanel } from "./components/ProjectsPanel";
@@ -30,6 +31,7 @@ type SearchParams = Promise<{
   limit?: string;
   pageSize?: string;
   project?: string;
+  labelId?: string | string[];
   status?: string;
   range?: string;
   date?: string;
@@ -45,6 +47,11 @@ function formatDate(date: Date): string {
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function toArray(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value;
+  return typeof value === "string" ? [value] : [];
 }
 
 export default async function TasksPage(props: { searchParams: SearchParams }) {
@@ -86,17 +93,21 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
   const projectId = searchParams.project && searchParams.project.trim() !== ""
     ? searchParams.project
     : null;
+  const currentLabelIds = Array.from(
+    new Set(toArray(searchParams.labelId).map((value) => value.trim()).filter(Boolean)),
+  );
   const query = typeof searchParams.q === "string" ? searchParams.q.trim() : "";
   const completedFrom = typeof searchParams.from === "string" ? searchParams.from : null;
   const completedTo = typeof searchParams.to === "string" ? searchParams.to : null;
   const composeMode = searchParams.compose === "1";
 
-  const [tasksResult, projectsResult, queueResult] = await Promise.all([
+  const [tasksResult, projectsResult, queueResult, labelsResult] = await Promise.all([
     getTasks({
       includeArchived: false,
       page,
       limit: pageSize,
       projectId,
+      labelIds: currentLabelIds,
       status,
       scheduledRange,
       scheduledDate,
@@ -108,7 +119,34 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     }),
     getProjects({ includeArchived: true }),
     getTaskQueue(),
+    getLabels(),
   ]);
+
+  const availableLabels = labelsResult.success ? labelsResult.data : [];
+  const validLabelIdSet = new Set(availableLabels.map((label) => label.id));
+  const sanitizedLabelIds =
+    labelsResult.success
+      ? currentLabelIds.filter((labelId) => validLabelIdSet.has(labelId))
+      : currentLabelIds;
+
+  if (labelsResult.success && sanitizedLabelIds.length !== currentLabelIds.length) {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("pageSize", String(pageSize));
+    if (projectId) params.set("project", projectId);
+    if (status !== "all") params.set("status", status);
+    if (scheduledRange !== "all") params.set("range", scheduledRange);
+    if (scheduledRange !== "all") params.set("date", scheduledDate);
+    if (scheduledOnly !== "all") params.set("scheduled", scheduledOnly);
+    if (query.length > 0) params.set("q", query);
+    if (completedFrom) params.set("from", completedFrom);
+    if (completedTo) params.set("to", completedTo);
+    if (composeMode) params.set("compose", "1");
+    for (const labelId of sanitizedLabelIds) {
+      params.append("labelId", labelId);
+    }
+    redirect(`/tasks${params.toString() ? `?${params.toString()}` : ""}`);
+  }
 
   const tasksData = tasksResult.success ? tasksResult.data : { tasks: [], pagination: { page: 1, limit: 20, totalCount: 0, totalPages: 0 } };
   const tasks = tasksData.tasks;
@@ -119,6 +157,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     params.set("page", String(pagination.totalPages));
     params.set("pageSize", String(pageSize));
     if (projectId) params.set("project", projectId);
+    for (const labelId of sanitizedLabelIds) params.append("labelId", labelId);
     if (status !== "all") params.set("status", status);
     if (scheduledRange !== "all") params.set("range", scheduledRange);
     if (scheduledRange !== "all") params.set("date", scheduledDate);
@@ -139,6 +178,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     || status !== "all"
     || scheduledRange !== "all"
     || scheduledOnly !== "all"
+    || sanitizedLabelIds.length > 0
     || query.length > 0
     || Boolean(completedFrom)
     || Boolean(completedTo);
@@ -197,10 +237,12 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                 <div className="flex flex-col gap-4">
                   <TasksFiltersBar
                     projects={activeProjects}
+                    labels={availableLabels}
                     currentStatus={status}
                     currentRange={scheduledRange}
                     currentDate={scheduledDate}
                     currentProjectId={projectId}
+                    currentLabelIds={sanitizedLabelIds}
                     currentScheduledOnly={scheduledOnly}
                     currentQuery={query}
                   />
@@ -228,6 +270,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                     <div className="space-y-6">
                       <TaskList
                         tasks={tasks}
+                        availableLabels={availableLabels}
                         projects={activeProjects}
                         pomodoroStatsByTaskId={pomodoroStatsByTaskId}
                         queueItems={queueItems}

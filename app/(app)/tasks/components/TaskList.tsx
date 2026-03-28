@@ -11,6 +11,7 @@ import {
   removeTaskFromQueue,
   type TaskQueueRow,
 } from "@/app/actions/queue";
+import { setTaskLabels, type LabelRecord } from "@/app/actions/labels";
 import {
   deleteTask,
   restoreTask,
@@ -24,7 +25,9 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { IconCheck, IconPencil, IconTrash } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
+import { LabelPill } from "@/components/ui/label-pill";
 import { Tooltip } from "@/components/ui/tooltip";
+import { sortLabelsByName } from "@/lib/labels/utils";
 import type { TaskPriority } from "@/lib/tasks/types";
 import { DEFAULT_TASK_PRIORITY } from "@/lib/tasks/types";
 import {
@@ -38,6 +41,7 @@ import { PriorityPicker } from "./PriorityPicker";
 
 type TaskListProps = {
   tasks: TaskRow[];
+  availableLabels?: LabelRecord[];
   projects?: { id: string; name: string }[];
   pomodoroStatsByTaskId?: Record<string, { pomodoros_today: number; pomodoros_total: number }>;
   queueItems?: TaskQueueRow[];
@@ -68,8 +72,12 @@ const ERROR_MAP: Record<string, string> = {
   "Parametres pomodoro invalides.": "Invalid pomodoro settings.",
   "Impossible de charger la file.": "Unable to load the queue.",
   "Impossible de mettre a jour la file.": "Unable to update the queue.",
+  "Impossible de charger les labels.": "Unable to load labels.",
+  "Impossible de mettre a jour les labels de la tache.": "Unable to update task labels.",
   "Limite de 7 elements atteinte.": "Queue limit reached (7 items).",
   "Tache introuvable.": "Task not found.",
+  "Label introuvable.": "Label not found.",
+  "Un label avec ce nom existe deja.": "A label with this name already exists.",
   "Erreur reseau. Verifie ta connexion et reessaie.": "Network error. Check your connection and try again.",
   "This task is managed in Notion. Edit it in Notion and sync again.": "This task is managed in Notion. Edit it in Notion and sync again.",
 };
@@ -90,8 +98,13 @@ function hydrateTask(task: TaskRow): TaskRow {
   return {
     ...task,
     description: task.description ?? null,
+    labels: sortLabelsByName(task.labels ?? []),
     priority: task.priority ?? DEFAULT_TASK_PRIORITY,
   };
+}
+
+function normalizeSelectedLabelIds(labelIds: string[]) {
+  return Array.from(new Set(labelIds)).sort((a, b) => a.localeCompare(b));
 }
 
 function getPriorityTone(priority: TaskPriority) {
@@ -137,6 +150,7 @@ function isManagedInNotion(task: TaskRow) {
 
 export function TaskList({
   tasks,
+  availableLabels = [],
   projects = [],
   pomodoroStatsByTaskId = {},
   queueItems = EMPTY_QUEUE_ITEMS,
@@ -157,6 +171,8 @@ export function TaskList({
   const [draftPriority, setDraftPriority] = React.useState<TaskPriority>(DEFAULT_TASK_PRIORITY);
   const [draftScheduledFor, setDraftScheduledFor] = React.useState<string | null>(null);
   const [draftProjectId, setDraftProjectId] = React.useState("");
+  const [draftLabelQuery, setDraftLabelQuery] = React.useState("");
+  const [draftSelectedLabelIds, setDraftSelectedLabelIds] = React.useState<string[]>([]);
   const [useCustomPomodoro, setUseCustomPomodoro] = React.useState(false);
   const [draftPomodoroWork, setDraftPomodoroWork] = React.useState("");
   const [draftPomodoroShort, setDraftPomodoroShort] = React.useState("");
@@ -177,6 +193,12 @@ export function TaskList({
   React.useEffect(() => {
     setQueue(queueItems);
   }, [queueItems]);
+
+  React.useEffect(() => {
+    setDraftSelectedLabelIds((prev) =>
+      prev.filter((labelId) => availableLabels.some((label) => label.id === labelId)),
+    );
+  }, [availableLabels]);
 
   function setPending(id: string, value: boolean) {
     setPendingIds((prev) => ({ ...prev, [id]: value }));
@@ -211,6 +233,8 @@ export function TaskList({
     setDraftPriority(task.priority ?? DEFAULT_TASK_PRIORITY);
     setDraftScheduledFor(task.scheduled_for ?? null);
     setDraftProjectId(task.project_id ?? "");
+    setDraftLabelQuery("");
+    setDraftSelectedLabelIds(task.labels.map((label) => label.id));
     setUseCustomPomodoro(hasOverrides);
     setDraftPomodoroWork(typeof task.pomodoro_work_minutes === "number" ? String(task.pomodoro_work_minutes) : "");
     setDraftPomodoroShort(typeof task.pomodoro_short_break_minutes === "number" ? String(task.pomodoro_short_break_minutes) : "");
@@ -227,6 +251,8 @@ export function TaskList({
     setDraftPriority(DEFAULT_TASK_PRIORITY);
     setDraftScheduledFor(null);
     setDraftProjectId("");
+    setDraftLabelQuery("");
+    setDraftSelectedLabelIds([]);
     setUseCustomPomodoro(false);
     setDraftPomodoroWork("");
     setDraftPomodoroShort("");
@@ -391,6 +417,26 @@ export function TaskList({
       shouldRefresh = true;
     }
 
+    const nextSelectedLabelIds = normalizeSelectedLabelIds(draftSelectedLabelIds);
+    const currentLabelIds = normalizeSelectedLabelIds(task.labels.map((label) => label.id));
+    const labelsChanged =
+      currentLabelIds.length !== nextSelectedLabelIds.length
+      || currentLabelIds.some((labelId, index) => labelId !== nextSelectedLabelIds[index]);
+
+    if (labelsChanged) {
+      const result = await setTaskLabels(task.id, nextSelectedLabelIds);
+      if (!result.success) {
+        setError(task.id, toEnglishError(result.error));
+        setPending(task.id, false);
+        return;
+      }
+      updated = {
+        ...updated,
+        labels: result.data,
+      };
+      shouldRefresh = true;
+    }
+
     setItems((prev) =>
       prev.map((item) =>
         item.id === task.id ? hydrateTask(updated) : item,
@@ -514,9 +560,25 @@ export function TaskList({
   }
 
   const projectLabelById = React.useMemo(() => new Map(projects.map((project) => [project.id, project.name] as const)), [projects]);
+  const labelById = React.useMemo(
+    () => new Map(availableLabels.map((label) => [label.id, label] as const)),
+    [availableLabels],
+  );
   const queueIds = new Set(queue.map((item) => item.task_id));
   const queueIsFull = queue.length >= MAX_QUEUE_ITEMS;
   const visibleItems = items;
+
+  function toggleDraftLabel(labelId: string) {
+    setDraftSelectedLabelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(labelId)) {
+        next.delete(labelId);
+      } else {
+        next.add(labelId);
+      }
+      return normalizeSelectedLabelIds(Array.from(next));
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -588,6 +650,8 @@ export function TaskList({
             const isPending = Boolean(pendingIds[task.id]);
             const queuePending = Boolean(queuePendingIds[task.id]);
             const errorMessage = errorsById[task.id];
+            const visibleLabels = sortLabelsByName(task.labels).slice(0, 3);
+            const overflowLabelCount = Math.max(task.labels.length - visibleLabels.length, 0);
             const projectLabel = task.project_id ? projectLabelById.get(task.project_id) ?? "Project archived" : null;
             const stats = pomodoroStatsByTaskId[task.id];
             const duePresentation = formatDueDateLabel(task.scheduled_for ?? null);
@@ -595,6 +659,16 @@ export function TaskList({
             const isManaged = isManagedInNotion(task);
             const priorityTone = getPriorityTone(task.priority);
             const showMetadata = Boolean(projectLabel) || Boolean(stats && stats.pomodoros_today > 0) || isArchived;
+            const filteredLabels = sortLabelsByName(
+              availableLabels.filter((label) =>
+                label.name.toLowerCase().includes(draftLabelQuery.trim().toLowerCase()),
+              ),
+            );
+            const selectedDraftLabels = sortLabelsByName(
+              draftSelectedLabelIds
+                .map((labelId) => labelById.get(labelId))
+                .filter((label): label is LabelRecord => Boolean(label)),
+            );
 
             return (
               <li key={task.id} className={["task-row", isArchived ? "opacity-80" : ""].join(" ")}>
@@ -623,6 +697,14 @@ export function TaskList({
                           />
                           {queueIds.has(task.id) ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-secondary)]" aria-hidden="true" /> : null}
                           <p className={["task-title truncate", task.completed ? "task-title-completed" : ""].join(" ")}>{task.title}</p>
+                          {visibleLabels.map((label) => (
+                            <LabelPill key={label.id} name={label.name} colorHex={label.colorHex} className="shrink-0" />
+                          ))}
+                          {overflowLabelCount > 0 ? (
+                            <span className="inline-flex h-5 shrink-0 items-center rounded-[4px] border-[0.5px] border-border px-2 text-[11px] font-medium text-muted-foreground">
+                              +{overflowLabelCount}
+                            </span>
+                          ) : null}
                           {isManaged ? <span className="shrink-0 text-xs text-muted-foreground">🔗</span> : null}
                         </div>
                         {showMetadata ? (
@@ -705,6 +787,79 @@ export function TaskList({
                             ))}
                           </select>
                         </label>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                            Labels
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {selectedDraftLabels.length} selected
+                          </span>
+                        </div>
+                        {selectedDraftLabels.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedDraftLabels.map((label) => (
+                              <button
+                                key={label.id}
+                                type="button"
+                                className="focus-ring rounded-[4px]"
+                                onClick={() => toggleDraftLabel(label.id)}
+                                disabled={isPending}
+                                aria-label={`Remove label ${label.name}`}
+                              >
+                                <LabelPill name={label.name} colorHex={label.colorHex} />
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No labels assigned yet.
+                          </p>
+                        )}
+                        <Input
+                          value={draftLabelQuery}
+                          onChange={(event) => setDraftLabelQuery(event.target.value)}
+                          placeholder="Search labels"
+                          disabled={isPending || availableLabels.length === 0}
+                          aria-label="Search labels"
+                        />
+                        {availableLabels.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            Create labels in Filters & Labels before assigning them here.
+                          </p>
+                        ) : (
+                          <div className="max-h-40 overflow-y-auto rounded-md border-[0.5px] border-border">
+                            <ul className="divide-y divide-border">
+                              {filteredLabels.length === 0 ? (
+                                <li className="px-3 py-2 text-sm text-muted-foreground">
+                                  No labels match this search.
+                                </li>
+                              ) : (
+                                filteredLabels.map((label) => {
+                                  const isSelected = draftSelectedLabelIds.includes(label.id);
+                                  return (
+                                    <li key={label.id}>
+                                      <button
+                                        type="button"
+                                        className="focus-ring flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted"
+                                        onClick={() => toggleDraftLabel(label.id)}
+                                        disabled={isPending}
+                                        aria-pressed={isSelected}
+                                        aria-label={`${isSelected ? "Unselect" : "Select"} label ${label.name}`}
+                                      >
+                                        <LabelPill name={label.name} colorHex={label.colorHex} />
+                                        <span className="text-xs text-muted-foreground">
+                                          {isSelected ? "Selected" : "Select"}
+                                        </span>
+                                      </button>
+                                    </li>
+                                  );
+                                })
+                              )}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">

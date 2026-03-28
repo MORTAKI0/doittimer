@@ -1,8 +1,10 @@
 import Link from "next/link";
 
+import { getLabels } from "@/app/actions/labels";
 import { buttonStyles } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TaskPageHeader } from "@/app/(app)/tasks/components/TaskPageHeader";
+import { LabelsManager } from "./LabelsManager";
 
 export const revalidate = 60;
 
@@ -12,7 +14,11 @@ const DEFAULT_FILTERS = [
   { id: "due-today", name: "Due today", query: "due:today" },
 ] as const;
 
-export default function FiltersLabelsPage() {
+export default async function FiltersLabelsPage() {
+  const labelsResult = await getLabels();
+  const labels = labelsResult.success ? labelsResult.data : [];
+  const labelsError = labelsResult.success ? null : labelsResult.error;
+
   return (
     <div className="page-content-column space-y-8">
       <TaskPageHeader
@@ -41,16 +47,14 @@ export default function FiltersLabelsPage() {
       </section>
 
       <section className="space-y-4">
-        <div className="space-y-1">
-          <h2 className="page-section-label">Labels</h2>
-          <p className="text-sm text-muted-foreground">
-            Label CRUD and task-level label assignment need backend tables before this view can become interactive.
-          </p>
-        </div>
-        <EmptyState
-          title="Labels are not connected yet"
-          description="This page is wired and navigable, but label data depends on the future labels and task_labels backend tables."
-        />
+        {labelsError ? (
+          <EmptyState
+            title="Labels are temporarily unavailable"
+            description={labelsError}
+          />
+        ) : (
+          <LabelsManager initialLabels={labels} />
+        )}
       </section>
 
       <section className="space-y-3">
