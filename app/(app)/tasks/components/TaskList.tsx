@@ -15,10 +15,8 @@ import {
   deleteTask,
   restoreTask,
   setTaskCompleted,
-  setTaskScheduledFor,
+  updateTaskDetails,
   updateTaskPomodoroOverrides,
-  updateTaskProject,
-  updateTaskTitle,
   type TaskPomodoroOverrides,
   type TaskRow,
 } from "@/app/actions/tasks";
@@ -27,8 +25,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { IconCheck, IconPencil, IconTrash } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/tooltip";
-import { mergeTaskPresentationMeta, saveTaskPresentationMeta } from "@/lib/tasks/presentation";
-import type { TaskPresentationMeta, TaskPriority } from "@/lib/tasks/types";
+import type { TaskPriority } from "@/lib/tasks/types";
 import { DEFAULT_TASK_PRIORITY } from "@/lib/tasks/types";
 import {
   pomodoroPresets,
@@ -52,8 +49,6 @@ type TaskListProps = {
   inlineCreateDefaultScheduledFor?: string | null;
   inlineCreateDefaultProjectId?: string | null;
 };
-
-type TaskItem = TaskRow & TaskPresentationMeta;
 
 const EMPTY_QUEUE_ITEMS: TaskQueueRow[] = [];
 
@@ -79,29 +74,6 @@ const ERROR_MAP: Record<string, string> = {
   "This task is managed in Notion. Edit it in Notion and sync again.": "This task is managed in Notion. Edit it in Notion and sync again.",
 };
 
-const PRIORITY_STYLES: Record<TaskPriority, { border: string; hover: string; fill: string }> = {
-  1: {
-    border: "border-[var(--priority-1)]",
-    hover: "hover:bg-[color-mix(in_oklab,var(--priority-1)_15%,transparent)]",
-    fill: "bg-[var(--priority-1)] text-white",
-  },
-  2: {
-    border: "border-[var(--priority-2)]",
-    hover: "hover:bg-[color-mix(in_oklab,var(--priority-2)_15%,transparent)]",
-    fill: "bg-[var(--priority-2)] text-white",
-  },
-  3: {
-    border: "border-[var(--priority-3)]",
-    hover: "hover:bg-[color-mix(in_oklab,var(--priority-3)_15%,transparent)]",
-    fill: "bg-[var(--priority-3)] text-white",
-  },
-  4: {
-    border: "border-[var(--priority-4)]",
-    hover: "hover:bg-[color-mix(in_oklab,var(--priority-4)_15%,transparent)]",
-    fill: "bg-[var(--priority-4)] text-white",
-  },
-};
-
 function toEnglishError(message: string) {
   return ERROR_MAP[message] ?? message;
 }
@@ -114,8 +86,25 @@ function todayYYYYMMDD(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function hydrateTask(task: TaskRow): TaskItem {
-  return mergeTaskPresentationMeta(task);
+function hydrateTask(task: TaskRow): TaskRow {
+  return {
+    ...task,
+    description: task.description ?? null,
+    priority: task.priority ?? DEFAULT_TASK_PRIORITY,
+  };
+}
+
+function getPriorityTone(priority: TaskPriority) {
+  switch (priority) {
+    case 1:
+      return "var(--destructive)";
+    case 2:
+      return "var(--warning)";
+    case 3:
+      return "var(--accent-bright)";
+    default:
+      return "var(--text-ghost)";
+  }
 }
 
 function formatDueDateLabel(value: string | null) {
@@ -161,7 +150,7 @@ export function TaskList({
 }: TaskListProps) {
   const router = useRouter();
   const [queue, setQueue] = React.useState<TaskQueueRow[]>(queueItems);
-  const [items, setItems] = React.useState<TaskItem[]>(() => tasks.map(hydrateTask));
+  const [items, setItems] = React.useState<TaskRow[]>(() => tasks.map(hydrateTask));
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draftTitle, setDraftTitle] = React.useState("");
   const [draftDescription, setDraftDescription] = React.useState("");
@@ -178,6 +167,7 @@ export function TaskList({
   const [errorsById, setErrorsById] = React.useState<Record<string, string | null>>({});
   const [queueError, setQueueError] = React.useState<string | null>(null);
   const [queueOpen, setQueueOpen] = React.useState(true);
+  const descriptionTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const MAX_QUEUE_ITEMS = 7;
 
   React.useEffect(() => {
@@ -200,7 +190,14 @@ export function TaskList({
     setQueuePendingIds((prev) => ({ ...prev, [id]: value }));
   }
 
-  function startEditing(task: TaskItem) {
+  React.useEffect(() => {
+    const textarea = descriptionTextareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [draftDescription, editingId]);
+
+  function startEditing(task: TaskRow) {
     const hasOverrides = [
       task.pomodoro_work_minutes,
       task.pomodoro_short_break_minutes,
@@ -210,8 +207,8 @@ export function TaskList({
 
     setEditingId(task.id);
     setDraftTitle(task.title);
-    setDraftDescription(task.description);
-    setDraftPriority(task.priority);
+    setDraftDescription(task.description ?? "");
+    setDraftPriority(task.priority ?? DEFAULT_TASK_PRIORITY);
     setDraftScheduledFor(task.scheduled_for ?? null);
     setDraftProjectId(task.project_id ?? "");
     setUseCustomPomodoro(hasOverrides);
@@ -248,7 +245,7 @@ export function TaskList({
     return value == null ? "" : String(value);
   }
 
-  async function handleToggle(task: TaskItem) {
+  async function handleToggle(task: TaskRow) {
     if (pendingIds[task.id]) return;
     const nextCompleted = !task.completed;
     const previousCompleted = task.completed;
@@ -270,7 +267,7 @@ export function TaskList({
     setPending(task.id, false);
   }
 
-  async function handleResetPomodoro(task: TaskItem) {
+  async function handleResetPomodoro(task: TaskRow) {
     if (pendingIds[task.id]) return;
     setPending(task.id, true);
     setError(task.id, null);
@@ -292,7 +289,7 @@ export function TaskList({
     router.refresh();
   }
 
-  async function handleApplyPomodoroPreset(task: TaskItem, preset: PomodoroPreset) {
+  async function handleApplyPomodoroPreset(task: TaskRow, preset: PomodoroPreset) {
     if (pendingIds[task.id]) return;
 
     const overrides = presetToOverrides(preset);
@@ -322,11 +319,12 @@ export function TaskList({
     router.refresh();
   }
 
-  async function handleSave(task: TaskItem) {
+  async function handleSave(task: TaskRow) {
     if (pendingIds[task.id]) return;
     const trimmedTitle = draftTitle.trim();
     const trimmedDescription = draftDescription.trim();
     const normalizedProjectId = draftProjectId.trim() !== "" ? draftProjectId : null;
+    const normalizedDescription = trimmedDescription.length > 0 ? trimmedDescription : null;
 
     if (!trimmedTitle) {
       setError(task.id, "Title is required.");
@@ -337,31 +335,21 @@ export function TaskList({
     setError(task.id, null);
     let updated: TaskRow = task;
     let shouldRefresh = false;
+    const detailsChanged =
+      trimmedTitle !== task.title ||
+      normalizedDescription !== (task.description ?? null) ||
+      draftPriority !== task.priority ||
+      normalizedProjectId !== (task.project_id ?? null) ||
+      (draftScheduledFor ?? null) !== (task.scheduled_for ?? null);
 
-    if (trimmedTitle !== task.title) {
-      const result = await updateTaskTitle(task.id, trimmedTitle);
-      if (!result.success) {
-        setError(task.id, toEnglishError(result.error));
-        setPending(task.id, false);
-        return;
-      }
-      updated = result.data;
-      shouldRefresh = true;
-    }
-
-    if (normalizedProjectId !== (task.project_id ?? null)) {
-      const result = await updateTaskProject(task.id, normalizedProjectId);
-      if (!result.success) {
-        setError(task.id, toEnglishError(result.error));
-        setPending(task.id, false);
-        return;
-      }
-      updated = result.data;
-      shouldRefresh = true;
-    }
-
-    if ((draftScheduledFor ?? null) !== (task.scheduled_for ?? null)) {
-      const result = await setTaskScheduledFor(task.id, draftScheduledFor ?? null);
+    if (detailsChanged) {
+      const result = await updateTaskDetails(task.id, {
+        title: trimmedTitle,
+        description: normalizedDescription,
+        priority: draftPriority,
+        projectId: normalizedProjectId,
+        scheduledFor: draftScheduledFor ?? null,
+      });
       if (!result.success) {
         setError(task.id, toEnglishError(result.error));
         setPending(task.id, false);
@@ -403,22 +391,9 @@ export function TaskList({
       shouldRefresh = true;
     }
 
-    saveTaskPresentationMeta(task.id, {
-      priority: draftPriority,
-      description: trimmedDescription,
-      sectionName: task.sectionName,
-    });
-
     setItems((prev) =>
       prev.map((item) =>
-        item.id === task.id
-          ? hydrateTask({
-              ...updated,
-              priority: draftPriority,
-              description: trimmedDescription,
-              section_name: task.sectionName,
-            })
-          : item,
+        item.id === task.id ? hydrateTask(updated) : item,
       ),
     );
 
@@ -427,7 +402,7 @@ export function TaskList({
     if (shouldRefresh) router.refresh();
   }
 
-  async function handleDelete(task: TaskItem) {
+  async function handleDelete(task: TaskRow) {
     if (pendingIds[task.id]) return;
     if (!window.confirm("Delete this task?")) return;
 
@@ -445,7 +420,7 @@ export function TaskList({
     setPending(task.id, false);
   }
 
-  async function handleRestore(task: TaskItem) {
+  async function handleRestore(task: TaskRow) {
     if (pendingIds[task.id]) return;
     setPending(task.id, true);
     setError(task.id, null);
@@ -470,7 +445,7 @@ export function TaskList({
     setQueue(result.data);
   }
 
-  async function handleQueueAdd(task: TaskItem) {
+  async function handleQueueAdd(task: TaskRow) {
     if (queuePendingIds[task.id]) return;
     setQueuePending(task.id, true);
     setQueueError(null);
@@ -618,9 +593,8 @@ export function TaskList({
             const duePresentation = formatDueDateLabel(task.scheduled_for ?? null);
             const isArchived = task.archived_at != null;
             const isManaged = isManagedInNotion(task);
-            const priorityStyles = PRIORITY_STYLES[task.priority];
-            const hasDescription = task.description.trim().length > 0;
-            const showMetadata = Boolean(projectLabel) || Boolean(task.sectionName) || Boolean(stats && stats.pomodoros_today > 0) || isArchived;
+            const priorityTone = getPriorityTone(task.priority);
+            const showMetadata = Boolean(projectLabel) || Boolean(stats && stats.pomodoros_today > 0) || isArchived;
 
             return (
               <li key={task.id} className={["task-row", isArchived ? "opacity-80" : ""].join(" ")}>
@@ -630,8 +604,8 @@ export function TaskList({
                       <button
                         type="button"
                         className={[
-                          "focus-ring ui-hover mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
-                          task.completed ? priorityStyles.fill : `${priorityStyles.border} ${priorityStyles.hover}`,
+                          "focus-ring ui-hover mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-border",
+                          task.completed ? "bg-foreground text-background" : "bg-transparent hover:bg-muted",
                         ].join(" ")}
                         disabled={isPending || isArchived || isManaged}
                         onClick={() => void handleToggle(task)}
@@ -642,19 +616,21 @@ export function TaskList({
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: priorityTone }}
+                            aria-hidden="true"
+                          />
                           {queueIds.has(task.id) ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-secondary)]" aria-hidden="true" /> : null}
                           <p className={["task-title truncate", task.completed ? "task-title-completed" : ""].join(" ")}>{task.title}</p>
-                          {hasDescription ? <span className="shrink-0 text-xs text-muted-foreground">≡</span> : null}
                           {isManaged ? <span className="shrink-0 text-xs text-muted-foreground">🔗</span> : null}
                         </div>
                         {showMetadata ? (
                           <div className="task-meta flex flex-wrap items-center gap-2">
                             {projectLabel ? <span>{projectLabel}</span> : null}
-                            {projectLabel && task.sectionName ? <span aria-hidden="true">·</span> : null}
-                            {task.sectionName ? <span>{task.sectionName}</span> : null}
                             {stats && stats.pomodoros_today > 0 ? (
                               <>
-                                {(projectLabel || task.sectionName) ? <span aria-hidden="true">·</span> : null}
+                                {projectLabel ? <span aria-hidden="true">·</span> : null}
                                 <span className="text-[11px]">🍅 {stats.pomodoros_today}</span>
                               </>
                             ) : null}
@@ -704,7 +680,17 @@ export function TaskList({
                   <div className="mt-3 rounded-md border-[0.5px] border-border bg-card p-3">
                     <div className="space-y-3">
                       <Input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} maxLength={500} disabled={isPending} aria-label="Task title" />
-                      <Input value={draftDescription} onChange={(event) => setDraftDescription(event.target.value)} maxLength={500} disabled={isPending} aria-label="Task description" placeholder="Description" />
+                      <textarea
+                        ref={descriptionTextareaRef}
+                        value={draftDescription}
+                        onChange={(event) => setDraftDescription(event.target.value)}
+                        maxLength={1000}
+                        disabled={isPending}
+                        aria-label="Task description"
+                        placeholder="Description"
+                        rows={1}
+                        className="focus-ring w-full overflow-hidden rounded-md border-0 bg-transparent px-0 py-1 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      />
                       <div className="flex flex-wrap gap-2">
                         <DatePickerPopover value={draftScheduledFor} onSelect={setDraftScheduledFor} />
                         <PriorityPicker value={draftPriority} onSelect={setDraftPriority} />

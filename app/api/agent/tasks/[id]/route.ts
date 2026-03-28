@@ -2,9 +2,7 @@ import {
   deleteTaskForUser,
   getTaskByIdForUser,
   setTaskCompletedForUser,
-  setTaskScheduledForUser,
-  updateTaskProjectForUser,
-  updateTaskTitleForUser,
+  updateTaskForUser,
 } from "@/lib/services/tasks";
 import {
   getAutomationRouteContext,
@@ -53,42 +51,38 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return toAutomationErrorResponse(result);
   }
 
-  if (parsedBody.data.title !== undefined) {
-    result = await updateTaskTitleForUser(
-      context.value.supabase,
-      context.value.auth.userId,
-      id,
-      parsedBody.data.title,
-    );
+  const {
+    completed,
+    title,
+    description,
+    priority,
+    scheduledFor,
+    projectId,
+  } = parsedBody.data;
+
+  if (
+    title !== undefined ||
+    description !== undefined ||
+    priority !== undefined ||
+    scheduledFor !== undefined ||
+    projectId !== undefined
+  ) {
+    result = await updateTaskForUser(context.value.supabase, context.value.auth.userId, id, {
+      title,
+      description,
+      priority,
+      scheduledFor,
+      projectId,
+    });
     if (!result.success) return toAutomationErrorResponse(result);
   }
 
-  if (parsedBody.data.completed !== undefined) {
+  if (completed !== undefined) {
     result = await setTaskCompletedForUser(
       context.value.supabase,
       context.value.auth.userId,
       id,
-      parsedBody.data.completed,
-    );
-    if (!result.success) return toAutomationErrorResponse(result);
-  }
-
-  if (parsedBody.data.scheduledFor !== undefined) {
-    result = await setTaskScheduledForUser(
-      context.value.supabase,
-      context.value.auth.userId,
-      id,
-      parsedBody.data.scheduledFor,
-    );
-    if (!result.success) return toAutomationErrorResponse(result);
-  }
-
-  if (parsedBody.data.projectId !== undefined) {
-    result = await updateTaskProjectForUser(
-      context.value.supabase,
-      context.value.auth.userId,
-      id,
-      parsedBody.data.projectId,
+      completed,
     );
     if (!result.success) return toAutomationErrorResponse(result);
   }

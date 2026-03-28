@@ -22,6 +22,7 @@ async function ensureAutoArchiveCompletedIsDisabled(
 test("create, toggle, edit, delete a task", async ({ page }) => {
   const title = uniqueTitle("E2E-Task");
   const updatedTitle = `${title}-Updated`;
+  const updatedDescription = `${title} context for the next device`;
 
   await ensureAutoArchiveCompletedIsDisabled(page);
   await page.goto("/tasks");
@@ -55,6 +56,8 @@ test("create, toggle, edit, delete a task", async ({ page }) => {
   await expect(rowInput).toHaveValue(title, { timeout: 20000 });
 
   await rowInput.fill(updatedTitle);
+  await row.getByLabel("Task description").fill(updatedDescription);
+  await row.getByRole("radio", { name: "High" }).click();
   await saveBtn.click();
 
   // Wait for inline editor to close (Save disappears)
@@ -82,6 +85,20 @@ test("create, toggle, edit, delete a task", async ({ page }) => {
       { timeout: 60000, intervals: [1000, 1500, 2000, 3000] },
     )
     .toEqual({ oldExists: false, newExists: true });
+
+  const reopenedRow = page.locator("li").filter({ hasText: updatedTitle });
+  await reopenedRow.getByRole("button", { name: "Edit task" }).click();
+  await expect(reopenedRow.getByLabel("Task description")).toHaveValue(updatedDescription, {
+    timeout: 20000,
+  });
+  await expect(reopenedRow.getByRole("radio", { name: "High" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await reopenedRow.getByRole("button", { name: "Cancel" }).click();
+  await expect(reopenedRow.getByRole("button", { name: "Save" })).toBeHidden({
+    timeout: 20000,
+  });
 
   // Toggle to completed, then back to active, waiting for each row mutation to settle.
   const updatedRow = page.locator("li").filter({ hasText: updatedTitle });

@@ -18,6 +18,7 @@ import type {
 import {
   taskPomodoroOverridesSchema,
   taskProjectIdSchema,
+  taskEditableFieldsSchema,
   taskScheduledForSchema,
   taskTitleSchema,
 } from "@/lib/validation/task.schema";
@@ -66,16 +67,15 @@ const createTaskBodySchema = z.object({
   scheduledFor: taskScheduledForSchema.nullable().optional(),
 });
 
-const patchTaskBodySchema = z
-  .object({
-    title: taskTitleSchema.optional(),
+const patchTaskBodySchema = taskEditableFieldsSchema
+  .extend({
     completed: z.boolean().optional(),
-    scheduledFor: taskScheduledForSchema.nullable().optional(),
-    projectId: taskProjectIdSchema,
   })
   .refine(
     (value) =>
       value.title !== undefined ||
+      value.description !== undefined ||
+      value.priority !== undefined ||
       value.completed !== undefined ||
       value.scheduledFor !== undefined ||
       value.projectId !== undefined,

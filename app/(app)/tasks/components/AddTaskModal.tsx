@@ -3,7 +3,6 @@
 import * as React from "react";
 
 import { Dialog } from "@/components/ui/dialog";
-import type { TaskPresentationMeta } from "@/lib/tasks/types";
 import type { TaskRow } from "@/app/actions/tasks";
 import { CreateTaskForm } from "./CreateTaskForm";
 
@@ -18,7 +17,7 @@ type AddTaskModalProps = {
   projects: ProjectOption[];
   defaultScheduledFor?: string | null;
   defaultProjectId?: string | null;
-  onCreated?: (task: TaskRow, meta: TaskPresentationMeta) => void;
+  onCreated?: (task: TaskRow) => void;
 };
 
 export function AddTaskModal({

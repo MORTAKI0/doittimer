@@ -6,11 +6,7 @@ import { useRouter } from "next/navigation";
 import { createTask, type TaskRow } from "@/app/actions/tasks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { saveTaskPresentationMeta } from "@/lib/tasks/presentation";
-import type { TaskPresentationMeta, TaskPriority } from "@/lib/tasks/types";
-import { DEFAULT_TASK_PRIORITY } from "@/lib/tasks/types";
 import { DatePickerPopover } from "./DatePickerPopover";
-import { PriorityPicker } from "./PriorityPicker";
 
 const ERROR_MAP: Record<string, string> = {
   "Le titre est requis.": "Title is required.",
@@ -36,7 +32,7 @@ type CreateTaskFormProps = {
   autoFocusTitle?: boolean;
   onCancel?: () => void;
   onSuccess?: () => void;
-  onCreated?: (task: TaskRow, meta: TaskPresentationMeta) => void;
+  onCreated?: (task: TaskRow) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onSubmittingChange?: (submitting: boolean) => void;
 };
@@ -48,8 +44,6 @@ function toEnglishError(message: string) {
 function hasDirtyState(
   fields: {
   title: string;
-  description: string;
-  priority: TaskPriority;
   scheduledFor: string | null;
   projectId: string | null;
 },
@@ -60,8 +54,6 @@ function hasDirtyState(
 ) {
   return (
     fields.title.trim().length > 0
-    || fields.description.trim().length > 0
-    || fields.priority !== DEFAULT_TASK_PRIORITY
     || fields.scheduledFor !== defaults.scheduledFor
     || fields.projectId !== defaults.projectId
   );
@@ -81,8 +73,6 @@ export function CreateTaskForm({
   const router = useRouter();
   const titleRef = React.useRef<HTMLInputElement | null>(null);
   const [title, setTitle] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [priority, setPriority] = React.useState<TaskPriority>(DEFAULT_TASK_PRIORITY);
   const [scheduledFor, setScheduledFor] = React.useState<string | null>(defaultScheduledFor);
   const [projectId, setProjectId] = React.useState<string | null>(defaultProjectId);
   const [error, setError] = React.useState<string | null>(null);
@@ -104,8 +94,6 @@ export function CreateTaskForm({
     onDirtyChange?.(
       hasDirtyState({
         title,
-        description,
-        priority,
         scheduledFor,
         projectId,
       }, {
@@ -113,7 +101,7 @@ export function CreateTaskForm({
         projectId: defaultProjectId,
       }),
     );
-  }, [defaultProjectId, defaultScheduledFor, description, onDirtyChange, priority, projectId, scheduledFor, title]);
+  }, [defaultProjectId, defaultScheduledFor, onDirtyChange, projectId, scheduledFor, title]);
 
   React.useEffect(() => {
     if (!error) return;
@@ -122,8 +110,6 @@ export function CreateTaskForm({
 
   function reset() {
     setTitle("");
-    setDescription("");
-    setPriority(DEFAULT_TASK_PRIORITY);
     setScheduledFor(defaultScheduledFor);
     setProjectId(defaultProjectId);
     setError(null);
@@ -152,14 +138,7 @@ export function CreateTaskForm({
         return;
       }
 
-      const meta: TaskPresentationMeta = {
-        priority,
-        description: description.trim(),
-        sectionName: null,
-      };
-
-      saveTaskPresentationMeta(result.data.id, meta);
-      onCreated?.(result.data, meta);
+      onCreated?.(result.data);
       reset();
       onSuccess?.();
       router.refresh();
@@ -192,29 +171,6 @@ export function CreateTaskForm({
             </p>
           </div>
 
-          <div className="space-y-2">
-            <label className="sr-only" htmlFor="task-description">
-              Description
-            </label>
-            <textarea
-              id="task-description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Description"
-              aria-label="Description"
-              rows={4}
-              maxLength={1000}
-              disabled={isPending}
-              className="focus-ring ui-hover min-h-[112px] w-full resize-y rounded-md border-[0.5px] border-border bg-background px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-          </div>
-
           <div className="flex flex-wrap gap-2">
             <DatePickerPopover value={scheduledFor} onSelect={setScheduledFor} />
             <button
@@ -226,7 +182,6 @@ export function CreateTaskForm({
               <span aria-hidden="true">📎</span>
               <span>Attachment</span>
             </button>
-            <PriorityPicker value={priority} onSelect={setPriority} />
             <button
               type="button"
               className="focus-ring ui-hover inline-flex h-9 items-center gap-2 rounded-md border-[0.5px] border-border bg-background px-3 text-sm text-muted-foreground"

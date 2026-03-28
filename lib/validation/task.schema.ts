@@ -7,6 +7,18 @@ export const taskTitleSchema = z
   .min(1, "Le titre est requis.")
   .max(500, "Le titre est trop long.");
 
+export const taskDescriptionSchema = z
+  .string()
+  .trim()
+  .max(1000, "La description est trop longue.");
+
+export const taskPrioritySchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+]);
+
 export const taskIdSchema = z.string().uuid("Identifiant invalide.");
 export const taskProjectIdSchema = projectIdSchema.nullable().optional();
 export const taskScheduledForSchema = z
@@ -23,6 +35,30 @@ export const taskScheduledForSchema = z
   }, "Date invalide.");
 
 export type TaskTitleInput = z.infer<typeof taskTitleSchema>;
+export type TaskDescriptionInput = z.infer<typeof taskDescriptionSchema>;
+export type TaskPriorityInput = z.infer<typeof taskPrioritySchema>;
+
+export const taskEditableFieldsSchema = z
+  .object({
+    title: taskTitleSchema.optional(),
+    description: taskDescriptionSchema.nullable().optional(),
+    priority: taskPrioritySchema.optional(),
+    scheduledFor: taskScheduledForSchema.nullable().optional(),
+    projectId: taskProjectIdSchema,
+  })
+  .refine(
+    (value) =>
+      value.title !== undefined ||
+      value.description !== undefined ||
+      value.priority !== undefined ||
+      value.scheduledFor !== undefined ||
+      value.projectId !== undefined,
+    {
+      message: "At least one updatable task field is required.",
+    },
+  );
+
+export type TaskEditableFieldsInput = z.infer<typeof taskEditableFieldsSchema>;
 
 const pomodoroWorkMinutesSchema = z.number().int().min(1).max(240).nullable();
 const pomodoroShortBreakMinutesSchema = z.number().int().min(1).max(60).nullable();

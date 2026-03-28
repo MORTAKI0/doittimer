@@ -3,23 +3,26 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { logServerError } from "@/lib/logging/logServerError";
 import type { TaskPriority } from "@/lib/tasks/types";
 import {
+  taskDescriptionSchema,
+  taskEditableFieldsSchema,
   parseNullableInteger,
   taskIdSchema,
   taskPomodoroOverridesSchema,
   taskProjectIdSchema,
+  taskPrioritySchema,
   taskScheduledForSchema,
   taskTitleSchema,
 } from "@/lib/validation/task.schema";
 
 const DUPLICATE_WINDOW_MS = 10_000;
 export const TASK_SELECT =
-  "id, title, completed, completed_at, scheduled_for, created_at, updated_at, project_id, archived_at, source, read_only, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
+  "id, title, description, priority, completed, completed_at, scheduled_for, created_at, updated_at, project_id, archived_at, source, read_only, pomodoro_work_minutes, pomodoro_short_break_minutes, pomodoro_long_break_minutes, pomodoro_long_break_every";
 
 export type TaskRow = {
   id: string;
   title: string;
-  description?: string | null;
-  priority?: TaskPriority | null;
+  description: string | null;
+  priority: TaskPriority;
   section_name?: string | null;
   completed: boolean;
   completed_at?: string | null;
@@ -75,7 +78,97 @@ export type PaginatedTasks = {
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
+export type TaskEditableFields = {
+  title?: string;
+  description?: string | null;
+  priority?: TaskPriority;
+  scheduledFor?: string | null;
+  projectId?: string | null;
+};
+
 const ERROR_READ_ONLY_TASK = "This task is managed in Notion. Edit it in Notion and sync again.";
+
+type TaskDbRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: TaskPriority | null;
+  section_name: string | null;
+  completed: boolean;
+  completed_at: string | null;
+  scheduled_for: string | null;
+  created_at: string;
+  updated_at: string;
+  project_id: string | null;
+  archived_at: string | null;
+  source: string;
+  read_only: boolean;
+  pomodoro_work_minutes: number | null;
+  pomodoro_short_break_minutes: number | null;
+  pomodoro_long_break_minutes: number | null;
+  pomodoro_long_break_every: number | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function readNullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function readBoolean(value: unknown): boolean {
+  return value === true;
+}
+
+function readNullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readNullablePriority(value: unknown): TaskPriority | null {
+  if (value == null) return null;
+  const parsed = taskPrioritySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function readTaskSelectRow(value: unknown): TaskDbRow | null {
+  if (!isRecord(value)) return null;
+
+  const id = readString(value.id);
+  const title = readString(value.title);
+  const createdAt = readString(value.created_at);
+  const updatedAt = readString(value.updated_at);
+  const source = readString(value.source);
+
+  if (!id || !title || !createdAt || !updatedAt || !source) {
+    return null;
+  }
+
+  return {
+    id,
+    title,
+    description: readNullableString(value.description),
+    priority: readNullablePriority(value.priority),
+    section_name: readNullableString(value.section_name),
+    completed: readBoolean(value.completed),
+    completed_at: readNullableString(value.completed_at),
+    scheduled_for: readNullableString(value.scheduled_for),
+    created_at: createdAt,
+    updated_at: updatedAt,
+    project_id: readNullableString(value.project_id),
+    archived_at: readNullableString(value.archived_at),
+    source,
+    read_only: readBoolean(value.read_only),
+    pomodoro_work_minutes: readNullableNumber(value.pomodoro_work_minutes),
+    pomodoro_short_break_minutes: readNullableNumber(value.pomodoro_short_break_minutes),
+    pomodoro_long_break_minutes: readNullableNumber(value.pomodoro_long_break_minutes),
+    pomodoro_long_break_every: readNullableNumber(value.pomodoro_long_break_every),
+  };
+}
 
 async function assertTaskWritable(
   supabase: SupabaseClient,
@@ -84,7 +177,7 @@ async function assertTaskWritable(
 ) {
   const { data, error } = await supabase
     .from("tasks")
-    .select("id, read_only")
+    .select("id, read_only, source")
     .eq("id", taskId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -97,7 +190,7 @@ async function assertTaskWritable(
     return { ok: false as const, error: "Task not found" };
   }
 
-  if (data.read_only) {
+  if (data.read_only || data.source === "notion") {
     return { ok: false as const, error: ERROR_READ_ONLY_TASK };
   }
 
@@ -109,6 +202,55 @@ function isRecentDuplicate(task: TaskRow | null) {
   const createdAt = Date.parse(task.created_at);
   if (Number.isNaN(createdAt)) return false;
   return Date.now() - createdAt < DUPLICATE_WINDOW_MS;
+}
+
+function normalizeTaskPriority(value: unknown): TaskPriority {
+  const parsed = taskPrioritySchema.safeParse(value);
+  return parsed.success ? parsed.data : 4;
+}
+
+function normalizeTaskDescription(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const parsed = taskDescriptionSchema.safeParse(value);
+  if (!parsed.success) return value.trim() || null;
+  return parsed.data.length > 0 ? parsed.data : null;
+}
+
+export function mapTaskRowFromDb(row: unknown): TaskRow {
+  const parsedRow = readTaskSelectRow(row);
+
+  if (!parsedRow) {
+    return {
+      id: "",
+      title: "",
+      description: null,
+      priority: 4,
+      section_name: null,
+      completed: false,
+      completed_at: null,
+      scheduled_for: null,
+      created_at: "",
+      updated_at: "",
+      project_id: null,
+      archived_at: null,
+      source: "",
+      read_only: false,
+      pomodoro_work_minutes: null,
+      pomodoro_short_break_minutes: null,
+      pomodoro_long_break_minutes: null,
+      pomodoro_long_break_every: null,
+    };
+  }
+
+  return {
+    ...parsedRow,
+    description: normalizeTaskDescription(parsedRow.description),
+    priority: normalizeTaskPriority(parsedRow.priority),
+  };
+}
+
+export function mapTaskRowsFromDb(rows: unknown): TaskRow[] {
+  return Array.isArray(rows) ? rows.map(mapTaskRowFromDb) : [];
 }
 
 function toNumber(value: unknown) {
@@ -294,7 +436,7 @@ export async function createTaskForUser(
       .maybeSingle();
 
     if (existingTask && isRecentDuplicate(existingTask)) {
-      return { success: true, data: existingTask };
+      return { success: true, data: mapTaskRowFromDb(existingTask) };
     }
 
     const { data, error } = await supabase
@@ -321,7 +463,7 @@ export async function createTaskForUser(
       };
     }
 
-    return { success: true, data };
+    return { success: true, data: mapTaskRowFromDb(data) };
   } catch (error) {
     logServerError({
       scope: "services.tasks.createTaskForUser",
@@ -424,7 +566,7 @@ export async function getTasksForUser(
       };
     }
 
-    const tasks: TaskRow[] = Array.isArray(data) ? data : [];
+    const tasks = mapTaskRowsFromDb(data ?? []);
     const totalCount = count ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -488,10 +630,102 @@ export async function getTaskByIdForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data };
+    return { success: true, data: mapTaskRowFromDb(data) };
   } catch (error) {
     logServerError({
       scope: "services.tasks.getTaskByIdForUser",
+      userId,
+      error,
+    });
+    return {
+      success: false,
+      error: "Erreur reseau. Verifie ta connexion et reessaie.",
+    };
+  }
+}
+
+export async function updateTaskForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  taskId: string,
+  fields: TaskEditableFields,
+): Promise<ServiceResult<TaskRow>> {
+  const parsedId = taskIdSchema.safeParse(taskId);
+  if (!parsedId.success) {
+    return {
+      success: false,
+      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  const parsedFields = taskEditableFieldsSchema.safeParse(fields);
+  if (!parsedFields.success) {
+    return {
+      success: false,
+      error: parsedFields.error.issues[0]?.message ?? "Parametres invalides.",
+    };
+  }
+
+  const payload: Record<string, string | number | null> = {};
+
+  if (parsedFields.data.title !== undefined) {
+    payload.title = parsedFields.data.title;
+  }
+
+  if (parsedFields.data.description !== undefined) {
+    payload.description =
+      parsedFields.data.description == null || parsedFields.data.description.length === 0
+        ? null
+        : parsedFields.data.description;
+  }
+
+  if (parsedFields.data.priority !== undefined) {
+    payload.priority = parsedFields.data.priority;
+  }
+
+  if (parsedFields.data.scheduledFor !== undefined) {
+    payload.scheduled_for = parsedFields.data.scheduledFor;
+  }
+
+  if (parsedFields.data.projectId !== undefined) {
+    payload.project_id = parsedFields.data.projectId ?? null;
+  }
+
+  try {
+    const writableTask = await assertTaskWritable(supabase, userId, parsedId.data);
+    if (!writableTask.ok) {
+      return { success: false, error: writableTask.error };
+    }
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(payload)
+      .eq("id", parsedId.data)
+      .eq("user_id", userId)
+      .select(TASK_SELECT)
+      .maybeSingle();
+
+    if (error) {
+      logServerError({
+        scope: "services.tasks.updateTaskForUser",
+        userId,
+        error,
+        context: { action: "update", fields: Object.keys(payload) },
+      });
+      return {
+        success: false,
+        error: "Impossible de mettre a jour la tache.",
+      };
+    }
+
+    if (!data) {
+      return { success: false, error: "Task not found" };
+    }
+
+    return { success: true, data: mapTaskRowFromDb(data) };
+  } catch (error) {
+    logServerError({
+      scope: "services.tasks.updateTaskForUser",
       userId,
       error,
     });
@@ -602,7 +836,7 @@ export async function setTaskCompletedForUser(
       }
     }
 
-    return { success: true, data };
+    return { success: true, data: mapTaskRowFromDb(data) };
   } catch (error) {
     logServerError({
       scope: "services.tasks.setTaskCompletedForUser",
@@ -622,69 +856,7 @@ export async function updateTaskTitleForUser(
   taskId: string,
   title: string,
 ): Promise<ServiceResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
-  const parsedTitle = taskTitleSchema.safeParse(title);
-
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  if (!parsedTitle.success) {
-    return {
-      success: false,
-      error: parsedTitle.error.issues[0]?.message ?? "Titre invalide.",
-    };
-  }
-
-  try {
-    const writableTask = await assertTaskWritable(supabase, userId, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ title: parsedTitle.data })
-      .eq("id", parsedId.data)
-      .eq("user_id", userId)
-      .select(TASK_SELECT)
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        return { success: false, error: "Task not found" };
-      }
-      logServerError({
-        scope: "services.tasks.updateTaskTitleForUser",
-        userId,
-        error,
-        context: { action: "update" },
-      });
-      return {
-        success: false,
-        error: "Impossible de mettre a jour la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "services.tasks.updateTaskTitleForUser",
-      userId,
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+  return updateTaskForUser(supabase, userId, taskId, { title });
 }
 
 export async function setTaskScheduledForUser(
@@ -693,70 +865,7 @@ export async function setTaskScheduledForUser(
   taskId: string,
   scheduledFor: string | null,
 ): Promise<ServiceResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
-
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  if (scheduledFor !== null) {
-    const parsedScheduledFor = taskScheduledForSchema.safeParse(scheduledFor);
-    if (!parsedScheduledFor.success) {
-      return {
-        success: false,
-        error:
-          parsedScheduledFor.error.issues[0]?.message
-          ?? "Date invalide. Format attendu: YYYY-MM-DD.",
-      };
-    }
-  }
-
-  try {
-    const writableTask = await assertTaskWritable(supabase, userId, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ scheduled_for: scheduledFor })
-      .eq("id", parsedId.data)
-      .eq("user_id", userId)
-      .select(TASK_SELECT)
-      .maybeSingle();
-
-    if (error) {
-      logServerError({
-        scope: "services.tasks.setTaskScheduledForUser",
-        userId,
-        error,
-        context: { action: "update" },
-      });
-      return {
-        success: false,
-        error: "Impossible de mettre a jour la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "services.tasks.setTaskScheduledForUser",
-      userId,
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+  return updateTaskForUser(supabase, userId, taskId, { scheduledFor });
 }
 
 export async function updateTaskProjectForUser(
@@ -765,69 +874,7 @@ export async function updateTaskProjectForUser(
   taskId: string,
   projectId?: string | null,
 ): Promise<ServiceResult<TaskRow>> {
-  const parsedId = taskIdSchema.safeParse(taskId);
-  const parsedProjectId = taskProjectIdSchema.safeParse(projectId ?? null);
-
-  if (!parsedId.success) {
-    return {
-      success: false,
-      error: parsedId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  if (!parsedProjectId.success) {
-    return {
-      success: false,
-      error: parsedProjectId.error.issues[0]?.message ?? "Identifiant invalide.",
-    };
-  }
-
-  try {
-    const writableTask = await assertTaskWritable(supabase, userId, parsedId.data);
-    if (!writableTask.ok) {
-      return { success: false, error: writableTask.error };
-    }
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({ project_id: parsedProjectId.data ?? null })
-      .eq("id", parsedId.data)
-      .eq("user_id", userId)
-      .select(TASK_SELECT)
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        return { success: false, error: "Task not found" };
-      }
-      logServerError({
-        scope: "services.tasks.updateTaskProjectForUser",
-        userId,
-        error,
-        context: { action: "update" },
-      });
-      return {
-        success: false,
-        error: "Impossible de mettre a jour la tache.",
-      };
-    }
-
-    if (!data) {
-      return { success: false, error: "Task not found" };
-    }
-
-    return { success: true, data };
-  } catch (error) {
-    logServerError({
-      scope: "services.tasks.updateTaskProjectForUser",
-      userId,
-      error,
-    });
-    return {
-      success: false,
-      error: "Erreur reseau. Verifie ta connexion et reessaie.",
-    };
-  }
+  return updateTaskForUser(supabase, userId, taskId, { projectId });
 }
 
 export async function restoreTaskForUser(
@@ -875,7 +922,7 @@ export async function restoreTaskForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data };
+    return { success: true, data: mapTaskRowFromDb(data) };
   } catch (error) {
     logServerError({
       scope: "services.tasks.restoreTaskForUser",
@@ -935,7 +982,7 @@ export async function deleteTaskForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data };
+    return { success: true, data: mapTaskRowFromDb(data) };
   } catch (error) {
     logServerError({
       scope: "services.tasks.deleteTaskForUser",
@@ -1166,7 +1213,7 @@ export async function updateTaskPomodoroOverridesForUser(
       return { success: false, error: "Task not found" };
     }
 
-    return { success: true, data };
+    return { success: true, data: mapTaskRowFromDb(data) };
   } catch (error) {
     logServerError({
       scope: "services.tasks.updateTaskPomodoroOverridesForUser",

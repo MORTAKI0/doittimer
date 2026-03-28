@@ -10,6 +10,10 @@
   --muted-foreground: #777777;
   --border: #eeeeee;
   --ring: #10b981;
+  --destructive: #db4035;
+  --warning: #ff9100;
+  --accent-bright: #246fe0;
+  --text-ghost: #777777;
   --priority-1: #db4035;
   --priority-2: #ff9100;
   --priority-3: #246fe0;
@@ -74,6 +78,10 @@ html[data-theme="dark"] {
   --muted-foreground: #888888;
   --border: #333333;
   --ring: #34d399;
+  --destructive: #f87171;
+  --warning: #fb923c;
+  --accent-bright: #60a5fa;
+  --text-ghost: #888888;
   --priority-1: #f87171;
   --priority-2: #fb923c;
   --priority-3: #60a5fa;

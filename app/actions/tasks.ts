@@ -9,15 +9,18 @@ import {
   deleteTaskForUser,
   getTaskPomodoroStatsForUser,
   getTasksForUser,
+  mapTaskRowsFromDb,
   restoreTaskForUser,
   setTaskCompletedForUser,
   setTaskScheduledForUser,
   TASK_SELECT,
+  updateTaskForUser,
   updateTaskPomodoroOverridesForUser,
   updateTaskProjectForUser,
   updateTaskTitleForUser,
   type PaginatedTasks,
   type ServiceResult,
+  type TaskEditableFields,
   type TaskFilters,
   type TaskPomodoroOverrides,
   type TaskPomodoroStats,
@@ -28,6 +31,7 @@ import { taskProjectIdSchema } from "@/lib/validation/task.schema";
 
 export type {
   PaginatedTasks,
+  TaskEditableFields,
   TaskFilters,
   TaskPomodoroOverrides,
   TaskPomodoroStats,
@@ -229,7 +233,10 @@ export async function getInboxTasks(): Promise<ActionResult<TaskRow[]>> {
       return { success: false, error: "Impossible de charger les taches." };
     }
 
-    return { success: true, data: data ?? [] };
+    return {
+      success: true,
+      data: mapTaskRowsFromDb(data ?? []),
+    };
   });
 }
 
@@ -257,7 +264,10 @@ export async function getTodayTasks(): Promise<ActionResult<TodayTasksData>> {
       return { success: false, error: "Impossible de charger les taches." };
     }
 
-    return { success: true, data: { today, tasks: data ?? [] } };
+    return {
+      success: true,
+      data: { today, tasks: mapTaskRowsFromDb(data ?? []) },
+    };
   });
 }
 
@@ -287,7 +297,14 @@ export async function getUpcomingTasks(days = 7): Promise<ActionResult<UpcomingT
       return { success: false, error: "Impossible de charger les taches." };
     }
 
-    return { success: true, data: { startDate, endDate, tasks: data ?? [] } };
+    return {
+      success: true,
+      data: {
+        startDate,
+        endDate,
+        tasks: mapTaskRowsFromDb(data ?? []),
+      },
+    };
   });
 }
 
@@ -328,7 +345,10 @@ export async function getCompletedTasks(
       return { success: false, error: "Impossible de charger les taches." };
     }
 
-    return { success: true, data: { tasks: data ?? [] } };
+    return {
+      success: true,
+      data: { tasks: mapTaskRowsFromDb(data ?? []) },
+    };
   });
 }
 
@@ -381,6 +401,21 @@ export async function updateTaskTitle(
 
     if (result.success) {
       revalidateTasksDashboard();
+    }
+
+    return result;
+  });
+}
+
+export async function updateTaskDetails(
+  taskId: string,
+  fields: TaskEditableFields,
+): Promise<ActionResult<TaskRow>> {
+  return runWithSignedInUser("actions.tasks.updateTaskDetails", async (supabase, userId) => {
+    const result = await updateTaskForUser(supabase, userId, taskId, fields);
+
+    if (result.success) {
+      revalidateTasksDashboardFocusSettings();
     }
 
     return result;

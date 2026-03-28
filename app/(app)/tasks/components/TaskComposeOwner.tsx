@@ -3,7 +3,6 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import type { TaskPresentationMeta } from "@/lib/tasks/types";
 import type { TaskRow } from "@/app/actions/tasks";
 import { AddTaskModal } from "./AddTaskModal";
 
@@ -28,7 +27,7 @@ type TaskComposeOwnerProps = {
   projects: ProjectOption[];
   defaultScheduledFor?: string | null;
   defaultProjectId?: string | null;
-  onCreated?: (task: TaskRow, meta: TaskPresentationMeta) => void;
+  onCreated?: (task: TaskRow) => void;
 };
 
 export function TaskComposeOwner({
