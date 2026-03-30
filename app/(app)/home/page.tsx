@@ -178,6 +178,7 @@ export default async function ReturningHomePage() {
             tasks={tasks}
             availableLabels={availableLabels}
             projects={[]}
+            activeSession={activeSession}
             showQueueSection={false}
             showListHeader={false}
             allowInlineCreate={false}

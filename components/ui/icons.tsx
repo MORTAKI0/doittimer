@@ -150,6 +150,14 @@ export function IconPulse(props: IconProps) {
   );
 }
 
+export function IconPlay(props: IconProps) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M8 5v14l11-7-11-7Z" />
+    </svg>
+  );
+}
+
 export function IconSun(props: IconProps) {
   return (
     <svg {...iconProps(props)}>

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { logServerError } from "@/lib/logging/logServerError";
+import { projectIdSchema } from "@/lib/validation/project.schema";
 import {
   normalizeMusicUrl,
   sessionIdSchema,
@@ -12,7 +13,9 @@ export type SessionRow = {
   id: string;
   user_id: string;
   task_id: string | null;
+  project_id: string | null;
   task_title?: string | null;
+  project_name?: string | null;
   music_url?: string | null;
   edited_at?: string | null;
   edit_reason?: string | null;
@@ -30,6 +33,10 @@ export type ActiveSessionSnapshot = {
   id: string;
   started_at: string;
   ended_at: null;
+  taskId: string | null;
+  projectId: string | null;
+  taskTitle: string | null;
+  projectName: string | null;
 };
 
 export type DaySessionsTotal = {
@@ -43,15 +50,17 @@ export type SessionFilters = {
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
-type SessionTableRow = Omit<SessionRow, "task_title">;
+type SessionTableRow = Omit<SessionRow, "task_title" | "project_name">;
 
 const SESSION_SELECT =
-  "id, user_id, task_id, music_url, edited_at, edit_reason, started_at, ended_at, duration_seconds, pomodoro_phase, pomodoro_phase_started_at, pomodoro_is_paused, pomodoro_paused_at, pomodoro_cycle_count";
+  "id, user_id, task_id, project_id, music_url, edited_at, edit_reason, started_at, ended_at, duration_seconds, pomodoro_phase, pomodoro_phase_started_at, pomodoro_is_paused, pomodoro_paused_at, pomodoro_cycle_count";
 
 export const ACTIVE_SESSION_ERROR =
   "Une session est deja active. Arrete-la avant d'en demarrer une autre.";
+const START_SESSION_ERROR = "Impossible de demarrer la session.";
 
 const sessionTaskIdSchema = taskIdSchema.nullable().optional();
+const sessionProjectIdSchema = projectIdSchema.nullable().optional();
 const sessionEditServiceInputSchema = z.object({
   startedAt: z.string().trim().datetime({ offset: true }).optional(),
   endedAt: z.string().trim().datetime({ offset: true }).optional(),
@@ -182,12 +191,16 @@ async function resolveOwnedTaskId(
   taskId: string | null | undefined,
 ) {
   if (!taskId) {
-    return { taskId: null, taskTitle: null as string | null };
+    return {
+      taskId: null,
+      taskTitle: null as string | null,
+      projectId: null as string | null,
+    };
   }
 
   const { data, error } = await supabase
     .from("tasks")
-    .select("id, title")
+    .select("id, title, project_id")
     .eq("id", taskId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -199,21 +212,51 @@ async function resolveOwnedTaskId(
   return {
     taskId: data?.id ?? null,
     taskTitle: data?.title ?? null,
+    projectId: (data as { project_id?: string | null } | null)?.project_id ?? null,
   };
 }
 
-async function getTaskTitlesById(
+async function resolveOwnedProjectId(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string | null | undefined,
+) {
+  if (!projectId) {
+    return {
+      projectId: null,
+      projectName: null as string | null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, name")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    projectId: data?.id ?? null,
+    projectName: data?.name ?? null,
+  };
+}
+
+async function getTaskDetailsById(
   supabase: SupabaseClient,
   userId: string,
   taskIds: string[],
 ) {
   if (taskIds.length === 0) {
-    return new Map<string, string>();
+    return new Map<string, { title: string; project_id: string | null }>();
   }
 
   const { data, error } = await supabase
     .from("tasks")
-    .select("id, title")
+    .select("id, title, project_id")
     .eq("user_id", userId)
     .in("id", taskIds);
 
@@ -221,7 +264,37 @@ async function getTaskTitlesById(
     throw error;
   }
 
-  return new Map((data ?? []).map((row) => [row.id as string, row.title as string]));
+  return new Map(
+    (data ?? []).map((row) => [
+      row.id as string,
+      {
+        title: row.title as string,
+        project_id: (row as { project_id?: string | null }).project_id ?? null,
+      },
+    ]),
+  );
+}
+
+async function getProjectNamesById(
+  supabase: SupabaseClient,
+  userId: string,
+  projectIds: string[],
+) {
+  if (projectIds.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, name")
+    .eq("user_id", userId)
+    .in("id", projectIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return new Map((data ?? []).map((row) => [row.id as string, row.name as string]));
 }
 
 async function hydrateSessionRows(
@@ -232,15 +305,36 @@ async function hydrateSessionRows(
   const taskIds = Array.from(
     new Set(
       rows
-        .map((row) => row.task_id)
-        .filter((taskId): taskId is string => typeof taskId === "string"),
+      .map((row) => row.task_id)
+      .filter((taskId): taskId is string => typeof taskId === "string"),
     ),
   );
-  const taskTitles = await getTaskTitlesById(supabase, userId, taskIds);
+  const taskDetails = await getTaskDetailsById(supabase, userId, taskIds);
+  const projectIds = Array.from(
+    new Set(
+      rows
+        .map((row) => {
+          const rowProjectId = typeof row.project_id === "string" ? row.project_id : null;
+          const taskProjectId = row.task_id ? taskDetails.get(row.task_id)?.project_id ?? null : null;
+          return rowProjectId ?? taskProjectId;
+        })
+        .filter((projectId): projectId is string => typeof projectId === "string" && projectId.length > 0),
+    ),
+  );
+  const projectNames = await getProjectNamesById(supabase, userId, projectIds);
 
   return rows.map((row) => ({
     ...row,
-    task_title: row.task_id ? taskTitles.get(row.task_id) ?? null : null,
+    task_title: row.task_id ? taskDetails.get(row.task_id)?.title ?? null : null,
+    project_id:
+      row.project_id ??
+      (row.task_id ? taskDetails.get(row.task_id)?.project_id ?? null : null),
+    project_name: (() => {
+      const projectId =
+        row.project_id ??
+        (row.task_id ? taskDetails.get(row.task_id)?.project_id ?? null : null);
+      return projectId ? projectNames.get(projectId) ?? null : null;
+    })(),
   }));
 }
 
@@ -292,15 +386,23 @@ function getDurationSeconds(startedAtIso: string, endedAtIso: string) {
 export async function startSessionForUser(
   supabase: SupabaseClient,
   userId: string,
-  input: { taskId?: string | null; musicUrl?: string | null },
+  input: { taskId?: string | null; projectId?: string | null; musicUrl?: string | null },
 ): Promise<ServiceResult<SessionRow>> {
   const parsedTaskId = sessionTaskIdSchema.safeParse(input.taskId ?? null);
+  const parsedProjectId = sessionProjectIdSchema.safeParse(input.projectId ?? null);
   const normalizedMusicUrl = normalizeMusicUrl(input.musicUrl);
 
   if (!parsedTaskId.success) {
     return {
       success: false,
       error: parsedTaskId.error.issues[0]?.message ?? "Identifiant invalide.",
+    };
+  }
+
+  if (!parsedProjectId.success) {
+    return {
+      success: false,
+      error: parsedProjectId.error.issues[0]?.message ?? "Identifiant invalide.",
     };
   }
 
@@ -322,11 +424,51 @@ export async function startSessionForUser(
     }
 
     const resolvedTask = await resolveOwnedTaskId(supabase, userId, parsedTaskId.data ?? null);
+
+    if (parsedTaskId.data && !resolvedTask.taskId) {
+      return {
+        success: false,
+        error: START_SESSION_ERROR,
+      };
+    }
+
+    const resolvedProject = await resolveOwnedProjectId(
+      supabase,
+      userId,
+      parsedProjectId.data ?? resolvedTask.projectId ?? null,
+    );
+
+    if (parsedProjectId.data && !resolvedProject.projectId) {
+      return {
+        success: false,
+        error: START_SESSION_ERROR,
+      };
+    }
+
+    if (
+      parsedTaskId.data &&
+      parsedProjectId.data &&
+      resolvedTask.projectId !== resolvedProject.projectId
+    ) {
+      return {
+        success: false,
+        error: START_SESSION_ERROR,
+      };
+    }
+
+    if (parsedTaskId.data && parsedProjectId.data && resolvedTask.projectId === null) {
+      return {
+        success: false,
+        error: START_SESSION_ERROR,
+      };
+    }
+
     const { data, error } = await supabase
       .from("sessions")
       .insert({
         user_id: userId,
         task_id: resolvedTask.taskId,
+        project_id: resolvedProject.projectId ?? resolvedTask.projectId ?? null,
         started_at: getNowIso(),
         music_url: normalizedMusicUrl.value,
       })
@@ -350,7 +492,7 @@ export async function startSessionForUser(
       });
       return {
         success: false,
-        error: "Impossible de demarrer la session.",
+        error: START_SESSION_ERROR,
       };
     }
 
@@ -359,6 +501,7 @@ export async function startSessionForUser(
       data: {
         ...(data as SessionTableRow),
         task_title: resolvedTask.taskTitle,
+        project_name: resolvedProject.projectName,
       },
     };
   } catch (error) {
@@ -677,15 +820,22 @@ export async function editSessionForUser(
     }
 
     let nextTaskId = session.task_id;
-    if (parsedInput.data.taskId && parsedInput.data.taskId !== session.task_id) {
-      const resolvedTask = await resolveOwnedTaskId(supabase, userId, parsedInput.data.taskId);
-      if (!resolvedTask.taskId) {
-        return {
-          success: false,
-          error: "Impossible de modifier la session.",
-        };
+    let nextProjectId = session.project_id;
+    if (parsedInput.data.taskId !== undefined) {
+      if (parsedInput.data.taskId === null) {
+        nextTaskId = null;
+        nextProjectId = null;
+      } else {
+        const resolvedTask = await resolveOwnedTaskId(supabase, userId, parsedInput.data.taskId);
+        if (!resolvedTask.taskId) {
+          return {
+            success: false,
+            error: "Impossible de modifier la session.",
+          };
+        }
+        nextTaskId = resolvedTask.taskId;
+        nextProjectId = resolvedTask.projectId;
       }
-      nextTaskId = resolvedTask.taskId;
     }
 
     const { data, error } = await supabase
@@ -694,6 +844,7 @@ export async function editSessionForUser(
         started_at: nextStartedAt,
         ended_at: nextEndedAt,
         task_id: nextTaskId,
+        project_id: nextProjectId,
         duration_seconds: durationSeconds,
         edited_at: getNowIso(),
         edit_reason:
@@ -777,11 +928,7 @@ export async function addManualSessionForUser(
       };
     }
 
-    const resolvedTask = await resolveOwnedTaskId(
-      supabase,
-      userId,
-      parsedInput.data.taskId ?? null,
-    );
+    const resolvedTask = await resolveOwnedTaskId(supabase, userId, parsedInput.data.taskId ?? null);
 
     if (parsedInput.data.taskId && !resolvedTask.taskId) {
       return {
@@ -795,6 +942,7 @@ export async function addManualSessionForUser(
       .insert({
         user_id: userId,
         task_id: resolvedTask.taskId,
+        project_id: resolvedTask.projectId,
         started_at: parsedInput.data.startedAt,
         ended_at: parsedInput.data.endedAt,
         duration_seconds: durationSeconds,

@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 
+import { getActiveSession } from "@/app/actions/sessions";
 import {
   getClientRuntimeSnapshot,
   logClientDiagnostic,
@@ -14,6 +15,10 @@ type ActiveSessionInput = {
   id: string;
   started_at: string;
   ended_at?: string | null;
+  taskId?: string | null;
+  projectId?: string | null;
+  taskTitle?: string | null;
+  projectName?: string | null;
 };
 
 type GlobalRunningSessionWidgetProps = {
@@ -21,27 +26,6 @@ type GlobalRunningSessionWidgetProps = {
   userId: string | null;
   appName?: string;
 };
-
-function readField(record: unknown, key: string) {
-  if (!record || typeof record !== "object") return undefined;
-  return (record as Record<string, unknown>)[key];
-}
-
-function coerceActiveSession(record: unknown): ActiveSessionInput | null {
-  const id = readField(record, "id");
-  const startedAt = readField(record, "started_at");
-  const endedAt = readField(record, "ended_at");
-
-  if (typeof id !== "string" || typeof startedAt !== "string") {
-    return null;
-  }
-
-  return {
-    id,
-    started_at: startedAt,
-    ended_at: typeof endedAt === "string" ? endedAt : null,
-  };
-}
 
 function formatTitleTime(totalSeconds: number) {
   const clamped = Math.max(0, Math.floor(totalSeconds));
@@ -66,6 +50,10 @@ export function GlobalRunningSessionWidget({
   const originalTitleRef = React.useRef<string>("");
   const titleInitializedRef = React.useRef(false);
   const sessionRef = React.useRef<ActiveSessionInput | null>(activeSession);
+  const refreshActiveSession = React.useCallback(async () => {
+    const result = await getActiveSession();
+    setSession(result);
+  }, []);
 
   React.useEffect(() => {
     setMounted(true);
@@ -101,6 +89,12 @@ export function GlobalRunningSessionWidget({
   }, [session]);
 
   const isRunning = Boolean(session && session.ended_at == null && startedAtMs);
+  const activeLabel = session?.taskTitle ?? session?.projectName ?? null;
+  const activePrefix = session?.taskTitle
+    ? "Task"
+    : session?.projectName
+      ? "Project"
+      : "Session";
 
   React.useEffect(() => {
     if (!mounted || !isRunning || !startedAtMs) {
@@ -136,36 +130,14 @@ export function GlobalRunningSessionWidget({
   }) => {
     if (!mounted) return;
 
-    const nextSession = coerceActiveSession(payload.new);
-    const previousSessionId = (() => {
-      const previous = coerceActiveSession(payload.old);
-      if (previous?.id) return previous.id;
-      const rawId = readField(payload.old, "id");
-      return typeof rawId === "string" ? rawId : null;
-    })();
-    const currentSession = sessionRef.current;
-
     logClientDiagnostic("active-session:realtime:event", {
       eventType: payload.eventType,
-      currentSessionId: currentSession?.id ?? null,
-      nextSessionId: nextSession?.id ?? null,
-      previousSessionId,
+      currentSessionId: sessionRef.current?.id ?? null,
       ...getClientRuntimeSnapshot(),
     });
 
-    if (nextSession && nextSession.ended_at == null) {
-      setSession(nextSession);
-      return;
-    }
-
-    if (
-      currentSession
-      && (currentSession.id === previousSessionId || currentSession.id === nextSession?.id)
-    ) {
-      setSession(null);
-      setElapsedSeconds(0);
-    }
-  }, [mounted]);
+    void refreshActiveSession();
+  }, [mounted, refreshActiveSession]);
 
   useSessionsRealtime({
     userId,
@@ -191,6 +163,11 @@ export function GlobalRunningSessionWidget({
           Active session
         </div>
         <div className="mt-1 flex items-center gap-3">
+          {activeLabel ? (
+            <span className="max-w-[220px] truncate text-xs text-emerald-800">
+              {activePrefix}: {activeLabel}
+            </span>
+          ) : null}
           <span className="numeric-tabular text-sm font-semibold">
             {formatDuration(elapsedSeconds)}
           </span>

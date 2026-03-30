@@ -22,7 +22,14 @@ type AppShellNavProps = {
   projects: ProjectRow[];
   projectCounts: Record<string, number>;
   hasActiveFocus: boolean;
-  activeSession: { id: string; started_at: string } | null;
+  activeSession: {
+    id: string;
+    started_at: string;
+    taskId: string | null;
+    projectId: string | null;
+    taskTitle: string | null;
+    projectName: string | null;
+  } | null;
 };
 
 const COMMAND_ACTIONS: CommandAction[] = [
@@ -37,7 +44,7 @@ const COMMAND_ACTIONS: CommandAction[] = [
   { id: "nav-completed", label: "Go to Completed", href: "/completed", hint: "Navigation" },
   { id: "nav-settings", label: "Go to Settings", href: "/settings", hint: "Navigation" },
   { id: "quick-create-task", label: "Create task", href: "/tasks?compose=1", hint: "Quick action" },
-  { id: "quick-start-focus", label: "Start focus", href: "/focus", hint: "Quick action" },
+  { id: "quick-start-focus", label: "Track time", href: "/focus", hint: "Quick action" },
 ];
 
 export function AppShellNav({
@@ -84,6 +91,7 @@ export function AppShellNav({
               projects={activeProjects}
               projectCounts={projectCounts}
               hasActiveFocus={hasActiveFocus}
+              activeSession={activeSession}
             />
           </div>
         </aside>
@@ -93,6 +101,7 @@ export function AppShellNav({
             initialTheme={initialTheme}
             projects={activeProjects}
             hasActiveFocus={hasActiveFocus}
+            activeSession={activeSession}
           />
 
           <main className="flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 lg:py-8 lg:pb-8">

@@ -137,7 +137,7 @@ export default async function FocusPage(props: FocusPageProps) {
           </span>
         </div>
         <p className="text-muted-foreground text-sm">
-          Start a session, track Pomodoro phases, and keep momentum visible.
+          Start a session, track time blocks, and keep momentum visible.
         </p>
       </div>
 
@@ -152,7 +152,7 @@ export default async function FocusPage(props: FocusPageProps) {
           <CardTitle>Session controls</CardTitle>
           <CardDescription>
             Primary actions are optimized for keyboard and mobile. Press Space
-            to start/stop.
+            to start or stop.
           </CardDescription>
         </CardHeader>
         <FocusPanel

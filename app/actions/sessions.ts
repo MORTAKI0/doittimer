@@ -16,6 +16,7 @@ import {
   type DaySessionsTotal,
   type ServiceResult,
   type SessionRow,
+  ACTIVE_SESSION_ERROR,
 } from "@/lib/services/sessions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -54,12 +55,13 @@ function revalidateFocusAndDashboard() {
   revalidatePath("/dashboard");
 }
 
-export async function startSession(
-  taskId?: string | null,
-  musicUrl?: string | null,
-): Promise<ActionResult<SessionRow>> {
+export async function startSession(input: {
+  taskId?: string | null;
+  projectId?: string | null;
+  musicUrl?: string | null;
+}): Promise<ActionResult<SessionRow>> {
   return runWithSignedInUser("actions.sessions.startSession", async (supabase, userId) => {
-    const result = await startSessionForUser(supabase, userId, { taskId, musicUrl });
+    const result = await startSessionForUser(supabase, userId, input);
 
     if (result.success) {
       revalidateFocusAndDashboard();
@@ -97,6 +99,10 @@ export async function getActiveSession(): Promise<ActiveSessionSnapshot | null> 
     id: result.data.id,
     started_at: result.data.started_at,
     ended_at: null,
+    taskId: result.data.task_id,
+    projectId: result.data.project_id,
+    taskTitle: result.data.task_title ?? null,
+    projectName: result.data.project_name ?? null,
   };
 }
 

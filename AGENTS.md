@@ -1,50 +1,73 @@
-# DoItTimer - Codex Instructions (Repo)
-
-## Project context
-DoItTimer is a Next.js App Router + TypeScript + Tailwind app.
-Sprint 0 scope: Public home page + Supabase Auth (email/password + Google OAuth) + SSR session persistence.
-Do NOT implement timer/tasks/stats in Sprint 0.
+# DoItTimer AGENTS
 
 ## Non-negotiable engineering rules
-- App Router with route groups: (public), (auth), (app)
-- Server-first: pages/layouts are Server Components unless browser APIs are required.
-- Keep client boundaries small ("use client" only in leaf interactive components).
-- Do not access Supabase directly from UI components unless explicitly planned (prefer server actions / server helpers).
+- Use Next.js App Router route groups: `(public)`, `(auth)`, `(app)`.
+- Prefer Server Components; add `"use client"` only for leaf interactivity.
+- Keep `page.tsx` and `layout.tsx` thin; move business logic into features/server modules.
+- Validate mutation inputs with Zod on the server before data access.
 - Use pnpm only.
+- Never commit secrets; keep sensitive values in `.env.local`.
 
-## Commands to run after changes
-- pnpm lint
-- pnpm typecheck
-- pnpm dev (manual smoke)
+## Supabase
+- Server Components, Server Actions, and Route Handlers: use `createServerClient` from `@supabase/ssr`.
+- Client Components only: use `createBrowserClient` from `@supabase/ssr`.
+- Keep Supabase access out of generic UI components.
 
-## Coding conventions
-- Reusable UI components in src/components/ui
-- Domain/infra helpers in src/lib
-- Validation with zod for auth inputs
-- No secrets committed; use .env.local
+## Auth boundaries
+- Public routes live in `(public)`.
+- Auth flow routes live in `(auth)`.
+- Protected app routes live in `(app)` and must enforce session checks on the server.
+- Client components may reflect auth state, not own it.
 
-## Planning and execution governance
-- PHASE header required in operator prompts. If missing, respond: "I need a PHASE header to proceed."
-- PLANNING is read-only to product code. Allowed files only:
-  - AGENTS.md (repo root)
-  - PLANS.md (repo root)
-  - sprint/2026-02/BACKLOG.md
-  - sprint/2026-02/EXECPLAN.md
-  - sprint/2026-02/DECISIONS.md (optional)
-  - sprint/2026-02/RETROSPECTIVE.md
-  - sprint/2026-02/METRICS.json (optional)
-  - .codex/skills/** (skill files only)
-  - .codex/review_prompt.md (optional)
-- EXECUTION requires APPROVED line in sprint/2026-02/EXECPLAN.md with name and date.
-- Failure protocol: stop -> capture evidence -> revert smallest unit -> update plan -> re-approve if material.
+## Mutation pattern
+- Prefer server actions for writes.
+- Return `{ ok: true, data }` or `{ ok: false, error }`.
+- Keep errors typed and user-safe.
 
-## Review guidelines
-- Review-only safety: when asked to review, do not modify code unless explicitly asked.
-- Treat auth/permissions regressions as P0.
-- Treat RLS/policy mistakes as P0.
-- No secrets/PII in logs (P0).
-- DB migrations must be backward compatible (P0/P1).
-- Any contract/API change must include compatibility notes + tests (P1).
+## Restricted paths
+- Do not modify without explicit approval:
+  - `supabase/migrations/**`
+  - `supabase/policies/**`
+  - `middleware.ts`
+  - `.env*`
+  - `vercel.json`
+  - `.github/workflows/**`
+  - `package.json`
+  - lockfiles
+  - auth/session handlers
+  - webhook/payment handlers
 
-## Approval policy
-- Ask before adding any new production dependencies (except Supabase + zod which are already approved for Sprint 0).
+## Stabilization mode
+- For the first 10 real runs, only allow:
+  - docs/copy changes
+  - small UI changes
+  - test additions
+  - isolated frontend cleanup
+- Reject and escalate anything else.
+
+## Validation order
+Run in this order:
+1. `pnpm lint`
+2. `pnpm typecheck`
+3. `pnpm build`
+4. relevant tests if required by task class
+
+## Change limits
+- Escalate if predicted scope is unclear.
+- Escalate if restricted files may be touched.
+- Escalate if task exceeds class limits for files or diff size.
+- Escalate if schema/auth/payment behavior may change.
+
+## Folder layout
+Intended target layout:
+```text
+src/
+  app/
+    (public)/
+    (auth)/
+    (app)/
+  components/
+    ui/
+  features/
+  lib/
+  server/

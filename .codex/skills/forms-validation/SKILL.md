@@ -8,37 +8,12 @@ description: Enforces robust, accessible form and validation patterns. Use when 
 Build forms that are easy to use, hard to break, and consistent across the app.
 
 # Core Rules
-
-## 1) Validate on the server
-- client validation improves UX
-- server validation is the source of truth
-- never trust browser-only validation for important rules
-
-## 2) Use schema-driven validation
-- centralize validation logic
-- reuse schema or parser logic where appropriate
-- return field-level and form-level errors consistently
-
-## 3) Keep form state understandable
-Model:
-- field values
-- touched state if needed
-- field errors
-- form error
-- submitting state
-- success state
-
-## 4) Accessibility is mandatory
-- every field has a label
-- required is clear
-- errors are associated with fields
-- keyboard interaction works cleanly
-- focus management helps recovery after submit failure
+- Validate on the server.
+- Use schema-driven validation.
+- Keep form state explicit.
+- Accessibility is mandatory.
 
 # Standard Form Result Shape
-
-Use a consistent result pattern for mutations:
-
 ```ts
 type FormResult<T = unknown> = {
   ok: boolean;
@@ -47,8 +22,6 @@ type FormResult<T = unknown> = {
   data?: T;
 };
 ```
-
-Keep result shapes stable across forms.
 
 # Field Rules
 
@@ -84,14 +57,6 @@ For multi-step flows:
 * persist step state intentionally
 * show progress clearly
 * support back navigation safely
-
-# Mutation UX
-
-* disable submit during active submission when duplication is risky
-* show inline field errors near inputs
-* show form-level error for cross-field or server failure
-* show success feedback clearly
-* avoid silent failure
 
 # Review Checklist
 

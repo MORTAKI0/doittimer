@@ -7,49 +7,11 @@ description: Enforces naming, folder structure, typing, and PR hygiene. Use when
 
 Make the codebase predictable so new code looks like it belongs immediately.
 
-# Standards
-
-## Naming
-- use descriptive names
-- prefer kebab-case file names
-- avoid vague names like `misc`, `helpers`, `common`, `temp`, `new`
-- name by responsibility, not by habit
-
-## Imports
-- prefer absolute imports or clear aliases where configured
-- keep deep relative import chains minimal
-- avoid circular dependencies
-- do not import feature internals from unrelated features unless explicitly allowed
-
-## File Size
-Flag for refactor when:
-- components become too large to scan comfortably
-- files hold multiple unrelated responsibilities
-- route files become orchestration + validation + rendering + mutation all at once
-
-## Typing
-- avoid `any`
-- encode nullable and optional states honestly
-- prefer explicit domain types and result shapes
-- avoid passing huge untyped objects through many layers
-
-## Shared Code
-Before adding shared code, ask:
-1. is this reused already?
-2. is it truly cross-feature?
-3. does it belong in the feature instead?
-
-Do not move code to shared folders too early.
-
-# Pull Request Standards
-
-A good PR should:
-- have a focused scope
-- use clear names
-- avoid unrelated cleanup mixed with feature work
-- include edge case handling
-- preserve or improve readability
-- mention follow-up work if intentionally deferred
+# Repository Standards
+- Use descriptive names and clear imports.
+- Keep file responsibilities narrow.
+- Avoid `any` and weak type boundaries.
+- Keep PRs focused, readable, and free of unrelated cleanup.
 
 # Feature Scaffold Guidance
 

@@ -27,25 +27,11 @@ Assume `DOITTIMER_SUPABASE_DB_URL` points to the real DoItTimer Postgres connect
 
 If the variable is missing, say so clearly and continue by providing the SQL and exact command shape needed.
 
-# Default Output Order
-
-Unless the user asks otherwise, respond in this order:
-
-1. Brief statement of what will change
-2. Raw SQL in a code block
-3. Exact commands to run
-4. Verification steps or results
-
-# Command Selection
-
-Choose commands like this:
-
-- inspect rows or tables quickly: use `psql`
-- run a one-off safe data query: use `psql`
-- create or change schema: create a migration and apply it with the Supabase CLI
-- apply pending migrations: run `supabase db push`
-- check migration history: run `supabase migration list`
-- generate or refine RLS: write SQL first, then apply through a migration unless the user explicitly wants direct execution
+# Workflow
+- Inspect with `psql` for rows, tables, and one-off queries.
+- For schema or durable policy changes, write a migration and apply with the Supabase CLI.
+- For verification, confirm schema, policies, indexes, triggers, and functions directly.
+- Report only what command output or inspection confirms.
 
 # Repo Discovery
 
@@ -134,32 +120,15 @@ with check (auth.uid() = id);
 
 Adjust the owner column or access model when the schema shows a different design.
 
-## Apply And Verify Migrations
-
-1. Confirm migration order.
-2. Run `supabase db push`.
-3. Run `supabase migration list`.
-4. Verify schema shape and expected objects directly.
-5. Report only what command output or direct inspection confirms.
-
-## Local Seeding
-
-1. Inspect `supabase/seed.sql` and any project seed helpers first.
-2. Prefer deterministic, rerunnable inserts.
-3. Avoid production-only data.
-4. If auth users are required, document whether seeds depend on generated UUIDs, mock rows, or a local signup flow.
-5. Verify representative rows and foreign keys after seeding.
-
 # Guardrails
-
-- prefer migration files over ad hoc production changes whenever schema or durable policy changes are involved
-- show the SQL before execution unless the user explicitly asks for direct execution
-- keep SQL idempotent when practical
-- qualify database objects with `public.` unless another schema is intentionally required
-- never claim a command succeeded unless the output confirms it
-- if `supabase` CLI or `psql` is missing, explain the blocker and still provide the SQL and exact commands
-- if live verification is not possible, say so explicitly and limit claims to file inspection or local inference
-- for destructive changes such as `drop table`, `drop column`, `truncate`, broad deletes, or policy rewrites that may lock users out, pause and flag the risk before continuing
+- Prefer migration files over ad hoc production changes whenever schema or durable policy changes are involved.
+- Show the SQL before execution unless the user explicitly asks for direct execution.
+- Keep SQL idempotent when practical.
+- Qualify database objects with `public.` unless another schema is intentionally required.
+- Never claim a command succeeded unless the output confirms it.
+- If `supabase` CLI or `psql` is missing, explain the blocker and still provide the SQL and exact commands.
+- If live verification is not possible, say so explicitly and limit claims to file inspection or local inference.
+- For destructive changes such as `drop table`, `drop column`, `truncate`, broad deletes, or policy rewrites that may lock users out, pause and flag the risk before continuing.
 
 # Verification Checklist
 

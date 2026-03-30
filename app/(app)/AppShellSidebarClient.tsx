@@ -73,6 +73,14 @@ type AppShellSidebarClientProps = {
   projects: ProjectRow[];
   projectCounts: Record<string, number>;
   hasActiveFocus: boolean;
+  activeSession: {
+    id: string;
+    started_at: string;
+    taskId: string | null;
+    projectId: string | null;
+    taskTitle: string | null;
+    projectName: string | null;
+  } | null;
 };
 
 function isRouteActive(pathname: string, href: string) {
@@ -154,6 +162,7 @@ function SidebarNavItem({
 function SidebarFooter({
   pathname,
   hasActiveFocus,
+  activeSession,
   settingsActive,
   userEmail,
   initialTheme,
@@ -161,11 +170,19 @@ function SidebarFooter({
 }: {
   pathname: string;
   hasActiveFocus: boolean;
+  activeSession: AppShellSidebarClientProps["activeSession"];
   settingsActive: boolean;
   userEmail: string | null;
   initialTheme: "light" | "dark";
   onNavClick: (label: string, href: string, pathname: string) => void;
 }) {
+  const activeLabel = activeSession?.taskTitle ?? activeSession?.projectName ?? null;
+  const activePrefix = activeSession?.taskTitle
+    ? "Task"
+    : activeSession?.projectName
+      ? "Project"
+      : "Session";
+
   return (
     <div className="app-shell-sidebar-footer">
       <Link
@@ -176,7 +193,7 @@ function SidebarFooter({
         <span className="app-shell-quick-action-icon" aria-hidden="true">
           +
         </span>
-        <span>Quick Start</span>
+        <span>Track time</span>
       </Link>
 
       {hasActiveFocus ? (
@@ -187,10 +204,10 @@ function SidebarFooter({
         >
           <div className="app-shell-focus-card-header">
             <span className="animate-pulse-soft app-shell-focus-dot" />
-            <span>Focus running</span>
+            <span>Session running</span>
           </div>
           <div className="app-shell-focus-card-meta">
-            <span>Active session</span>
+            <span>{activeLabel ? `${activePrefix}: ${activeLabel}` : "Active session"}</span>
             <span className="numeric-tabular">Live</span>
           </div>
         </Link>
@@ -227,6 +244,7 @@ export function AppShellSidebarClient({
   projects,
   projectCounts,
   hasActiveFocus,
+  activeSession,
 }: AppShellSidebarClientProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -340,6 +358,7 @@ export function AppShellSidebarClient({
       <SidebarFooter
         pathname={pathname}
         hasActiveFocus={hasActiveFocus}
+        activeSession={activeSession}
         settingsActive={settingsActive}
         userEmail={userEmail}
         initialTheme={initialTheme}

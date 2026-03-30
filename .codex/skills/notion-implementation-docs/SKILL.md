@@ -1,13 +1,17 @@
 ---
 name: notion-implementation-docs
-description: Turns recent implementation work into clean Notion docs with linked plans and tasks. Use when documenting shipped changes, creating implementation docs, or updating progress.
+description: Turns recent implementation work into clean Notion docs with linked plans and tasks. Use when documenting shipped changes, creating implementation docs, or updating progress. Only invoke when Notion MCP is connected and user explicitly asks to publish to Notion.
 ---
 
 # Objective
+Write or update clean Notion implementation docs, plans, and tasks for recent work.
 
-Turn recent implementation work into clean, human-readable Notion documentation that explains what was built, why it was built, how it works, what changed, what remains, and how to track the work through linked plan and task artifacts.
-
-The output must be a clean documentation set, not just a raw diff summary and not just a code dump.
+# Default workflow
+1. Find the last documentation boundary.
+2. Analyze commits, diffs, code, and related Notion pages.
+3. Write/update the implementation doc, plan, and linked tasks.
+4. Keep plan/task relations consistent.
+5. Report boundary, pages changed, tasks changed, assumptions, and next step.
 
 # Required setup
 
@@ -30,18 +34,6 @@ codex mcp login notion
 
 After login, tell the user they must restart Codex, then continue the workflow on the next run.
 
-# Default trigger interpretation
-
-Unless the user explicitly says otherwise, interpret the request as:
-
-1. analyze everything changed since the last documentation update
-2. identify the implemented feature set from commits, diffs, and current code state
-3. write a clean implementation document in Notion
-4. create or update an implementation plan page
-5. create or update linked task pages
-6. add progress/status updates where useful
-7. keep links between spec, implementation doc, plan, and tasks consistent
-
 # Source priority for analysis
 
 Use sources in this order when available:
@@ -54,305 +46,43 @@ Use sources in this order when available:
 
 Prefer reconstructing the true implementation story over repeating commit messages verbatim.
 
+
 # Core workflow
+1. Find the last documentation boundary.
+2. Analyze recent commits, changed files, current architecture, and relevant Notion pages.
+3. Synthesize the implementation story, not a commit log.
+4. Create or update the implementation doc, plan, and tasks.
+5. Link artifacts and record progress.
 
-## 1) Find the last documentation boundary
-
-First determine what "since the last documentation update" means.
-
-Look for one of these, in order:
-
-1. an existing Notion implementation page or progress page for this feature/repo
-2. the latest documented milestone, checkpoint, or closeout note
-3. an explicit commit hash, PR, or date mentioned by the user
-4. if no boundary is found, use the most recent meaningful implementation window and state the assumption clearly
-
-Before proceeding, capture a short assumptions block:
-
-* assumed documentation boundary
-* repo/feature scope
-* any ambiguity about related work vs unrelated work
-
-## 2) Analyze implementation work
-
-From the identified boundary to now:
-
-* inspect recent commits
-* inspect changed files
-* inspect current architecture and data flow
-* infer what was actually implemented
-* separate completed work from partial work
-* identify user-visible behavior, backend changes, validation, security, UI, data layer, and testing changes
-* identify risks, shortcuts, and follow-up work
-
-Do not produce documentation as a commit-by-commit changelog unless the user explicitly asks for that.
-Instead, synthesize a coherent implementation narrative.
-
-## 3) Produce a clean implementation document
-
-The main Notion documentation page should explain the work clearly for humans.
-
-Default structure:
-
-1. Title
-2. Summary
-3. Scope
-4. What was implemented
-5. Architecture / technical design
-6. Data flow / API / validation / security notes
-7. UI / UX changes
-8. Files or modules affected
-9. Testing / verification
-10. Risks / known gaps
-11. Remaining work / next steps
-12. Linked plan
-13. Linked tasks
-14. Progress snapshot
-
-This page must read like polished implementation documentation, not like raw engineering notes.
-
-## 4) Create or update an implementation plan
-
-Choose the plan depth:
-
-* simple work -> use `references/quick-implementation-plan.md`
-* larger or multi-part work -> use `references/standard-implementation-plan.md`
-
-The plan should include:
-
-* overview
-* linked implementation doc
-* linked spec if one exists
-* requirements summary
-* implementation phases
-* dependencies and risks
-* success criteria
-* remaining work
-
-## 5) Create or update tasks
-
-Find the task database in Notion and confirm the required schema before creating tasks.
-
-Create tasks only for:
-
-* remaining work
-* follow-up cleanup
-* missing validation/tests
-* rollout or verification work
-* explicit next steps requested by the user
-
-Do not create tasks for work already completed unless the user wants historical backfill.
-
-Task sizing target:
-
-* 1 to 2 days per task when possible
-
-Each task should include:
-
-* context
-* objective
-* acceptance criteria
-* dependencies
-* resources/links
-
-Set properties when supported:
-
-* title
-* status
-* priority
-* relation to implementation doc
-* relation to plan
-* relation to spec if present
-* due date / story points / assignee if provided
-
-## 6) Link artifacts
-
-Keep relations consistent:
-
-* implementation doc links to plan and tasks
-* plan links to implementation doc and tasks
-* tasks link back to plan and implementation doc
-* if a spec exists, spec links to implementation doc and plan
-* if useful, add a short "Implementation" section to the spec
-
-## 7) Track progress
-
-When the user asks for updates or continuation:
-
-* update the implementation doc with what changed
-* update the plan status
-* update task statuses
-* add milestone/progress notes using `references/progress-update-template.md`
-* close phases with `references/milestone-summary-template.md` when appropriate
-
-# Documentation quality rules
-
-Always produce clean documentation that:
-
-* explains what was actually built
-* groups related changes into coherent sections
-* translates low-level code changes into understandable implementation language
-* includes important technical depth without becoming a raw file dump
-* distinguishes completed work from remaining work
-* clearly states assumptions and ambiguities
-* avoids vague filler
-
-Do not output:
-
-* raw diff-only summaries
-* giant commit lists without synthesis
-* unreadable code-first notes
-* fake certainty when implementation intent is ambiguous
-
-# Documentation writing rules
+# Writing rules
 
 ## Summary
-
-Write 1 short paragraph that explains the feature/change in plain language.
+1 short paragraph in plain language.
 
 ## Scope
-
-State what was included and what was not included.
+State what was included and what was not.
 
 ## What was implemented
-
-Group by meaningful capability, not by commit.
-
-Good grouping examples:
-
-* authentication flow
-* dashboard UI
-* form validation
-* route protection
-* data layer refactor
-* task creation flow
+Group by capability, not commit.
 
 ## Architecture / technical design
-
-Explain:
-
-* route/component boundaries
-* server/client split
-* data flow
-* validation
-* security constraints
-* storage/api/repository/service boundaries
-* important tradeoffs
+Explain boundaries, data flow, validation, and tradeoffs.
 
 ## Files or modules affected
-
-Summarize the main areas touched.
-Do not dump every changed file unless the user asks.
+Summarize main areas touched.
 
 ## Testing / verification
-
-Document:
-
-* actual tests added or updated
-* lint/typecheck/manual verification if known
-* missing test coverage if relevant
+Document real verification and missing coverage.
 
 ## Risks / known gaps
-
-Be honest about:
-
-* partial implementation
-* shortcuts
-* missing edge cases
-* missing tests
-* follow-up work
+Be explicit about partial work, shortcuts, and follow-up items.
 
 ## Remaining work / next steps
-
-This is where plan and tasks should come from.
+Source for plan and tasks.
 
 # Notion behavior rules
-
-## Default documentation destination
-
-Unless the user explicitly names another destination page in the prompt, create or update implementation documentation under the parent Notion page:
-
-* `DoItTimer — App`
-
-This is the default documentation home for repo implementation docs.
-
-Behavior rules:
-
-* first search for `DoItTimer — App`
-* if it exists, create the implementation doc and related plan/progress pages under it
-* if a matching implementation doc already exists under `DoItTimer — App`, update it instead of creating a duplicate
-* if the user explicitly names another destination page in the prompt, use that page instead
-* if `DoItTimer — App` cannot be found, clearly say so and ask the user whether to create under another parent page
-* do not choose a different parent page silently when `DoItTimer — App` is missing or ambiguous
-
-## Search first
-
-Before creating pages, search for:
-
-* the parent page `DoItTimer — App` unless the user explicitly names another destination
-* existing spec
-* existing implementation page
-* existing plan page
-* existing task database
-* existing related tasks
-
-If multiple relevant pages are found, prefer the one under the requested parent page.
-If multiple matches still remain, ask the user which one to use.
-
-## Reuse before creating duplicates
-
-If a clean implementation doc already exists for the same scope:
-
-* update it instead of creating a duplicate
-* only create a new page when the work is materially separate
-
-## Titles
-
-Prefer titles like:
-
-* `DoItTimer - <Feature Name> Implementation`
-* `DoItTimer - <Feature Name> Plan`
-* `DoItTimer - <Feature Name> Progress`
- 
-Create these under:
-
-* `DoItTimer — App` by default
-* or another parent page only if the user explicitly requests it
-
-* task titles should start with a clear action verb
-
-## Secrets
-
-Never include credentials, secrets, tokens, or sensitive values.
-Use `[REDACTED]` when needed.
-
-# Required output to the user
-
-After finishing, respond with:
-
-1. what boundary was used for analysis
-2. what was documented
-3. what parent Notion page was used
-4. what Notion pages were created or updated
-5. what tasks were created or updated
-6. any ambiguities or assumptions
-7. best next step
-
-# Reference files to consult
-
-Use these when needed:
-
-* `references/spec-parsing.md`
-* `references/quick-implementation-plan.md`
-* `references/standard-implementation-plan.md`
-* `references/task-creation.md`
-* `references/task-creation-template.md`
-* `references/progress-tracking.md`
-* `references/progress-update-template.md`
-* `references/milestone-summary-template.md`
-
-# Style
-
-Be structured, concise, and implementation-aware.
-Prefer one clean documentation set over fragmented notes.
-Optimize for clarity to future engineers, product stakeholders, and the user.
+- Search `DoItTimer — App` first unless the user names another parent.
+- Update an existing doc instead of creating a duplicate.
+- Use `DoItTimer - <Feature> Implementation|Plan|Progress`.
+- If the parent is missing or ambiguous, ask.
+- Never include secrets; use `[REDACTED]` when needed.

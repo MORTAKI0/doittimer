@@ -35,14 +35,17 @@ import {
   presetToOverrides,
   type PomodoroPreset,
 } from "@/lib/pomodoro/presets";
+import type { ActiveSessionSnapshot } from "@/app/actions/sessions";
 import { AddTaskLauncher } from "./AddTaskLauncher";
 import { DatePickerPopover } from "./DatePickerPopover";
 import { PriorityPicker } from "./PriorityPicker";
+import { SessionStartControl } from "./SessionStartControl";
 
 type TaskListProps = {
   tasks: TaskRow[];
   availableLabels?: LabelRecord[];
   projects?: { id: string; name: string }[];
+  activeSession?: ActiveSessionSnapshot | null;
   pomodoroStatsByTaskId?: Record<string, { pomodoros_today: number; pomodoros_total: number }>;
   queueItems?: TaskQueueRow[];
   currentRange?: "all" | "day" | "week";
@@ -69,7 +72,7 @@ const ERROR_MAP: Record<string, string> = {
   "Impossible de restaurer la tache.": "Unable to restore the task.",
   "Date invalide.": "Invalid date.",
   "Date invalide. Format attendu: YYYY-MM-DD.": "Invalid date format. Use YYYY-MM-DD.",
-  "Parametres pomodoro invalides.": "Invalid pomodoro settings.",
+  "Parametres pomodoro invalides.": "Invalid timing settings.",
   "Impossible de charger la file.": "Unable to load the queue.",
   "Impossible de mettre a jour la file.": "Unable to update the queue.",
   "Impossible de charger les labels.": "Unable to load labels.",
@@ -152,6 +155,7 @@ export function TaskList({
   tasks,
   availableLabels = [],
   projects = [],
+  activeSession = null,
   pomodoroStatsByTaskId = {},
   queueItems = EMPTY_QUEUE_ITEMS,
   currentRange = "all",
@@ -671,7 +675,10 @@ export function TaskList({
             );
 
             return (
-              <li key={task.id} className={["task-row", isArchived ? "opacity-80" : ""].join(" ")}>
+              <li
+                key={task.id}
+                className={["task-row group", isArchived ? "opacity-80" : ""].join(" ")}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-[10px]">
@@ -713,7 +720,7 @@ export function TaskList({
                             {stats && stats.pomodoros_today > 0 ? (
                               <>
                                 {projectLabel ? <span aria-hidden="true">·</span> : null}
-                                <span className="text-[11px]">🍅 {stats.pomodoros_today}</span>
+                                <span className="text-[11px]">Sessions today {stats.pomodoros_today}</span>
                               </>
                             ) : null}
                             {isArchived ? <span>Archived</span> : null}
@@ -735,6 +742,15 @@ export function TaskList({
                         ) : null
                       ) : (
                         <>
+                          {!isManaged ? (
+                            <SessionStartControl
+                              activeSession={activeSession}
+                              taskId={task.id}
+                              label="Start session"
+                              tooltipLabel="Track time"
+                              mode="row"
+                            />
+                          ) : null}
                           <Button size="sm" type="button" variant="secondary" onClick={() => void handleQueueAdd(task)} disabled={queueIds.has(task.id) || queueIsFull || isPending || queuePending}>
                             Add to queue
                           </Button>
@@ -870,9 +886,9 @@ export function TaskList({
                             disabled={isPending}
                             className="h-4 w-4 rounded-md border-border text-emerald-600"
                           />
-                          Use custom Pomodoro
+                          Use custom timing
                         </label>
-                        <div role="group" aria-label="Pomodoro presets" className="flex flex-wrap gap-2">
+                        <div role="group" aria-label="Timing presets" className="flex flex-wrap gap-2">
                           {pomodoroPresets.map((preset) => (
                             <Button key={preset.id} size="sm" type="button" variant="secondary" onClick={() => void handleApplyPomodoroPreset(task, preset)} disabled={isPending}>
                               {preset.label}
@@ -888,11 +904,19 @@ export function TaskList({
                           </div>
                         ) : null}
                       </div>
+                      {!isManaged ? (
+                        <SessionStartControl
+                          activeSession={activeSession}
+                          taskId={task.id}
+                          label="Start session"
+                          mode="button"
+                        />
+                      ) : null}
 
                       <div className="flex flex-wrap gap-2">
                         {useCustomPomodoro ? (
                           <Button size="sm" type="button" variant="secondary" onClick={() => void handleResetPomodoro(task)} disabled={isPending}>
-                            Reset defaults
+                            Reset timings
                           </Button>
                         ) : null}
                         <Button size="sm" type="button" onClick={() => void handleSave(task)} disabled={isPending}>

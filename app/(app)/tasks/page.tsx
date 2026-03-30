@@ -4,6 +4,7 @@ import { getLabels } from "@/app/actions/labels";
 import { EmptyState } from "./components/EmptyState";
 import { AddTaskLauncher } from "./components/AddTaskLauncher";
 import { ProjectsPanel } from "./components/ProjectsPanel";
+import { ProjectSessionHeader } from "./components/ProjectSessionHeader";
 import { TaskComposeOwner } from "./components/TaskComposeOwner";
 import { TaskList } from "./components/TaskList";
 import { TaskPageHeader } from "./components/TaskPageHeader";
@@ -11,6 +12,7 @@ import { TasksFiltersBar } from "./components/TasksFiltersBar";
 import { getTaskPomodoroStats, getTasks } from "@/app/actions/tasks";
 import { getTaskQueue } from "@/app/actions/queue";
 import { getProjects } from "@/app/actions/projects";
+import { getActiveSession } from "@/app/actions/sessions";
 import { EmptyState as SharedEmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { taskScheduledForSchema } from "@/lib/validation/task.schema";
@@ -101,7 +103,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
   const completedTo = typeof searchParams.to === "string" ? searchParams.to : null;
   const composeMode = searchParams.compose === "1";
 
-  const [tasksResult, projectsResult, queueResult, labelsResult] = await Promise.all([
+  const [tasksResult, projectsResult, queueResult, labelsResult, activeSession] = await Promise.all([
     getTasks({
       includeArchived: false,
       page,
@@ -120,6 +122,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
     getProjects({ includeArchived: true }),
     getTaskQueue(),
     getLabels(),
+    getActiveSession(),
   ]);
 
   const availableLabels = labelsResult.success ? labelsResult.data : [];
@@ -173,6 +176,9 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
   const projectsError = projectsResult.success ? null : projectsResult.error;
   const queueItems = queueResult.success ? queueResult.data : [];
   const activeProjects = projects.filter((project) => !project.archived_at);
+  const currentProject = projectId
+    ? projects.find((project) => project.id === projectId) ?? null
+    : null;
   const hasActiveFilters =
     Boolean(projectId)
     || status !== "all"
@@ -221,6 +227,15 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
             />
           )}
         />
+
+        {currentProject ? (
+          <ProjectSessionHeader
+            projectId={currentProject.id}
+            projectName={currentProject.name}
+            taskCount={tasks.length}
+            activeSession={activeSession}
+          />
+        ) : null}
 
         <div className="grid gap-8 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr]">
           <div className="space-y-6 lg:sticky lg:top-24 lg:h-fit">
@@ -272,6 +287,7 @@ export default async function TasksPage(props: { searchParams: SearchParams }) {
                         tasks={tasks}
                         availableLabels={availableLabels}
                         projects={activeProjects}
+                        activeSession={activeSession}
                         pomodoroStatsByTaskId={pomodoroStatsByTaskId}
                         queueItems={queueItems}
                         currentRange={scheduledRange}

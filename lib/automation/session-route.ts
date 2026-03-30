@@ -8,6 +8,7 @@ import {
 } from "@/lib/automation/response";
 import type { ServiceResult } from "@/lib/services/sessions";
 import { sessionIdSchema } from "@/lib/validation/session.schema";
+import { projectIdSchema } from "@/lib/validation/project.schema";
 import { taskIdSchema } from "@/lib/validation/task.schema";
 
 const daySchema = z
@@ -17,6 +18,7 @@ const daySchema = z
 
 export const startSessionBodySchema = z.object({
   taskId: taskIdSchema.nullable().optional(),
+  projectId: projectIdSchema.nullable().optional(),
   musicUrl: z.string().trim().nullable().optional(),
 });
 

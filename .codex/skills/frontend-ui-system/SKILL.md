@@ -14,16 +14,16 @@ Produce clean, consistent, accessible UI that scales across features without vis
 - Similar user tasks should look and behave similarly.
 - Build from established primitives and shared patterns.
 
-## 2) Accessibility is default
-Always include:
-- semantic HTML
-- visible labels
-- keyboard support
-- focus states
-- sensible aria usage only when needed
-- adequate color contrast
-- clear error and helper text
-- disabled/loading states
+## Required states and accessibility
+Always include semantic HTML, labels, keyboard support, focus states, clear error text, and loading/empty/success/error states.
+
+Use page composition in this order:
+1. heading
+2. supporting text
+3. primary actions
+4. filters/search
+5. main content
+6. empty/loading/error handling
 
 ## 3) Separate primitives from feature UI
 Recommended structure:
@@ -133,19 +133,6 @@ Default table support:
 * Show active state clearly.
 * Keep labels short and explicit.
 * Use breadcrumb only when hierarchy helps.
-
-# Page Composition Rules
-
-Each page should usually contain:
-
-1. page heading
-2. optional supporting text
-3. primary actions
-4. filters/search if needed
-5. main content area
-6. empty/loading/error handling
-
-Use `PageShell` or equivalent wrapper for consistency.
 
 # Responsive Rules
 

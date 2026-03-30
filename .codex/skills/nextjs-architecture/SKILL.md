@@ -8,88 +8,29 @@ description: Enforces Next.js App Router architecture, folder structure, and dat
 Design and maintain a clean, predictable Next.js 16+ codebase using App Router, server-first rendering, explicit client boundaries, strong feature isolation, and consistent data flow.
 
 # Core Rules
-
-## 1) Prefer server-first
 - Default to Server Components.
-- Add `"use client"` only when interactivity, browser APIs, local state, refs, or event handlers are required.
-- Keep client components as small leaf components whenever possible.
+- Use `"use client"` only when interactivity or browser APIs require it.
+- Keep `app/` thin; move business logic into `features/*` or `server/*`.
+- Keep server-only code out of client components.
+- Use Server Actions and Route Handlers deliberately, with predictable results.
+- Fetch at the server boundary.
+- Model loading, empty, success, error, and auth states explicitly.
 
-## 2) Separate by responsibility
-Use this structure unless the user explicitly requests another one:
-
+## Separate by responsibility
 ```text
 src/
-  app/
-    (marketing)/
-    (dashboard)/
-    api/
-    layout.tsx
-    not-found.tsx
-    global-error.tsx
-  features/
-    auth/
-      components/
-      server/
-      actions/
-      hooks/
-      schemas/
-      types/
-      utils/
-    bookings/
-    users/
-  shared/
-    components/
-    ui/
-    hooks/
-    lib/
-    types/
-    constants/
-  server/
-    auth/
-    db/
-    repositories/
-    services/
-    policies/
-  styles/
+  app/         routing and composition
+  features/    business-domain code
+  shared/      reusable cross-feature UI and utilities
+  server/      server-only infrastructure and domain access
+  styles/      global styles and tokens
 ```
-
-### Meaning of top-level folders
-
-* `app/`: routing, layouts, route segments, page composition only
-* `features/`: business-domain code grouped by feature
-* `shared/`: reusable cross-feature UI and utilities
-* `server/`: server-only infrastructure and domain access
-* `styles/`: global styles and design tokens if needed
 
 ## 3) Keep `app/` thin
 
 * `page.tsx` should compose data and feature components, not hold large business logic.
 * `layout.tsx` should handle layout composition and shared route concerns.
 * Move reusable logic out of route files into `features/*` or `server/*`.
-
-## 4) Keep server code server-only
-
-* Database access, secrets, auth checks, repository logic, and privileged operations belong in `server/*` or `features/*/server`.
-* Never import server-only modules into client components.
-* Keep mutation logic out of presentational components.
-
-## 5) Use actions deliberately
-
-* Use Server Actions for UI-triggered mutations tightly coupled to forms or a route flow.
-* Use Route Handlers for public endpoints, webhooks, integrations, or API-style contracts.
-* Validate all action inputs before doing work.
-* Return predictable results:
-
-  * success state
-  * validation errors
-  * domain errors
-  * unexpected failure fallback
-
-## 6) Fetch close to the server boundary
-
-* Fetch data in Server Components, loaders, or feature server modules.
-* Do not scatter raw `fetch()` calls throughout many UI files.
-* Wrap repeated fetching in feature-level server functions or repositories.
 
 ## 7) Define clear data contracts
 
@@ -118,16 +59,6 @@ features/profile/
 ```
 
 Avoid giant global folders with hundreds of unrelated files.
-
-## 10) Error and state handling are required
-
-Every route or feature should account for:
-
-* loading
-* empty
-* success
-* error
-* unauthorized / forbidden when relevant
 
 # Component Guidelines
 

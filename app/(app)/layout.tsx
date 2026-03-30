@@ -53,7 +53,14 @@ export default async function AppLayout({
       hasActiveFocus={Boolean(activeSession)}
       activeSession={
         activeSession
-          ? { id: activeSession.id, started_at: activeSession.started_at }
+          ? {
+              id: activeSession.id,
+              started_at: activeSession.started_at,
+              taskId: activeSession.taskId,
+              projectId: activeSession.projectId,
+              taskTitle: activeSession.taskTitle,
+              projectName: activeSession.projectName,
+            }
           : null
       }
     >

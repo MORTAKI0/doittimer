@@ -12,6 +12,7 @@ type SessionsPayload = RealtimePostgresChangesPayload<{
   ended_at: string | null;
   duration_seconds: number | null;
   task_id: string | null;
+  project_id: string | null;
   music_url: string | null;
   pomodoro_phase: string | null;
   pomodoro_phase_started_at: string | null;

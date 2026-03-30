@@ -7,16 +7,9 @@ description: Audits and hardens Next.js security across auth, actions, route han
 
 Catch practical security risks early and recommend safe, maintainable fixes without unnecessary fear or noise.
 
-# Security Review Order
-
-Review in this order:
-1. auth and authorization
-2. input validation
-3. secret handling
-4. server action and route exposure
-5. cookie/session safety
-6. redirect and request safety
-7. dependency and operational concerns
+# Output Format
+Severity order: Critical → Important → Nice to Improve
+For each item: what is wrong | why it matters | fix
 
 # What To Check
 
@@ -63,32 +56,6 @@ Review in this order:
 - SSRF-like proxy patterns
 - webhook endpoints without validation
 
-# Output Format
-
-When auditing, structure output as:
-
-## Critical Risks
-High-confidence vulnerabilities or severe exposure.
-
-## Important Risks
-Likely weaknesses or missing hardening.
-
-## Hardening Improvements
-Defense-in-depth and cleanup items.
-
-For each item include:
-1. risk
-2. attack or failure path
-3. recommended fix
-4. residual concern if any
-
-# Tone Rules
-
-- be precise
-- do not exaggerate
-- distinguish proven vulnerabilities from cautionary risks
-- recommend the smallest safe fix first
-
 # Anti-Patterns To Flag
 
 - trusting hidden form fields for authorization
@@ -97,9 +64,3 @@ For each item include:
 - using raw request params in redirects
 - broad data fetches without ownership checks
 - mixing auth logic across many scattered helpers
-
-# Output Style
-
-- prioritize exploitable issues first
-- explain why each risk matters in plain language
-- include concrete remediation guidance

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getLabels } from "@/app/actions/labels";
 import { getProjects } from "@/app/actions/projects";
+import { getActiveSession } from "@/app/actions/sessions";
 import { getUpcomingTasks } from "@/app/actions/tasks";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AddTaskLauncher } from "@/app/(app)/tasks/components/AddTaskLauncher";
@@ -19,10 +20,11 @@ function formatDateKey(dateOnly: string) {
 }
 
 export default async function UpcomingPage() {
-  const [upcomingResult, projectsResult, labelsResult] = await Promise.all([
+  const [upcomingResult, projectsResult, labelsResult, activeSession] = await Promise.all([
     getUpcomingTasks(7),
     getProjects(),
     getLabels(),
+    getActiveSession(),
   ]);
 
   const projects = projectsResult.success ? projectsResult.data.filter((project) => !project.archived_at) : [];
@@ -93,7 +95,7 @@ export default async function UpcomingPage() {
                 {groups.map((group) => (
                   <div key={group.id} id={`date-${group.id}`}>
                     <TaskGroupSection title={formatDateKey(group.id)}>
-                      <TaskList tasks={group.tasks} availableLabels={availableLabels} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={group.id} />
+                      <TaskList tasks={group.tasks} availableLabels={availableLabels} projects={projects} activeSession={activeSession} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={group.id} />
                     </TaskGroupSection>
                   </div>
                 ))}

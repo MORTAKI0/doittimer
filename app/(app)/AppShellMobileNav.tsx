@@ -34,6 +34,14 @@ type AppShellMobileNavProps = {
   initialTheme: "light" | "dark";
   projects: ProjectRow[];
   hasActiveFocus: boolean;
+  activeSession: {
+    id: string;
+    started_at: string;
+    taskId: string | null;
+    projectId: string | null;
+    taskTitle: string | null;
+    projectName: string | null;
+  } | null;
 };
 
 function isRouteActive(pathname: string, href: string) {
@@ -53,8 +61,10 @@ export function AppShellMobileNav({
   initialTheme,
   projects,
   hasActiveFocus,
+  activeSession,
 }: AppShellMobileNavProps) {
   const pathname = usePathname();
+  const activeLabel = activeSession?.taskTitle ?? activeSession?.projectName ?? null;
 
   return (
     <>
@@ -74,7 +84,7 @@ export function AppShellMobileNav({
                 onClick={() => logNavClick("Running mobile", "/focus", pathname)}
               >
                 <span className="animate-pulse-soft h-1.5 w-1.5 rounded-full bg-[var(--ring)]" />
-                Running
+                {activeLabel ? `Live: ${activeLabel}` : "Running"}
               </Link>
             ) : null}
             <ThemeToggle initialTheme={initialTheme} />

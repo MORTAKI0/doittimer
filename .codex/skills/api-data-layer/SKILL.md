@@ -20,67 +20,10 @@ ui
 ```
 
 # Responsibilities
-
-## UI
-
-* render state
-* trigger reads and mutations
-* should not know backend implementation details
-
-## Actions / Route Handlers / Loaders
-
-* parse request/form data
-* call validation
-* invoke service
-* map response shape for caller
-
-## Services
-
-* enforce business rules
-* coordinate repositories
-* handle domain logic
-* should not contain UI formatting concerns
-
-## Repositories / Clients
-
-* talk to database or external APIs
-* keep transport details isolated
-* return raw or semi-raw data suitable for mapping
-
-# Core Rules
-
-## 1) Centralize fetching
-
-* do not scatter raw fetch calls across many components
-* prefer feature server functions or repository modules
-
-## 2) Map contracts explicitly
-
-* raw backend shape is not always UI shape
-* use DTOs or mapping helpers
-* keep UI from depending on unstable external fields
-
-## 3) Normalize errors
-
-Translate low-level failures into stable app-facing categories:
-
-* validation
-* unauthorized
-* forbidden
-* not found
-* conflict
-* unexpected failure
-
-## 4) Keep auth near the server boundary
-
-* do not trust client-supplied ownership or role claims
-* derive user context server-side where possible
-
-## 5) Make pagination, sort, and filter contracts explicit
-
-* define expected params
-* validate them
-* keep response metadata consistent
+- UI: render state and trigger reads/mutations
+- Actions/Route Handlers/Loaders: parse, validate, invoke services, map response shapes
+- Services: enforce business rules
+- Repositories/Clients: isolate transport and data access
 
 # Folder Pattern
 
@@ -104,15 +47,7 @@ src/features/orders/
 Adjust naming to fit the repo, but keep responsibilities separate.
 
 # Review Checklist
-
-Flag:
-
-* UI components calling raw backend everywhere
-* duplicated request logic
-* mixed transport and business rules
-* leaking database entities into UI
-* inconsistent error handling
-* no contract around pagination or filter params
+Flag raw backend calls in UI, duplicated request logic, leaked entities, and inconsistent error handling.
 
 # Output Style
 

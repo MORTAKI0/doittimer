@@ -1,5 +1,6 @@
 import { getLabels } from "@/app/actions/labels";
 import { getProjects } from "@/app/actions/projects";
+import { getActiveSession } from "@/app/actions/sessions";
 import { getTodayTasks } from "@/app/actions/tasks";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AddTaskLauncher } from "@/app/(app)/tasks/components/AddTaskLauncher";
@@ -17,10 +18,11 @@ function formatTodayLabel(dateOnly: string) {
 }
 
 export default async function TodayPage() {
-  const [todayResult, projectsResult, labelsResult] = await Promise.all([
+  const [todayResult, projectsResult, labelsResult, activeSession] = await Promise.all([
     getTodayTasks(),
     getProjects(),
     getLabels(),
+    getActiveSession(),
   ]);
 
   const projects = projectsResult.success ? projectsResult.data.filter((project) => !project.archived_at) : [];
@@ -61,19 +63,19 @@ export default async function TodayPage() {
           <div className="space-y-6">
             {overdueTasks.length > 0 ? (
               <TaskGroupSection title="Overdue" tone="overdue">
-                <TaskList tasks={overdueTasks} availableLabels={availableLabels} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} />
+                <TaskList tasks={overdueTasks} availableLabels={availableLabels} projects={projects} activeSession={activeSession} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} />
               </TaskGroupSection>
             ) : null}
 
             {inboxTasks.length > 0 ? (
               <TaskGroupSection title="Inbox">
-                <TaskList tasks={inboxTasks} availableLabels={availableLabels} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} />
+                <TaskList tasks={inboxTasks} availableLabels={availableLabels} projects={projects} activeSession={activeSession} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} />
               </TaskGroupSection>
             ) : null}
 
             {projectGroups.map((group) => (
               <TaskGroupSection key={group.id} title={group.name}>
-                <TaskList tasks={group.tasks} availableLabels={availableLabels} projects={projects} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} inlineCreateDefaultProjectId={group.id} />
+                <TaskList tasks={group.tasks} availableLabels={availableLabels} projects={projects} activeSession={activeSession} showQueueSection={false} showListHeader={false} inlineCreateDefaultScheduledFor={today} inlineCreateDefaultProjectId={group.id} />
               </TaskGroupSection>
             ))}
           </div>

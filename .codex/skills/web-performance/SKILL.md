@@ -8,14 +8,12 @@ description: Improves Next.js performance across rendering, bundle size, and dat
 Improve real and perceived performance with changes that are simple, measurable, and architecture-aware.
 
 # Performance Priorities
-
-Evaluate in this order:
-1. too much client javascript
-2. large or unnecessary rendering work
+1. too much client JavaScript
+2. unnecessary rendering work
 3. slow data paths
-4. image and asset inefficiency
-5. cache and revalidation mistakes
-6. poor loading-state experience
+4. asset inefficiency
+5. cache/revalidation mistakes
+6. poor loading states
 
 # Core Rules
 
@@ -72,23 +70,7 @@ Evaluate in this order:
 - large third-party script footprint
 
 # Review Format
-
-When asked to optimize performance, return:
-
-## Biggest Wins
-High-impact changes worth doing first.
-
-## Medium Wins
-Useful improvements with moderate effort.
-
-## Fine Tuning
-Lower-impact cleanup or polish.
-
-For each issue include:
-- current problem
-- user impact
-- recommended change
-- why it helps
+Return Biggest Wins, Medium Wins, Fine Tuning — each with: current problem | user impact | fix.
 
 # Anti-Patterns To Flag
 

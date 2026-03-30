@@ -200,7 +200,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest('[role="button"], [role="link"]'));
 }
 
-/** Focus session control panel with task linking, pomodoro controls, and queue handoff. */
+/** Session control panel with task linking, time controls, and queue handoff. */
 export function FocusPanel({
   activeSession,
   todaySessions,
@@ -665,7 +665,10 @@ export function FocusPanel({
       setError(toEnglishError(normalizedMusicUrl.error));
     }
 
-    const result = await startSession(selectedTaskId, normalizedMusicUrl.value);
+    const result = await startSession({
+      taskId: selectedTaskId,
+      musicUrl: normalizedMusicUrl.value,
+    });
 
     if (!result.success) {
       setError(toEnglishError(result.error));
@@ -684,7 +687,7 @@ export function FocusPanel({
 
     setIsStarting(false);
     setMusicUrl("");
-    pushToast({ title: "Focus session started", variant: "success" });
+      pushToast({ title: "Session started", variant: "success" });
     publishFocusEvent("focus:session_changed", "start", result.data.id);
     requestFocusRefresh("mutation:start");
   }
@@ -703,7 +706,7 @@ export function FocusPanel({
     }
 
     setIsStopping(false);
-    pushToast({ title: "Focus session stopped", variant: "info" });
+    pushToast({ title: "Session stopped", variant: "info" });
     publishFocusEvent("focus:session_changed", "stop", activeSession.id);
     requestFocusRefresh("mutation:stop");
   }
@@ -1086,7 +1089,7 @@ export function FocusPanel({
         ) : null}
         {activeTaskLabel ? (
           <p className="text-muted-foreground text-sm">
-            Task: {activeTaskLabel}
+            Session: {activeTaskLabel}
           </p>
         ) : null}
       </div>
@@ -1314,7 +1317,7 @@ export function FocusPanel({
         {hasPomodoroPhase ? (
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-              Pomodoro controls
+              Time controls
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -1527,9 +1530,11 @@ function resolveTaskLabel(
   session: SessionRow | null,
   tasks: TaskRow[],
 ): string | null {
-  if (!session?.task_id) return null;
+  if (!session) return null;
+  if (!session.task_id) return session.project_name ?? null;
   if (session.task_title) return session.task_title;
   const matched = tasks.find((task) => task.id === session.task_id);
-  return matched?.title ?? "Task deleted";
+  if (matched?.title) return matched.title;
+  return session.project_name ?? "Task deleted";
 }
 

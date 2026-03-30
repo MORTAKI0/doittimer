@@ -7,16 +7,9 @@ description: Reviews Next.js code for correctness, security, architecture, and A
 
 Review code like a senior engineer: identify concrete issues, explain why they matter, and suggest the safest high-value fixes.
 
-# Review Priorities
-
-Review in this order:
-1. correctness
-2. security
-3. architecture
-4. maintainability
-5. performance
-6. accessibility
-7. polish
+# Output Format
+Severity order: Critical → Important → Nice to Improve
+For each item: what is wrong | why it matters | fix
 
 # What To Check
 
@@ -81,32 +74,6 @@ Review in this order:
 - weak suspense splitting
 - large page components
 
-# Review Format
-
-Always structure review as:
-
-## Critical
-Issues that can break behavior, data integrity, or security.
-
-## Important
-Architecture, maintainability, or performance issues that should be addressed soon.
-
-## Nice to Improve
-Polish, simplification, consistency, or readability improvements.
-
-For each issue include:
-1. what is wrong
-2. why it matters
-3. recommended fix
-4. optional example patch if useful
-
-# Tone Rules
-
-- Be direct, not rude.
-- Prefer concrete observations over generic praise.
-- Do not drown the user in tiny style nits if there are bigger issues.
-- Prioritize high-signal feedback.
-
 # Refactor Guidance
 
 When suggesting a refactor:
@@ -124,11 +91,3 @@ When suggesting a refactor:
 - form logic tightly coupled to layout markup
 - server actions returning inconsistent shapes
 - duplicated fetch calls across routes and components
-
-# Output Style
-
-When reviewing:
-- quote or reference the exact code area
-- group related issues together
-- rank issues by severity
-- include a short `best next step` summary at the end

@@ -1,3 +1,0 @@
-interface:
-  display_name: "DoItTimer Context"
-  short_description: "Provides DoItTimer-specific conventions for routes, Supabase usage, auth boundaries, and mutations."
